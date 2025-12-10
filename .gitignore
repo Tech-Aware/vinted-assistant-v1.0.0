@@ -1,0 +1,74 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+ENV/
+
+# Packages
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Logs / debug
+*.log
+logs/
+*.tmp
+
+# Config locales
+*.env
+.env.*
+!.env.example
+
+# Cache / data temporaires
+.cache/
+pytest_cache/
+.mypy_cache/
+.pytest_cache/
+.dmypy.json
+.pyre/
+.ipynb_checkpoints/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# --- PyCharm / JetBrains ---
+.idea/
+*.iml
+
+# --- OS spécifiques ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Images / assets temporaires (si générés) ---
+*.webp
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# --- Autres fichiers générés par l'app ---
+# Ajuste selon ton projet
+tmp/
+temp/
