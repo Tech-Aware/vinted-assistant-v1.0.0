@@ -1,6 +1,3 @@
-Voici le **README complet au format Markdown (.md)**.
-Tu peux le copier-coller directement dans un fichier `README.md`.
-
 ---
 
 ```md
