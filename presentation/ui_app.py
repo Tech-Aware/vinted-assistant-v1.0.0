@@ -392,9 +392,17 @@ class VintedAIApp(ctk.CTk):
             else:
                 delta = 0
 
-            if delta:
-                canvas.yview_scroll(delta, "units")
-                logger.debug("Défilement de la galerie (delta=%s).", delta)
+            scroll_factor = 3
+            effective_delta = delta * scroll_factor
+
+            if effective_delta:
+                canvas.yview_scroll(effective_delta, "units")
+                logger.debug(
+                    "Défilement de la galerie (delta=%s, facteur=%s, appliqué=%s).",
+                    delta,
+                    scroll_factor,
+                    effective_delta,
+                )
         except Exception as exc:
             logger.error("Erreur lors du scroll de la galerie: %s", exc, exc_info=True)
 
