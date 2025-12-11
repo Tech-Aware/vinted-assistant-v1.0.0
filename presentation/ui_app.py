@@ -163,14 +163,6 @@ class VintedAIApp(ctk.CTk):
             )
             self.image_label.pack(anchor="w", pady=(20, 10))
 
-            add_image_btn = ctk.CTkButton(
-                left_frame,
-                text="Ajouter des images",
-                command=self.select_images,
-                width=180,
-            )
-            add_image_btn.pack(anchor="w", pady=(0, 15))
-
             # --- Zone de résultat ---
             result_label = ctk.CTkLabel(right_scrollable, text="Résultat (titre + description) :")
             result_label.pack(anchor="w", pady=(10, 0), padx=10)
