@@ -7,7 +7,7 @@ from pathlib import Path
 import os
 from typing import Dict, List, Optional
 
-from PIL import Image
+from PIL import Image  # encore utilisé pour l’aperçu plein écran si tu le gardes ailleurs
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
@@ -15,6 +15,8 @@ from tkinter import filedialog, messagebox
 from domain.ai_provider import AIProviderName, AIListingProvider
 from domain.models import VintedListing
 from domain.templates import AnalysisProfileName, AnalysisProfile, ALL_PROFILES
+
+from .image_preview import ImagePreview  # <- widget réutilisé depuis l’ancienne app
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +55,11 @@ class VintedAIApp(ctk.CTk):
         self.size_us_var = ctk.StringVar(value="")
         self.measure_mode_var = ctk.StringVar(value="etiquette")
 
-        self.image_paths: Optional[List[Path]] = None
-        self.thumbnail_images: List[ctk.CTkImage] = []
-        self._gallery_resize_after: Optional[str] = None
-        self._last_gallery_width: int = 0
+        # Gestion des images
+        self.selected_images: List[Path] = []
+        self._image_directories: set[Path] = set()
+        self.image_paths: Optional[List[Path]] = None  # compat avec le reste du code
+        self.thumbnail_images: List[ctk.CTkImage] = []  # encore utilisé pour les aperçus plein écran
 
         self.size_inputs_frame: Optional[ctk.CTkFrame] = None
         self.measure_mode_frame: Optional[ctk.CTkFrame] = None
@@ -66,6 +69,8 @@ class VintedAIApp(ctk.CTk):
         }
 
         self.title_label: Optional[ctk.CTkLabel] = None
+        self.gallery_info_label: Optional[ctk.CTkLabel] = None
+        self.preview_frame: Optional[ImagePreview] = None
 
         self._build_ui()
 
@@ -80,43 +85,38 @@ class VintedAIApp(ctk.CTk):
             ctk.set_appearance_mode("system")
             ctk.set_default_color_theme("blue")
 
+            # Barre du haut
             self._build_top_bar()
 
-            self.gallery_header = ctk.CTkFrame(self)
-            self.gallery_info_label: Optional[ctk.CTkLabel] = None
-            self._build_gallery_header(self.gallery_header)
-            self.gallery_header.pack(fill="x")
+            # --- Galerie d'images (header + ImagePreview) ---
+            gallery_wrapper = ctk.CTkFrame(self)
+            gallery_wrapper.pack(fill="x", padx=10, pady=(0, 8))
 
-            self.gallery_container = ctk.CTkFrame(self)
-            self.gallery_frame = ctk.CTkScrollableFrame(
-                self.gallery_container,
-                height=230,
-                corner_radius=0,
-                border_width=0,
+            header = ctk.CTkFrame(gallery_wrapper)
+            header.pack(fill="x")
+
+            gallery_label = ctk.CTkLabel(header, text="Galerie d'images :")
+            gallery_label.pack(side="left", anchor="w", padx=10)
+
+            add_image_btn = ctk.CTkButton(
+                header,
+                text="Ajouter des photos",
+                width=140,
+                command=self.select_images,
             )
-            try:
-                parent_canvas = getattr(self.gallery_frame, "_parent_canvas", None)
-                if parent_canvas:
-                    parent_canvas.configure(highlightthickness=0, bd=0)
-                    logger.debug("Canvas parent de la galerie configuré sans bordure ni highlight.")
-                else:
-                    logger.warning("Canvas parent de la galerie introuvable pour configuration des bordures.")
-                self.gallery_frame._scrollable_frame.grid_anchor("nw")
-                self.gallery_frame._scrollable_frame.configure(padx=0, pady=0)
-                logger.debug(
-                    "Ancrage et suppression des marges internes de la galerie pour coller le contenu en haut."
-                )
-            except Exception as exc_anchor:
-                logger.error(
-                    "Impossible d'ajuster l'ancrage ou les marges de la galerie : %s",
-                    exc_anchor,
-                    exc_info=True,
-                )
-            self.gallery_frame.pack(fill="both", expand=True)
-            self.gallery_frame.bind("<Configure>", self._on_gallery_resize)
-            self.gallery_frame.bind("<Enter>", self._enable_gallery_scroll)
-            self.gallery_frame.bind("<Leave>", self._disable_gallery_scroll)
+            add_image_btn.pack(side="right", padx=10, pady=4)
 
+            self.gallery_info_label = ctk.CTkLabel(header, text="")
+            self.gallery_info_label.pack(side="right", padx=(0, 10))
+
+            # Zone de preview réutilisée depuis l’ancienne app
+            self.preview_frame = ImagePreview(
+                gallery_wrapper,
+                on_remove=self._remove_image,
+            )
+            self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
+
+            # --- Contenu principal (gauche = paramètres, droite = résultat) ---
             self.main_content_frame = ctk.CTkFrame(self)
             self.main_content_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
@@ -158,6 +158,7 @@ class VintedAIApp(ctk.CTk):
             us_entry = ctk.CTkEntry(self.size_inputs_frame, textvariable=self.size_us_var, width=240)
             us_entry.pack(anchor="w", pady=5)
 
+            # Méthode de relevé (profils polaire/pull)
             self.measure_mode_frame = ctk.CTkFrame(left_frame)
             measure_label = ctk.CTkLabel(
                 self.measure_mode_frame,
@@ -192,58 +193,9 @@ class VintedAIApp(ctk.CTk):
 
             self._update_profile_ui()
 
-            self._hide_gallery()
-
             logger.info("UI principale construite avec zone droite scrollable.")
         except Exception as exc:
             logger.error("Erreur lors de la construction de l'UI principale: %s", exc, exc_info=True)
-
-    def _build_gallery_header(self, parent: ctk.CTkFrame) -> None:
-        try:
-            header = ctk.CTkFrame(parent)
-            header.pack(fill="x")
-
-            gallery_label = ctk.CTkLabel(header, text="Galerie d'images :")
-            gallery_label.pack(side="left", anchor="w")
-
-            add_image_btn = ctk.CTkButton(
-                header,
-                text="+",
-                width=36,
-                height=36,
-                command=self.select_images,
-            )
-            add_image_btn.pack(side="right")
-
-            self.gallery_info_label = ctk.CTkLabel(header, text="")
-            self.gallery_info_label.pack(side="right", padx=(0, 10))
-
-            logger.info("En-tête de galerie initialisé avec compteur et bouton d'ajout.")
-        except Exception as exc:
-            logger.error(
-                "Erreur lors de la construction de l'en-tête de galerie: %s", exc, exc_info=True
-            )
-
-    def _show_gallery(self) -> None:
-        try:
-            if not self.gallery_container.winfo_manager():
-                self.gallery_container.pack(
-                    fill="x",
-                    padx=0,
-                    pady=0,
-                    before=self.main_content_frame,
-                )
-                logger.info("Galerie affichée en pleine largeur sous la barre supérieure.")
-        except Exception as exc:
-            logger.error("Erreur lors de l'affichage de la galerie: %s", exc, exc_info=True)
-
-    def _hide_gallery(self) -> None:
-        try:
-            if self.gallery_container.winfo_manager():
-                self.gallery_container.pack_forget()
-                logger.info("Galerie masquée car aucune image n'est disponible.")
-        except Exception as exc:
-            logger.error("Erreur lors du masquage de la galerie: %s", exc, exc_info=True)
 
     def _build_generate_button(self, parent: ctk.CTkFrame) -> None:
         try:
@@ -264,7 +216,7 @@ class VintedAIApp(ctk.CTk):
     def _build_top_bar(self) -> None:
         try:
             top_bar = ctk.CTkFrame(self)
-            top_bar.pack(fill="x", padx=10, pady=(5, 0))
+            top_bar.pack(fill="x", padx=0, pady=(5, 0))
 
             settings_btn = ctk.CTkButton(
                 top_bar,
@@ -420,33 +372,35 @@ class VintedAIApp(ctk.CTk):
             )
 
     # ------------------------------------------------------------------
-    # sélection images
+    # sélection images (nouvelle logique, réutilise ImagePreview)
     # ------------------------------------------------------------------
 
     def select_images(self) -> None:
         try:
-            filetypes = [
-                ("Images", "*.jpg *.jpeg *.png *.webp"),
-                ("Tous les fichiers", "*.*"),
-            ]
-
-            paths = filedialog.askopenfilenames(
-                title="Sélectionne les images (même article)",
-                filetypes=filetypes,
+            logger.info("Ouverture de la boîte de dialogue de sélection d'images")
+            file_paths = filedialog.askopenfilenames(
+                title="Sélectionnez les photos de l'article",
+                filetypes=[("Images", "*.png *.jpg *.jpeg *.webp")],
             )
-
-            if not paths:
-                logger.info("Aucune image sélectionnée.")
+            if not file_paths:
+                logger.info("Aucune image sélectionnée")
                 return
 
-            self.image_paths = [Path(p) for p in paths]
+            for path in file_paths:
+                path_obj = Path(path)
+                if path_obj not in self.selected_images:
+                    self.selected_images.append(path_obj)
+                    self._image_directories.add(path_obj.parent)
+                    logger.info("Image ajoutée: %s", path_obj)
 
-            logger.info(
-                "Images sélectionnées: %s",
-                [str(p) for p in self.image_paths],
-            )
+            # Garder image_paths cohérent pour le reste du code
+            self.image_paths = list(self.selected_images)
 
-            self._refresh_gallery()
+            if self.preview_frame:
+                self.preview_frame.update_images(self.selected_images)
+
+            self._update_gallery_info()
+            logger.info("%d image(s) actuellement sélectionnée(s)", len(self.selected_images))
         except Exception as exc:
             logger.error("Erreur lors de la sélection des images: %s", exc, exc_info=True)
             messagebox.showerror(
@@ -454,158 +408,25 @@ class VintedAIApp(ctk.CTk):
                 f"Impossible de charger les images sélectionnées :\n{exc}",
             )
 
-    def _on_gallery_resize(self, event: object) -> None:
-        try:
-            if not self.image_paths:
-                return
-
-            width = getattr(event, "width", 0)
-            if width and abs(width - self._last_gallery_width) < 10:
-                return
-
-            self._last_gallery_width = width
-
-            if self._gallery_resize_after:
-                self.after_cancel(self._gallery_resize_after)
-
-            self._gallery_resize_after = self.after(120, self._refresh_gallery)
-            logger.debug("Redimensionnement de la galerie détecté (width=%s).", width)
-        except Exception as exc:
-            logger.error("Erreur lors du recalcul de la galerie: %s", exc, exc_info=True)
-
-    def _enable_gallery_scroll(self, _event: object) -> None:
-        try:
-            self.bind_all("<MouseWheel>", self._on_gallery_mousewheel)
-            self.bind_all("<Button-4>", self._on_gallery_mousewheel)
-            self.bind_all("<Button-5>", self._on_gallery_mousewheel)
-            logger.debug("Défilement de la galerie activé (souris/touchpad).")
-        except Exception as exc:
-            logger.error("Erreur lors de l'activation du scroll de la galerie: %s", exc, exc_info=True)
-
-    def _disable_gallery_scroll(self, _event: object) -> None:
-        try:
-            self.unbind_all("<MouseWheel>")
-            self.unbind_all("<Button-4>")
-            self.unbind_all("<Button-5>")
-            logger.debug("Défilement de la galerie désactivé (curseur en dehors).")
-        except Exception as exc:
-            logger.error("Erreur lors de la désactivation du scroll de la galerie: %s", exc, exc_info=True)
-
-    def _on_gallery_mousewheel(self, event: object) -> None:
-        try:
-            canvas = getattr(self.gallery_frame, "_parent_canvas", None)
-            if not canvas:
-                logger.warning("Canvas de la galerie introuvable pour le scroll.")
-                return
-
-            if hasattr(event, "delta") and event.delta:
-                delta = int(-1 * (event.delta / 120))
-            elif getattr(event, "num", None) in {4, 5}:  # Support Linux
-                delta = -1 if event.num == 4 else 1
-            else:
-                delta = 0
-
-            scroll_factor = 20
-            effective_delta = delta * scroll_factor
-
-            if effective_delta:
-                canvas.yview_scroll(effective_delta, "units")
-                logger.debug(
-                    "Défilement de la galerie (delta=%s, facteur=%s, appliqué=%s).",
-                    delta,
-                    scroll_factor,
-                    effective_delta,
-                )
-        except Exception as exc:
-            logger.error("Erreur lors du scroll de la galerie: %s", exc, exc_info=True)
-
-    def _refresh_gallery(self) -> None:
-        try:
-            for child in self.gallery_frame.winfo_children():
-                child.destroy()
-
-            self.thumbnail_images.clear()
-
-            self._update_gallery_info()
-
-            if not self.image_paths:
-                self._hide_gallery()
-                logger.info("Galerie réinitialisée (aucune image).")
-                return
-
-            self._show_gallery()
-
-            thumb_size = 120
-            canvas = getattr(self.gallery_frame, "_parent_canvas", None)
-            canvas_width = canvas.winfo_width() if canvas else 0
-            gallery_width = max(canvas_width, self.gallery_frame.winfo_width(), thumb_size + 20)
-            columns = max(1, gallery_width // (thumb_size + 20))
-            logger.debug(
-                "Recalcul de la grille de la galerie (width=%s, columns=%s).",
-                gallery_width,
-                columns,
-            )
-
-            for idx, img_path in enumerate(self.image_paths):
-                try:
-                    row = idx // columns
-                    col = idx % columns
-
-                    card = ctk.CTkFrame(self.gallery_frame)
-                    card.grid(row=row, column=col, padx=8, pady=2, sticky="nsew")
-
-                    pil_image = Image.open(img_path)
-                    pil_image.thumbnail((thumb_size, thumb_size))
-                    thumb = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(thumb_size, thumb_size))
-                    self.thumbnail_images.append(thumb)
-
-                    img_label = ctk.CTkLabel(card, image=thumb, text="")
-                    img_label.pack(expand=True, fill="both", padx=4, pady=4)
-                    img_label.bind(
-                        "<Button-1>",
-                        lambda _evt, path=img_path: self._show_full_image(path),
-                    )
-
-                    remove_btn = ctk.CTkButton(
-                        card,
-                        text="✕",
-                        width=13,
-                        height=13,
-                        fg_color="#c0392b",
-                        hover_color="#e74c3c",
-                        command=lambda path=img_path: self._remove_image(path),
-                    )
-                    remove_btn.place(relx=1, rely=0, anchor="ne", x=-2, y=2)
-                except Exception as exc_img:
-                    logger.error("Erreur lors du rendu d'une miniature: %s", exc_img, exc_info=True)
-
-            logger.info("Galerie mise à jour (%s images).", len(self.image_paths))
-            self._reset_gallery_scroll()
-        except Exception as exc:
-            logger.error("Erreur lors de la mise à jour de la galerie: %s", exc, exc_info=True)
-
-    def _reset_gallery_scroll(self) -> None:
-        """Replace la galerie tout en haut pour éviter tout décalage visuel."""
-        try:
-            canvas = getattr(self.gallery_frame, "_parent_canvas", None)
-            if not canvas:
-                logger.warning("Canvas introuvable pour réinitialiser le scroll de la galerie.")
-                return
-
-            canvas.yview_moveto(0)
-            logger.debug("Position du scroll de la galerie réinitialisée en haut.")
-        except Exception as exc:
-            logger.error("Erreur lors de la réinitialisation du scroll de la galerie: %s", exc, exc_info=True)
-
     def _remove_image(self, image_path: Path) -> None:
         try:
-            if not self.image_paths:
+            if image_path in self.selected_images:
+                self.selected_images.remove(image_path)
+            else:
+                logger.warning("Impossible de supprimer %s: image inconnue", image_path)
                 return
 
-            self.image_paths = [p for p in self.image_paths if p != image_path]
-
             logger.info("Image supprimée de la galerie: %s", image_path)
-            self._refresh_gallery()
+
+            remaining_directories = {p.parent for p in self.selected_images}
+            self._image_directories.intersection_update(remaining_directories)
+
+            self.image_paths = list(self.selected_images)
+
+            if self.preview_frame:
+                self.preview_frame.update_images(self.selected_images)
+
+            self._update_gallery_info()
         except Exception as exc:
             logger.error("Erreur lors de la suppression d'une image: %s", exc, exc_info=True)
             messagebox.showerror(
@@ -618,45 +439,17 @@ class VintedAIApp(ctk.CTk):
             if not self.gallery_info_label:
                 return
 
-            if not self.image_paths:
+            count = len(self.selected_images)
+            if not count:
                 self.gallery_info_label.configure(text="")
                 logger.info("Compteur de galerie vidé (aucune image affichée).")
                 return
 
-            count = len(self.image_paths)
             plural = "s" if count > 1 else ""
             self.gallery_info_label.configure(text=f"{count} image{plural} sélectionnée{plural}")
             logger.info("Mise à jour du compteur de galerie: %s", count)
         except Exception as exc:
             logger.error("Erreur lors de la mise à jour des informations de galerie: %s", exc, exc_info=True)
-
-    def _show_full_image(self, image_path: Path) -> None:
-        try:
-            viewer = ctk.CTkToplevel(self)
-            viewer.title(image_path.name)
-            viewer.geometry("720x640")
-            viewer.transient(self)
-            viewer.grab_set()
-
-            pil_image = Image.open(image_path)
-            pil_image.thumbnail((700, 580))
-            full_img = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=pil_image.size)
-
-            img_label = ctk.CTkLabel(viewer, image=full_img, text="")
-            img_label.pack(expand=True, fill="both", padx=10, pady=10)
-
-            self.thumbnail_images.append(full_img)
-
-            close_btn = ctk.CTkButton(viewer, text="Fermer", command=viewer.destroy, width=100)
-            close_btn.pack(pady=8)
-
-            logger.info("Affichage en grand de l'image: %s", image_path)
-        except Exception as exc:
-            logger.error("Erreur lors de l'affichage d'une image: %s", exc, exc_info=True)
-            messagebox.showerror(
-                "Affichage image",
-                f"Impossible d'afficher l'image :\n{exc}",
-            )
 
     # ------------------------------------------------------------------
     # Provider & profil
@@ -726,7 +519,7 @@ class VintedAIApp(ctk.CTk):
     # ------------------------------------------------------------------
 
     def generate_listing(self) -> None:
-        if not self.image_paths:
+        if not self.selected_images:
             messagebox.showwarning(
                 "Images manquantes",
                 "Merci de sélectionner au moins une image de l'article.",
@@ -753,7 +546,7 @@ class VintedAIApp(ctk.CTk):
             "Lancement analyse IA (provider=%s, profile=%s, images=%s)",
             provider.name.value,
             profile.name.value,
-            [str(p) for p in self.image_paths],
+            [str(p) for p in self.selected_images],
         )
 
         self.result_text.delete("1.0", "end")
@@ -786,7 +579,7 @@ class VintedAIApp(ctk.CTk):
 
         try:
             listing: VintedListing = provider.generate_listing(
-                self.image_paths,
+                self.selected_images,
                 profile,
                 ui_data=ui_data,
             )
