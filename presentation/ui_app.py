@@ -79,19 +79,22 @@ class VintedAIApp(ctk.CTk):
 
             self._build_top_bar()
 
-            left_frame = ctk.CTkFrame(self, width=280)
-            left_frame.pack(side="left", fill="y", padx=10, pady=10)
-
-            right_scrollable = ctk.CTkScrollableFrame(self)
-            right_scrollable.pack(side="right", expand=True, fill="both", padx=10, pady=10)
-
-            self._build_gallery_header(right_scrollable)
-
-            self.gallery_frame = ctk.CTkScrollableFrame(right_scrollable, height=230)
+            self.gallery_container = ctk.CTkFrame(self)
+            self._build_gallery_header(self.gallery_container)
+            self.gallery_frame = ctk.CTkScrollableFrame(self.gallery_container, height=230)
             self.gallery_frame.pack(fill="both", expand=True, padx=10, pady=10)
             self.gallery_frame.bind("<Configure>", self._on_gallery_resize)
             self.gallery_frame.bind("<Enter>", self._enable_gallery_scroll)
             self.gallery_frame.bind("<Leave>", self._disable_gallery_scroll)
+
+            self.main_content_frame = ctk.CTkFrame(self)
+            self.main_content_frame.pack(expand=True, fill="both", padx=10, pady=10)
+
+            left_frame = ctk.CTkFrame(self.main_content_frame, width=280)
+            left_frame.pack(side="left", fill="y", padx=(0, 10))
+
+            right_scrollable = ctk.CTkScrollableFrame(self.main_content_frame)
+            right_scrollable.pack(side="left", expand=True, fill="both")
 
             # --- Profil d'analyse ---
             profile_label = ctk.CTkLabel(left_frame, text="Profil d'analyse :")
@@ -157,6 +160,14 @@ class VintedAIApp(ctk.CTk):
             )
             self.image_label.pack(anchor="w", pady=(20, 10))
 
+            add_image_btn = ctk.CTkButton(
+                left_frame,
+                text="Ajouter des images",
+                command=self.select_images,
+                width=180,
+            )
+            add_image_btn.pack(anchor="w", pady=(0, 15))
+
             # --- Zone de résultat ---
             result_label = ctk.CTkLabel(right_scrollable, text="Résultat (titre + description) :")
             result_label.pack(anchor="w", pady=(10, 0), padx=10)
@@ -167,6 +178,8 @@ class VintedAIApp(ctk.CTk):
             self._build_generate_button(right_scrollable)
 
             self._update_profile_ui()
+
+            self._hide_gallery()
 
             logger.info("UI principale construite avec zone droite scrollable.")
         except Exception as exc:
@@ -194,6 +207,27 @@ class VintedAIApp(ctk.CTk):
             logger.error(
                 "Erreur lors de la construction de l'en-tête de galerie: %s", exc, exc_info=True
             )
+
+    def _show_gallery(self) -> None:
+        try:
+            if not self.gallery_container.winfo_manager():
+                self.gallery_container.pack(
+                    fill="x",
+                    padx=10,
+                    pady=(5, 0),
+                    before=self.main_content_frame,
+                )
+                logger.info("Galerie affichée en pleine largeur sous la barre supérieure.")
+        except Exception as exc:
+            logger.error("Erreur lors de l'affichage de la galerie: %s", exc, exc_info=True)
+
+    def _hide_gallery(self) -> None:
+        try:
+            if self.gallery_container.winfo_manager():
+                self.gallery_container.pack_forget()
+                logger.info("Galerie masquée car aucune image n'est disponible.")
+        except Exception as exc:
+            logger.error("Erreur lors du masquage de la galerie: %s", exc, exc_info=True)
 
     def _build_generate_button(self, parent: ctk.CTkFrame) -> None:
         try:
@@ -443,8 +477,11 @@ class VintedAIApp(ctk.CTk):
             self.thumbnail_images.clear()
 
             if not self.image_paths:
+                self._hide_gallery()
                 logger.info("Galerie réinitialisée (aucune image).")
                 return
+
+            self._show_gallery()
 
             thumb_size = 120
             canvas = getattr(self.gallery_frame, "_parent_canvas", None)
