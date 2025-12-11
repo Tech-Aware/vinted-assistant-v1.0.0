@@ -7,6 +7,8 @@ from pathlib import Path
 import os
 from typing import Dict, List, Optional
 
+from PIL import Image
+
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
@@ -49,6 +51,9 @@ class VintedAIApp(ctk.CTk):
         self.size_us_var = ctk.StringVar(value="")
 
         self.image_paths: Optional[List[Path]] = None
+        self.thumbnail_images: List[ctk.CTkImage] = []
+        self._gallery_resize_after: Optional[str] = None
+        self._last_gallery_width: int = 0
 
         self.profiles_by_name_value: Dict[str, AnalysisProfile] = {
             profile.name.value: profile for profile in ALL_PROFILES.values()
@@ -73,6 +78,13 @@ class VintedAIApp(ctk.CTk):
 
         right_frame = ctk.CTkFrame(self)
         right_frame.pack(side="right", expand=True, fill="both", padx=10, pady=10)
+
+        gallery_label = ctk.CTkLabel(right_frame, text="Galerie d'images :")
+        gallery_label.pack(anchor="w", pady=(10, 0), padx=10)
+
+        self.gallery_frame = ctk.CTkScrollableFrame(right_frame, height=230)
+        self.gallery_frame.pack(fill="both", padx=10, pady=10)
+        self.gallery_frame.bind("<Configure>", self._on_gallery_resize)
 
         # --- Profil d'analyse ---
         profile_label = ctk.CTkLabel(left_frame, text="Profil d'analyse :")
@@ -255,37 +267,171 @@ class VintedAIApp(ctk.CTk):
     # ------------------------------------------------------------------
 
     def select_images(self) -> None:
-        filetypes = [
-            ("Images", "*.jpg *.jpeg *.png *.webp"),
-            ("Tous les fichiers", "*.*"),
-        ]
+        try:
+            filetypes = [
+                ("Images", "*.jpg *.jpeg *.png *.webp"),
+                ("Tous les fichiers", "*.*"),
+            ]
 
-        paths = filedialog.askopenfilenames(
-            title="Sélectionne les images (même article)",
-            filetypes=filetypes,
-        )
-
-        if not paths:
-            logger.info("Aucune image sélectionnée.")
-            return
-
-        self.image_paths = [Path(p) for p in paths]
-
-        if len(self.image_paths) == 1:
-            self.image_label.configure(
-                text=f"1 image sélectionnée :\n{self.image_paths[0]}"
-            )
-        else:
-            first = self.image_paths[0]
-            count = len(self.image_paths)
-            self.image_label.configure(
-                text=f"{count} images sélectionnées.\nPremière : {first}"
+            paths = filedialog.askopenfilenames(
+                title="Sélectionne les images (même article)",
+                filetypes=filetypes,
             )
 
-        logger.info(
-            "Images sélectionnées: %s",
-            [str(p) for p in self.image_paths],
-        )
+            if not paths:
+                logger.info("Aucune image sélectionnée.")
+                return
+
+            self.image_paths = [Path(p) for p in paths]
+
+            if len(self.image_paths) == 1:
+                self.image_label.configure(
+                    text=f"1 image sélectionnée :\n{self.image_paths[0]}"
+                )
+            else:
+                first = self.image_paths[0]
+                count = len(self.image_paths)
+                self.image_label.configure(
+                    text=f"{count} images sélectionnées.\nPremière : {first}"
+                )
+
+            logger.info(
+                "Images sélectionnées: %s",
+                [str(p) for p in self.image_paths],
+            )
+
+            self._refresh_gallery()
+        except Exception as exc:
+            logger.error("Erreur lors de la sélection des images: %s", exc, exc_info=True)
+            messagebox.showerror(
+                "Erreur sélection",
+                f"Impossible de charger les images sélectionnées :\n{exc}",
+            )
+
+    def _on_gallery_resize(self, event: object) -> None:
+        try:
+            if not self.image_paths:
+                return
+
+            width = getattr(event, "width", 0)
+            if width and abs(width - self._last_gallery_width) < 10:
+                return
+
+            self._last_gallery_width = width
+
+            if self._gallery_resize_after:
+                self.after_cancel(self._gallery_resize_after)
+
+            self._gallery_resize_after = self.after(120, self._refresh_gallery)
+            logger.debug("Redimensionnement de la galerie détecté (width=%s).", width)
+        except Exception as exc:
+            logger.error("Erreur lors du recalcul de la galerie: %s", exc, exc_info=True)
+
+    def _refresh_gallery(self) -> None:
+        try:
+            for child in self.gallery_frame.winfo_children():
+                child.destroy()
+
+            self.thumbnail_images.clear()
+
+            if not self.image_paths:
+                logger.info("Galerie réinitialisée (aucune image).")
+                return
+
+            thumb_size = 120
+            gallery_width = max(self.gallery_frame.winfo_width(), thumb_size + 20)
+            columns = max(1, gallery_width // (thumb_size + 20))
+
+            for idx, img_path in enumerate(self.image_paths):
+                try:
+                    row = idx // columns
+                    col = idx % columns
+
+                    card = ctk.CTkFrame(self.gallery_frame)
+                    card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
+
+                    pil_image = Image.open(img_path)
+                    pil_image.thumbnail((thumb_size, thumb_size))
+                    thumb = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(thumb_size, thumb_size))
+                    self.thumbnail_images.append(thumb)
+
+                    img_label = ctk.CTkLabel(card, image=thumb, text="")
+                    img_label.pack(expand=True, fill="both", padx=4, pady=4)
+                    img_label.bind(
+                        "<Button-1>",
+                        lambda _evt, path=img_path: self._show_full_image(path),
+                    )
+
+                    remove_btn = ctk.CTkButton(
+                        card,
+                        text="✕",
+                        width=26,
+                        height=26,
+                        fg_color="#c0392b",
+                        hover_color="#e74c3c",
+                        command=lambda path=img_path: self._remove_image(path),
+                    )
+                    remove_btn.place(relx=1, rely=0, anchor="ne", x=-4, y=4)
+                except Exception as exc_img:
+                    logger.error("Erreur lors du rendu d'une miniature: %s", exc_img, exc_info=True)
+
+            logger.info("Galerie mise à jour (%s images).", len(self.image_paths))
+        except Exception as exc:
+            logger.error("Erreur lors de la mise à jour de la galerie: %s", exc, exc_info=True)
+
+    def _remove_image(self, image_path: Path) -> None:
+        try:
+            if not self.image_paths:
+                return
+
+            self.image_paths = [p for p in self.image_paths if p != image_path]
+
+            if not self.image_paths:
+                self.image_label.configure(text="Aucune image sélectionnée.")
+            elif len(self.image_paths) == 1:
+                self.image_label.configure(text=f"1 image sélectionnée :\n{self.image_paths[0]}")
+            else:
+                first = self.image_paths[0]
+                self.image_label.configure(
+                    text=f"{len(self.image_paths)} images sélectionnées.\nPremière : {first}"
+                )
+
+            logger.info("Image supprimée de la galerie: %s", image_path)
+            self._refresh_gallery()
+        except Exception as exc:
+            logger.error("Erreur lors de la suppression d'une image: %s", exc, exc_info=True)
+            messagebox.showerror(
+                "Suppression image",
+                f"Impossible de retirer cette image :\n{exc}",
+            )
+
+    def _show_full_image(self, image_path: Path) -> None:
+        try:
+            viewer = ctk.CTkToplevel(self)
+            viewer.title(image_path.name)
+            viewer.geometry("720x640")
+            viewer.transient(self)
+            viewer.grab_set()
+
+            pil_image = Image.open(image_path)
+            pil_image.thumbnail((700, 580))
+            full_img = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=pil_image.size)
+
+            img_label = ctk.CTkLabel(viewer, image=full_img, text="")
+            img_label.pack(expand=True, fill="both", padx=10, pady=10)
+
+            self.thumbnail_images.append(full_img)
+
+            close_btn = ctk.CTkButton(viewer, text="Fermer", command=viewer.destroy, width=100)
+            close_btn.pack(pady=8)
+
+            logger.info("Affichage en grand de l'image: %s", image_path)
+        except Exception as exc:
+            logger.error("Erreur lors de l'affichage d'une image: %s", exc, exc_info=True)
+            messagebox.showerror(
+                "Affichage image",
+                f"Impossible d'afficher l'image :\n{exc}",
+            )
 
     # ------------------------------------------------------------------
     # Provider & profil
