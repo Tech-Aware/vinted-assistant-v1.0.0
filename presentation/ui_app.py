@@ -392,7 +392,7 @@ class VintedAIApp(ctk.CTk):
             else:
                 delta = 0
 
-            scroll_factor = 3
+            scroll_factor = 20
             effective_delta = delta * scroll_factor
 
             if effective_delta:
