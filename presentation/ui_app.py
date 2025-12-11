@@ -49,11 +49,15 @@ class VintedAIApp(ctk.CTk):
 
         self.size_fr_var = ctk.StringVar(value="")
         self.size_us_var = ctk.StringVar(value="")
+        self.measure_mode_var = ctk.StringVar(value="etiquette")
 
         self.image_paths: Optional[List[Path]] = None
         self.thumbnail_images: List[ctk.CTkImage] = []
         self._gallery_resize_after: Optional[str] = None
         self._last_gallery_width: int = 0
+
+        self.size_inputs_frame: Optional[ctk.CTkFrame] = None
+        self.measure_mode_frame: Optional[ctk.CTkFrame] = None
 
         self.profiles_by_name_value: Dict[str, AnalysisProfile] = {
             profile.name.value: profile for profile in ALL_PROFILES.values()
@@ -98,23 +102,48 @@ class VintedAIApp(ctk.CTk):
             left_frame,
             values=profile_values,
             variable=self.profile_var,
+            command=self._on_profile_change,
             state="readonly",
             width=240,
         )
         profile_combo.pack(anchor="w", pady=5)
 
         # --- Inputs manuels (v1 simple) ---
-        # Taille FR
-        fr_label = ctk.CTkLabel(left_frame, text="Taille FR (optionnel) :")
-        fr_label.pack(anchor="w", pady=(15,0))
-        fr_entry = ctk.CTkEntry(left_frame, textvariable=self.size_fr_var, width=240)
+        self.size_inputs_frame = ctk.CTkFrame(left_frame)
+        self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0))
+
+        fr_label = ctk.CTkLabel(self.size_inputs_frame, text="Taille FR (optionnel) :")
+        fr_label.pack(anchor="w", pady=(5, 0))
+        fr_entry = ctk.CTkEntry(self.size_inputs_frame, textvariable=self.size_fr_var, width=240)
         fr_entry.pack(anchor="w", pady=5)
 
-        # Taille US
-        us_label = ctk.CTkLabel(left_frame, text="Taille US (optionnel) :")
-        us_label.pack(anchor="w", pady=(5,0))
-        us_entry = ctk.CTkEntry(left_frame, textvariable=self.size_us_var, width=240)
+        us_label = ctk.CTkLabel(self.size_inputs_frame, text="Taille US (optionnel) :")
+        us_label.pack(anchor="w", pady=(5, 0))
+        us_entry = ctk.CTkEntry(self.size_inputs_frame, textvariable=self.size_us_var, width=240)
         us_entry.pack(anchor="w", pady=5)
+
+        self.measure_mode_frame = ctk.CTkFrame(left_frame)
+        measure_label = ctk.CTkLabel(
+            self.measure_mode_frame,
+            text="Méthode de relevé :",
+        )
+        measure_label.pack(anchor="w", pady=(5, 0))
+
+        etiquette_radio = ctk.CTkRadioButton(
+            self.measure_mode_frame,
+            text="Étiquette visible",
+            variable=self.measure_mode_var,
+            value="etiquette",
+        )
+        etiquette_radio.pack(anchor="w", pady=2)
+
+        measures_radio = ctk.CTkRadioButton(
+            self.measure_mode_frame,
+            text="Analyser les mesures",
+            variable=self.measure_mode_var,
+            value="mesures",
+        )
+        measures_radio.pack(anchor="w", pady=2)
 
         # --- Sélection des images ---
         image_btn = ctk.CTkButton(
@@ -148,6 +177,8 @@ class VintedAIApp(ctk.CTk):
 
         self.result_text = ctk.CTkTextbox(right_frame, wrap="word")
         self.result_text.pack(expand=True, fill="both", padx=10, pady=10)
+
+        self._update_profile_ui()
 
     def _build_top_bar(self) -> None:
         try:
@@ -437,6 +468,45 @@ class VintedAIApp(ctk.CTk):
     # Provider & profil
     # ------------------------------------------------------------------
 
+    def _profile_requires_measure_mode(self, profile_key: str) -> bool:
+        return profile_key in {
+            AnalysisProfileName.POLAIRE_OUTDOOR.value,
+            AnalysisProfileName.PULL_TOMMY.value,
+        }
+
+    def _update_profile_ui(self) -> None:
+        try:
+            profile_key = self.profile_var.get()
+            uses_measure_mode = self._profile_requires_measure_mode(profile_key)
+
+            if uses_measure_mode:
+                if self.size_inputs_frame:
+                    self.size_inputs_frame.pack_forget()
+                if self.measure_mode_frame and not self.measure_mode_frame.winfo_manager():
+                    self.measure_mode_frame.pack(anchor="w", fill="x", pady=(10, 0))
+                logger.info(
+                    "Profil %s détecté : affichage des options de méthode de relevé.",
+                    profile_key,
+                )
+            else:
+                if self.measure_mode_frame:
+                    self.measure_mode_frame.pack_forget()
+                if self.size_inputs_frame and not self.size_inputs_frame.winfo_manager():
+                    self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0))
+                logger.info(
+                    "Profil %s détecté : affichage des tailles FR/US.",
+                    profile_key,
+                )
+        except Exception as exc:
+            logger.error("Erreur lors de la mise à jour de l'UI du profil: %s", exc, exc_info=True)
+
+    def _on_profile_change(self, _choice: Optional[str] = None) -> None:
+        try:
+            logger.info("Profil d'analyse sélectionné: %s", self.profile_var.get())
+            self._update_profile_ui()
+        except Exception as exc:
+            logger.error("Erreur lors du changement de profil: %s", exc, exc_info=True)
+
     def _get_selected_provider(self) -> Optional[AIListingProvider]:
         provider_key = self.provider_var.get()
         if not provider_key:
@@ -495,13 +565,30 @@ class VintedAIApp(ctk.CTk):
         self.result_text.delete("1.0", "end")
 
         # ---- UI DATA (v1 simple) ----
-        size_fr = self.size_fr_var.get().strip() or None
-        size_us = self.size_us_var.get().strip() or None
+        profile_requires_measure = self._profile_requires_measure_mode(profile.name.value)
 
-        ui_data = {
-            "size_fr": size_fr,
-            "size_us": size_us,
-        }
+        if profile_requires_measure:
+            measurement_mode = self.measure_mode_var.get()
+            ui_data = {"measurement_mode": measurement_mode}
+            logger.info(
+                "Mode de relevé sélectionné pour le profil %s: %s",
+                profile.name.value,
+                measurement_mode,
+            )
+        else:
+            size_fr = self.size_fr_var.get().strip() or None
+            size_us = self.size_us_var.get().strip() or None
+
+            ui_data = {
+                "size_fr": size_fr,
+                "size_us": size_us,
+            }
+            logger.info(
+                "Tailles fournies (FR=%s, US=%s) pour le profil %s",
+                size_fr,
+                size_us,
+                profile.name.value,
+            )
 
         try:
             listing: VintedListing = provider.generate_listing(
