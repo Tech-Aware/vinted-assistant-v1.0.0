@@ -39,6 +39,7 @@ class VintedAIApp(ctk.CTk):
 
         self.title("Assistant Vinted - Analyse d'images multi-IA")
         self.geometry("900x600")
+        self.minsize(720, 520)
 
         self.providers = providers
         self.provider_var = ctk.StringVar(value="")
