@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import os
 from typing import Dict, List, Optional
 
 import customtkinter as ctk
@@ -41,6 +42,9 @@ class VintedAIApp(ctk.CTk):
         self.provider_var = ctk.StringVar(value="")
         self.profile_var = ctk.StringVar(value="")
 
+        self.openai_key_var = ctk.StringVar(value=os.environ.get("OPENAI_API_KEY", ""))
+        self.gemini_key_var = ctk.StringVar(value=os.environ.get("GEMINI_API_KEY", ""))
+
         self.size_fr_var = ctk.StringVar(value="")
         self.size_us_var = ctk.StringVar(value="")
 
@@ -62,28 +66,13 @@ class VintedAIApp(ctk.CTk):
         ctk.set_appearance_mode("system")
         ctk.set_default_color_theme("blue")
 
+        self._build_top_bar()
+
         left_frame = ctk.CTkFrame(self, width=280)
         left_frame.pack(side="left", fill="y", padx=10, pady=10)
 
         right_frame = ctk.CTkFrame(self)
         right_frame.pack(side="right", expand=True, fill="both", padx=10, pady=10)
-
-        # --- Provider IA ---
-        provider_label = ctk.CTkLabel(left_frame, text="Provider IA :")
-        provider_label.pack(anchor="w", pady=(10, 0))
-
-        provider_values = [p.value for p in self.providers.keys()]
-        if provider_values:
-            self.provider_var.set(provider_values[0])
-
-        provider_combo = ctk.CTkComboBox(
-            left_frame,
-            values=provider_values,
-            variable=self.provider_var,
-            state="readonly",
-            width=240,
-        )
-        provider_combo.pack(anchor="w", pady=5)
 
         # --- Profil d'analyse ---
         profile_label = ctk.CTkLabel(left_frame, text="Profil d'analyse :")
@@ -147,6 +136,102 @@ class VintedAIApp(ctk.CTk):
 
         self.result_text = ctk.CTkTextbox(right_frame, wrap="word")
         self.result_text.pack(expand=True, fill="both", padx=10, pady=10)
+
+    def _build_top_bar(self) -> None:
+        try:
+            top_bar = ctk.CTkFrame(self)
+            top_bar.pack(fill="x", padx=10, pady=(5, 0))
+
+            settings_btn = ctk.CTkButton(
+                top_bar,
+                text="⚙️",
+                width=40,
+                command=self.open_settings_menu,
+            )
+            settings_btn.pack(side="left", padx=(5, 10), pady=5)
+
+            title_label = ctk.CTkLabel(
+                top_bar,
+                text="Assistant Vinted - Préférences adaptatives",
+                font=ctk.CTkFont(size=16, weight="bold"),
+            )
+            title_label.pack(side="left", pady=5)
+
+            provider_values = [p.value for p in self.providers.keys()]
+            if provider_values and not self.provider_var.get():
+                self.provider_var.set(provider_values[0])
+
+            logger.info("Barre supérieure initialisée avec bouton paramètres.")
+        except Exception as exc:
+            logger.error("Erreur lors de la construction de la barre supérieure: %s", exc, exc_info=True)
+
+    # ------------------------------------------------------------------
+    # Menu paramètres (provider + clés API)
+    # ------------------------------------------------------------------
+
+    def open_settings_menu(self) -> None:
+        try:
+            settings_window = ctk.CTkToplevel(self)
+            settings_window.title("Paramètres avancés")
+            settings_window.geometry("420x320")
+
+            provider_values = [p.value for p in self.providers.keys()]
+
+            provider_label = ctk.CTkLabel(settings_window, text="Modèle IA :")
+            provider_label.pack(anchor="w", padx=20, pady=(15, 0))
+
+            provider_combo = ctk.CTkComboBox(
+                settings_window,
+                values=provider_values,
+                variable=self.provider_var,
+                state="readonly",
+                width=260,
+            )
+            provider_combo.pack(anchor="w", padx=20, pady=8)
+
+            openai_label = ctk.CTkLabel(settings_window, text="OPENAI_API_KEY :")
+            openai_label.pack(anchor="w", padx=20, pady=(20, 0))
+            openai_entry = ctk.CTkEntry(settings_window, textvariable=self.openai_key_var, width=360, show="*")
+            openai_entry.pack(anchor="w", padx=20, pady=5)
+
+            gemini_label = ctk.CTkLabel(settings_window, text="GEMINI_API_KEY :")
+            gemini_label.pack(anchor="w", padx=20, pady=(10, 0))
+            gemini_entry = ctk.CTkEntry(settings_window, textvariable=self.gemini_key_var, width=360, show="*")
+            gemini_entry.pack(anchor="w", padx=20, pady=5)
+
+            def save_settings() -> None:
+                try:
+                    os.environ["OPENAI_API_KEY"] = self.openai_key_var.get()
+                    os.environ["GEMINI_API_KEY"] = self.gemini_key_var.get()
+                    logger.info(
+                        "Paramètres mis à jour (provider=%s, openai_key=%s, gemini_key=%s)",
+                        self.provider_var.get(),
+                        "***" if self.openai_key_var.get() else "(vide)",
+                        "***" if self.gemini_key_var.get() else "(vide)",
+                    )
+                    messagebox.showinfo("Paramètres", "Préférences enregistrées.")
+                except Exception as exc_save:
+                    logger.error("Erreur lors de l'enregistrement des paramètres: %s", exc_save, exc_info=True)
+                    messagebox.showerror(
+                        "Erreur paramètres",
+                        f"Impossible d'enregistrer les paramètres :\n{exc_save}",
+                    )
+
+            save_btn = ctk.CTkButton(
+                settings_window,
+                text="Enregistrer",
+                command=save_settings,
+                width=140,
+            )
+            save_btn.pack(pady=20)
+
+            logger.info("Fenêtre des paramètres ouverte.")
+        except Exception as exc:
+            logger.error("Erreur lors de l'ouverture du menu paramètres: %s", exc, exc_info=True)
+            messagebox.showerror(
+                "Erreur UI",
+                f"Impossible d'ouvrir les paramètres :\n{exc}",
+            )
 
     # ------------------------------------------------------------------
     # sélection images
