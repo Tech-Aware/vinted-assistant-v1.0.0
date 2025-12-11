@@ -86,7 +86,7 @@ class VintedAIApp(ctk.CTk):
 
             self.gallery_container = ctk.CTkFrame(self)
             self.gallery_frame = ctk.CTkScrollableFrame(self.gallery_container, height=230)
-            self.gallery_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            self.gallery_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
             self.gallery_frame.bind("<Configure>", self._on_gallery_resize)
             self.gallery_frame.bind("<Enter>", self._enable_gallery_scroll)
             self.gallery_frame.bind("<Leave>", self._disable_gallery_scroll)
@@ -175,7 +175,7 @@ class VintedAIApp(ctk.CTk):
     def _build_gallery_header(self, parent: ctk.CTkFrame) -> None:
         try:
             header = ctk.CTkFrame(parent)
-            header.pack(fill="x", pady=(10, 0), padx=10)
+            header.pack(fill="x", pady=(5, 0), padx=10)
 
             gallery_label = ctk.CTkLabel(header, text="Galerie d'images :")
             gallery_label.pack(side="left", anchor="w")
