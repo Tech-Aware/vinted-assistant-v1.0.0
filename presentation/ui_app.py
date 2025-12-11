@@ -80,6 +80,7 @@ class VintedAIApp(ctk.CTk):
             self._build_top_bar()
 
             self.gallery_header = ctk.CTkFrame(self)
+            self.gallery_info_label: Optional[ctk.CTkLabel] = None
             self._build_gallery_header(self.gallery_header)
             self.gallery_header.pack(fill="x", padx=10, pady=(5, 0))
 
@@ -154,15 +155,6 @@ class VintedAIApp(ctk.CTk):
             )
             measures_radio.pack(anchor="w", pady=2)
 
-            # --- Sélection des images ---
-            self.image_label = ctk.CTkLabel(
-                left_frame,
-                text="Aucune image sélectionnée.",
-                wraplength=240,
-                justify="left",
-            )
-            self.image_label.pack(anchor="w", pady=(20, 10))
-
             # --- Zone de résultat ---
             result_label = ctk.CTkLabel(right_scrollable, text="Résultat (titre + description) :")
             result_label.pack(anchor="w", pady=(10, 0), padx=10)
@@ -188,8 +180,14 @@ class VintedAIApp(ctk.CTk):
             gallery_label = ctk.CTkLabel(header, text="Galerie d'images :")
             gallery_label.pack(side="left", anchor="w")
 
+            info_frame = ctk.CTkFrame(header)
+            info_frame.pack(side="right")
+
+            self.gallery_info_label = ctk.CTkLabel(info_frame, text="Aucune image sélectionnée")
+            self.gallery_info_label.pack(side="left", padx=(0, 10))
+
             add_image_btn = ctk.CTkButton(
-                header,
+                info_frame,
                 text="+",
                 width=36,
                 height=36,
@@ -197,7 +195,7 @@ class VintedAIApp(ctk.CTk):
             )
             add_image_btn.pack(side="right")
 
-            logger.info("En-tête de galerie initialisé avec bouton d'ajout compact.")
+            logger.info("En-tête de galerie initialisé avec compteur et bouton d'ajout.")
         except Exception as exc:
             logger.error(
                 "Erreur lors de la construction de l'en-tête de galerie: %s", exc, exc_info=True
@@ -375,17 +373,6 @@ class VintedAIApp(ctk.CTk):
 
             self.image_paths = [Path(p) for p in paths]
 
-            if len(self.image_paths) == 1:
-                self.image_label.configure(
-                    text=f"1 image sélectionnée :\n{self.image_paths[0]}"
-                )
-            else:
-                first = self.image_paths[0]
-                count = len(self.image_paths)
-                self.image_label.configure(
-                    text=f"{count} images sélectionnées.\nPremière : {first}"
-                )
-
             logger.info(
                 "Images sélectionnées: %s",
                 [str(p) for p in self.image_paths],
@@ -471,6 +458,8 @@ class VintedAIApp(ctk.CTk):
 
             self.thumbnail_images.clear()
 
+            self._update_gallery_info()
+
             if not self.image_paths:
                 self._hide_gallery()
                 logger.info("Galerie réinitialisée (aucune image).")
@@ -533,16 +522,6 @@ class VintedAIApp(ctk.CTk):
 
             self.image_paths = [p for p in self.image_paths if p != image_path]
 
-            if not self.image_paths:
-                self.image_label.configure(text="Aucune image sélectionnée.")
-            elif len(self.image_paths) == 1:
-                self.image_label.configure(text=f"1 image sélectionnée :\n{self.image_paths[0]}")
-            else:
-                first = self.image_paths[0]
-                self.image_label.configure(
-                    text=f"{len(self.image_paths)} images sélectionnées.\nPremière : {first}"
-                )
-
             logger.info("Image supprimée de la galerie: %s", image_path)
             self._refresh_gallery()
         except Exception as exc:
@@ -551,6 +530,22 @@ class VintedAIApp(ctk.CTk):
                 "Suppression image",
                 f"Impossible de retirer cette image :\n{exc}",
             )
+
+    def _update_gallery_info(self) -> None:
+        try:
+            if not self.gallery_info_label:
+                return
+
+            if not self.image_paths:
+                self.gallery_info_label.configure(text="Aucune image sélectionnée")
+                return
+
+            count = len(self.image_paths)
+            plural = "s" if count > 1 else ""
+            self.gallery_info_label.configure(text=f"{count} image{plural} sélectionnée{plural}")
+            logger.info("Mise à jour du compteur de galerie: %s", count)
+        except Exception as exc:
+            logger.error("Erreur lors de la mise à jour des informations de galerie: %s", exc, exc_info=True)
 
     def _show_full_image(self, image_path: Path) -> None:
         try:
