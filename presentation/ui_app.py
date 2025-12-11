@@ -79,8 +79,11 @@ class VintedAIApp(ctk.CTk):
 
             self._build_top_bar()
 
+            self.gallery_header = ctk.CTkFrame(self)
+            self._build_gallery_header(self.gallery_header)
+            self.gallery_header.pack(fill="x", padx=10, pady=(5, 0))
+
             self.gallery_container = ctk.CTkFrame(self)
-            self._build_gallery_header(self.gallery_container)
             self.gallery_frame = ctk.CTkScrollableFrame(self.gallery_container, height=230)
             self.gallery_frame.pack(fill="both", expand=True, padx=10, pady=10)
             self.gallery_frame.bind("<Configure>", self._on_gallery_resize)
