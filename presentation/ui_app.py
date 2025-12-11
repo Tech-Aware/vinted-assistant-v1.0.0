@@ -87,8 +87,10 @@ class VintedAIApp(ctk.CTk):
         gallery_label.pack(anchor="w", pady=(10, 0), padx=10)
 
         self.gallery_frame = ctk.CTkScrollableFrame(right_frame, height=230)
-        self.gallery_frame.pack(fill="both", padx=10, pady=10)
+        self.gallery_frame.pack(fill="both", expand=True, padx=10, pady=10)
         self.gallery_frame.bind("<Configure>", self._on_gallery_resize)
+        self.gallery_frame.bind("<Enter>", self._enable_gallery_scroll)
+        self.gallery_frame.bind("<Leave>", self._disable_gallery_scroll)
 
         # --- Profil d'analyse ---
         profile_label = ctk.CTkLabel(left_frame, text="Profil d'analyse :")
@@ -358,6 +360,52 @@ class VintedAIApp(ctk.CTk):
         except Exception as exc:
             logger.error("Erreur lors du recalcul de la galerie: %s", exc, exc_info=True)
 
+    def _enable_gallery_scroll(self, _event: object) -> None:
+        try:
+            self.bind_all("<MouseWheel>", self._on_gallery_mousewheel)
+            self.bind_all("<Button-4>", self._on_gallery_mousewheel)
+            self.bind_all("<Button-5>", self._on_gallery_mousewheel)
+            logger.debug("Défilement de la galerie activé (souris/touchpad).")
+        except Exception as exc:
+            logger.error("Erreur lors de l'activation du scroll de la galerie: %s", exc, exc_info=True)
+
+    def _disable_gallery_scroll(self, _event: object) -> None:
+        try:
+            self.unbind_all("<MouseWheel>")
+            self.unbind_all("<Button-4>")
+            self.unbind_all("<Button-5>")
+            logger.debug("Défilement de la galerie désactivé (curseur en dehors).")
+        except Exception as exc:
+            logger.error("Erreur lors de la désactivation du scroll de la galerie: %s", exc, exc_info=True)
+
+    def _on_gallery_mousewheel(self, event: object) -> None:
+        try:
+            canvas = getattr(self.gallery_frame, "_parent_canvas", None)
+            if not canvas:
+                logger.warning("Canvas de la galerie introuvable pour le scroll.")
+                return
+
+            if hasattr(event, "delta") and event.delta:
+                delta = int(-1 * (event.delta / 120))
+            elif getattr(event, "num", None) in {4, 5}:  # Support Linux
+                delta = -1 if event.num == 4 else 1
+            else:
+                delta = 0
+
+            scroll_factor = 3
+            effective_delta = delta * scroll_factor
+
+            if effective_delta:
+                canvas.yview_scroll(effective_delta, "units")
+                logger.debug(
+                    "Défilement de la galerie (delta=%s, facteur=%s, appliqué=%s).",
+                    delta,
+                    scroll_factor,
+                    effective_delta,
+                )
+        except Exception as exc:
+            logger.error("Erreur lors du scroll de la galerie: %s", exc, exc_info=True)
+
     def _refresh_gallery(self) -> None:
         try:
             for child in self.gallery_frame.winfo_children():
@@ -370,8 +418,15 @@ class VintedAIApp(ctk.CTk):
                 return
 
             thumb_size = 120
-            gallery_width = max(self.gallery_frame.winfo_width(), thumb_size + 20)
+            canvas = getattr(self.gallery_frame, "_parent_canvas", None)
+            canvas_width = canvas.winfo_width() if canvas else 0
+            gallery_width = max(canvas_width, self.gallery_frame.winfo_width(), thumb_size + 20)
             columns = max(1, gallery_width // (thumb_size + 20))
+            logger.debug(
+                "Recalcul de la grille de la galerie (width=%s, columns=%s).",
+                gallery_width,
+                columns,
+            )
 
             for idx, img_path in enumerate(self.image_paths):
                 try:
@@ -396,13 +451,13 @@ class VintedAIApp(ctk.CTk):
                     remove_btn = ctk.CTkButton(
                         card,
                         text="✕",
-                        width=26,
-                        height=26,
+                        width=13,
+                        height=13,
                         fg_color="#c0392b",
                         hover_color="#e74c3c",
                         command=lambda path=img_path: self._remove_image(path),
                     )
-                    remove_btn.place(relx=1, rely=0, anchor="ne", x=-4, y=4)
+                    remove_btn.place(relx=1, rely=0, anchor="ne", x=-2, y=2)
                 except Exception as exc_img:
                     logger.error("Erreur lors du rendu d'une miniature: %s", exc_img, exc_info=True)
 
