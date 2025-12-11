@@ -1,6 +1,4 @@
----
 
-```md
 # Assistant Vinted – Extraction Multimodale & Génération Automatique d’Annonces
 
 L’Assistant Vinted est une application desktop qui permet de **générer automatiquement des annonces Vinted complètes (titre + description + métadonnées)** à partir de **plusieurs photos d’un même vêtement**, en s’appuyant sur des modèles IA (Gemini 2.5 Flash + GPT-4o-mini).
@@ -9,7 +7,6 @@ L’objectif est de **supprimer les tâches répétitives** (rédaction, titres,
 
 L’architecture est **modulaire, robuste**, et sépare clairement l’UI, les clients IA, les modèles métier, et les profils d’analyse.
 
----
 
 ## ✨ Fonctionnalités principales
 
