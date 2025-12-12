@@ -383,19 +383,13 @@ def build_features_for_pull_tommy(
             )
         else:
             sku = None
-            if sku_from_ai and sku_status and sku_status.lower() == "ok":
-                sku = sku_from_ai
+            if sku_from_ai:
                 logger.info(
-                    "build_features_for_pull_tommy: SKU conservé depuis l'étiquette (IA, statut ok) -> %s",
-                    sku,
-                )
-            elif sku_from_ai:
-                logger.info(
-                    "build_features_for_pull_tommy: SKU IA ignoré (statut=%s, valeur=%s)",
+                    "build_features_for_pull_tommy: SKU détecté par l'IA ignoré (source photo non fiable, statut=%s, valeur=%s)",
                     sku_status,
                     sku_from_ai,
                 )
-            sku_status = sku_status if sku_status in {"ok", "low_confidence"} else "missing"
+            sku_status = "missing"
 
         features: Dict[str, Any] = {
             "brand": brand,
