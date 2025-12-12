@@ -125,8 +125,26 @@ def _build_hashtags(
             add(f"#levis{gender_token}")
 
         if model:
-            model_clean = model.lower().replace(" ", "")
-            add(f"#levis{model_clean}")
+            model_low = model.lower().strip()
+            model_number = ""
+            try:
+                import re  # local import pour rester défensif
+
+                match = re.search(r"(\d{3})", model_low)
+                if match:
+                    model_number = match.group(1)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("_build_hashtags: extraction modèle échouée (%s)", exc)
+
+            if model_number:
+                add(f"#levis{model_number}")
+                add(f"#{model_number}")
+
+            for token in model_low.replace("/", " ").split():
+                token_clean = token.replace("'", "").replace("-", "")
+                if token_clean == model_number or token_clean.isdigit():
+                    continue
+                add(f"#{token_clean}")
 
         if fit:
             fit_low = fit.lower().strip()
@@ -208,16 +226,26 @@ def _strip_footer_lines(description: str) -> str:
         return description
 
 
-def _normalize_fit_display(raw_fit: Optional[str]) -> str:
+def _normalize_fit_display(raw_fit: Optional[str], model_hint: Optional[str] = None) -> str:
     try:
-        if not raw_fit:
+        if not raw_fit and not model_hint:
             return "coupe non précisée"
 
-        value = raw_fit.strip()
+        value = (raw_fit or model_hint or "").strip()
         low = value.lower()
+        secondary_low = (model_hint or "").strip().lower()
 
-        boot_markers = ("boot", "flare", "évas", "evase", "curve", "curvy")
-        if any(marker in low for marker in boot_markers):
+        boot_markers = (
+            "boot",
+            "flare",
+            "évas",
+            "evase",
+            "curve",
+            "curvy",
+        )
+        if any(marker in low for marker in boot_markers) or any(
+            marker in secondary_low for marker in boot_markers
+        ):
             return "Bootcut/Évasé"
 
         if "skinny" in low or "slim" in low:
@@ -226,7 +254,7 @@ def _normalize_fit_display(raw_fit: Optional[str]) -> str:
         if "straight" in low or "droit" in low:
             return "Straight/Droit"
 
-        return value
+        return value or "coupe non précisée"
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("_normalize_fit_display: erreur %s", exc)
         return "coupe non précisée"
@@ -252,7 +280,7 @@ def build_jean_levis_description(
         brand = _safe_clean(features.get("brand")) or "Levi's"
         model = _safe_clean(features.get("model"))
         raw_fit = _safe_clean(features.get("fit"))
-        fit = _normalize_fit_display(raw_fit)
+        fit = _normalize_fit_display(raw_fit, model_hint=model)
         color = _safe_clean(features.get("color"))
         size_fr = _safe_clean(features.get("size_fr"))
         size_us = _safe_clean(features.get("size_us"))

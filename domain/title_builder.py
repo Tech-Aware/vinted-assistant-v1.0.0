@@ -56,6 +56,42 @@ def _normalize_fit(value: Optional[str]) -> Optional[str]:
     return raw
 
 
+def _sanitize_model_label(value: Optional[str]) -> Optional[str]:
+    """Nettoie le modèle pour éviter les doublons de coupe dans le titre."""
+    if not value:
+        return None
+
+    try:
+        raw = value.strip()
+        low = raw.lower()
+        fit_markers = (
+            "skinny",
+            "slim",
+            "straight",
+            "droit",
+            "boot",
+            "flare",
+            "évas",
+            "evase",
+            "curve",
+            "curvy",
+        )
+
+        cleaned_tokens: List[str] = []
+        for token in raw.replace("/", " ").replace("-", " ").split():
+            token_low = token.lower()
+            if any(marker in token_low for marker in fit_markers):
+                logger.debug("_sanitize_model_label: token coupe ignoré: %s", token)
+                continue
+            cleaned_tokens.append(token)
+
+        cleaned = " ".join(cleaned_tokens).strip()
+        return cleaned or raw
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_sanitize_model_label: échec de nettoyage (%s)", exc)
+        return value
+
+
 def _normalize_gender(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
@@ -116,11 +152,29 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
     # --- lecture + normalisation des champs attendus ---
 
     brand = _normalize_str(features.get("brand"))
-    model = _normalize_str(features.get("model"))
+    raw_model = _normalize_str(features.get("model"))
+    model = _sanitize_model_label(raw_model)
     size_fr = _normalize_str(features.get("size_fr"))
     size_us_raw = _normalize_str(features.get("size_us"))
     length = _normalize_str(features.get("length"))  # conservé pour usage éventuel hors titre
-    fit = _normalize_fit(_normalize_str(features.get("fit")))
+    fit_source = _normalize_str(features.get("fit"))
+    fit = _normalize_fit(fit_source)
+    if not fit:
+        fit = _normalize_fit(raw_model)
+    else:
+        try:
+            raw_model_low = (raw_model or "").lower()
+            if fit == "Skinny" and raw_model_low and any(
+                marker in raw_model_low
+                for marker in ("boot", "flare", "évas", "evase", "curve", "curvy")
+            ):
+                logger.debug(
+                    "build_jean_levis_title: fit ajusté en Bootcut/Évasé depuis modèle %s",
+                    raw_model,
+                )
+                fit = "Bootcut/Évasé"
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("build_jean_levis_title: ajustement fit impossible (%s)", exc)
     color = _normalize_str(features.get("color"))
     gender = _normalize_gender(_normalize_str(features.get("gender")))
     sku = _normalize_str(features.get("sku"))
@@ -147,11 +201,11 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
     else:
         try:
             normalized_rise = rise_type.strip().lower()
-            if "basse" in normalized_rise:
+            if "basse" in normalized_rise or "low" in normalized_rise:
                 rise_type = "low"
-            elif "haute" in normalized_rise:
+            elif "haute" in normalized_rise or "high" in normalized_rise:
                 rise_type = "high"
-            elif "moy" in normalized_rise:
+            elif "moy" in normalized_rise or "mid" in normalized_rise:
                 rise_type = "mid"
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("build_jean_levis_title: rise_type illisible (%s)", exc)
@@ -189,10 +243,13 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
         parts.append(size_us_display)
 
     # Coupe + éventuelle 'taille basse'
-    if fit and rise_type in ("low", "ultra_low"):
+    low_rise = rise_type in ("low", "ultra_low")
+    if fit and low_rise:
         parts.append(f"coupe {fit} taille basse")
     elif fit:
         parts.append(f"coupe {fit}")
+    elif low_rise:
+        parts.append("taille basse")
 
     # % coton si >= 60
     if cotton_percent is not None and cotton_percent >= 60:
