@@ -103,6 +103,7 @@ def _build_hashtags(
     length: str,
     gender: str,
     rise_label: str,
+    durin_tag: str,
 ) -> str:
     try:
         tokens: List[str] = []
@@ -124,10 +125,15 @@ def _build_hashtags(
             add(f"#levis{model}")
 
         if fit:
-            fit_clean = (
-                fit.lower().replace(" ", "").replace("/", "").replace("é", "e")
-            )
-            add(f"#{fit_clean}jean")
+            fit_low = fit.lower().strip()
+            fit_key = fit_low.replace("é", "e")
+            if "boot" in fit_key and "cut" in fit_key:
+                fit_token = "bootcut"
+            else:
+                fit_token = (
+                    fit_low.replace(" ", "").replace("/", "").replace("é", "e")
+                )
+            add(f"#{fit_token}jean")
 
         if color:
             color_clean = color.lower().replace(" ", "")
@@ -143,6 +149,9 @@ def _build_hashtags(
             add(f"#w{size_us.lower().replace('w', '')}")
         if length:
             add(f"#l{length.lower().replace('l', '')}")
+
+        if durin_tag:
+            add(durin_tag)
 
         return " ".join(tokens)
     except Exception as exc:  # pragma: no cover - defensive
@@ -167,6 +176,29 @@ def _normalize_defects(defects: Optional[str]) -> str:
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("_normalize_defects: erreur %s", exc)
         return ""
+
+
+def _strip_footer_lines(description: str) -> str:
+    try:
+        if not description:
+            return ""
+
+        filtered_lines: List[str] = []
+        for line in description.split("\n"):
+            lowered = line.strip().lower()
+            if lowered.startswith("marque :"):
+                logger.debug("_strip_footer_lines: ligne marque supprimée: %s", line)
+                continue
+            if lowered.startswith("couleur :"):
+                logger.debug("_strip_footer_lines: ligne couleur supprimée: %s", line)
+                continue
+            filtered_lines.append(line)
+
+        cleaned = "\n".join(filtered_lines)
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("_strip_footer_lines: erreur %s", exc)
+        return description
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +292,7 @@ def build_jean_levis_description(
             length=length,
             gender=gender,
             rise_label=rise_label,
+            durin_tag=durin_tag,
         )
 
         paragraphs = [
@@ -277,6 +310,7 @@ def build_jean_levis_description(
         ]
 
         description = "\n\n".join(part for part in paragraphs if part)
+        description = _strip_footer_lines(description)
         logger.debug("build_jean_levis_description: description générée = %s", description)
         return description
 
