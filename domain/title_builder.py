@@ -173,28 +173,82 @@ def _format_colors_segment(value: Optional[Any]) -> Optional[str]:
     """Formate les couleurs en limitant le bruit et les doublons."""
     try:
         colors = _normalize_colors(value)
-        unique: List[str] = []
+        simplified: List[str] = []
         seen = set()
         for color in colors:
             color_clean = color.strip()
             color_key = color_clean.lower()
-            if not color_key or color_key in seen:
+            if not color_key:
                 continue
-            seen.add(color_key)
-            unique.append(color_clean.lower())
 
-        if not unique:
+            simplified_color = _simplify_color_name(color_key)
+            if not simplified_color:
+                continue
+
+            if simplified_color in seen:
+                continue
+            seen.add(simplified_color)
+            simplified.append(simplified_color)
+
+        if not simplified:
             return None
 
         # Si "multicolore" est présent avec d'autres couleurs, on le supprime.
-        if len(unique) > 1:
-            unique = [c for c in unique if c != "multicolore"] or unique
+        if len(simplified) > 1:
+            simplified = [c for c in simplified if c != "multicolore"] or simplified
 
         max_colors = 2
-        limited = unique[:max_colors]
+        limited = simplified[:max_colors]
         return ", ".join(limited)
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("_format_colors_segment: échec (%s)", exc)
+        return None
+
+
+def _simplify_color_name(color: str) -> Optional[str]:
+    """Réduit les couleurs à une palette simple (bleu sans qualificatifs, marine dédié)."""
+    try:
+        base = color.strip().lower()
+        if not base:
+            return None
+
+        palettes = [
+            ({"bleu marine", "navy", "navy blue", "marine"}, "marine"),
+            (
+                {
+                    "bleu",
+                    "blue",
+                    "turquoise",
+                    "petrole",
+                    "pétrole",
+                    "sarcelle",
+                    "azure",
+                    "azur",
+                    "cyan",
+                    "ciel",
+                },
+                "bleu",
+            ),
+            ({"noir", "black"}, "noir"),
+            ({"blanc", "white", "ecru", "écru", "off-white", "ivory", "ivoire"}, "blanc"),
+            ({"gris", "gray", "grey", "chiné", "chinee", "charcoal"}, "gris"),
+            ({"rouge", "red", "bordeaux"}, "rouge"),
+            ({"rose", "pink", "fuchsia"}, "rose"),
+            ({"vert", "green", "kaki", "khaki", "olive"}, "vert"),
+            ({"jaune", "yellow", "moutarde"}, "jaune"),
+            ({"orange", "corail", "coral"}, "orange"),
+            ({"beige", "sable", "sand", "taupe"}, "beige"),
+            ({"marron", "brown", "chocolat", "chocolate"}, "marron"),
+            ({"violet", "purple", "lilas", "lavande", "prune"}, "violet"),
+        ]
+
+        for keywords, label in palettes:
+            if any(keyword in base for keyword in keywords):
+                return label
+
+        return base
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_simplify_color_name: échec (%s)", exc)
         return None
 
 
