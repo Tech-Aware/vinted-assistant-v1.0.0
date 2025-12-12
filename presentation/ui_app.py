@@ -607,14 +607,10 @@ class VintedAIApp(ctk.CTk):
         lines.append(listing.description or "(vide)")
         lines.append("")
 
-        if listing.brand:
-            lines.append(f"Marque : {listing.brand}")
         if listing.size:
             lines.append(f"Taille : {listing.size}")
         if listing.condition:
             lines.append(f"État : {listing.condition}")
-        if listing.color:
-            lines.append(f"Couleur : {listing.color}")
 
         if listing.tags:
             lines.append("")
