@@ -7,6 +7,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+SKU_PREFIX = "------"
+
 
 def _normalize_str(value: Optional[str]) -> Optional[str]:
     """Trim + None-safe."""
@@ -304,9 +306,9 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
     if color:
         parts.append(color)
 
-    # SKU (avec tiret)
+    # SKU (avec tiret de 6 caractères)
     if sku:
-        parts.append(f"- {sku}")
+        parts.append(f"{SKU_PREFIX}{sku}")
 
     title = _safe_join(parts)
 

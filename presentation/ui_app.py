@@ -15,6 +15,7 @@ from tkinter import filedialog, messagebox
 from domain.ai_provider import AIProviderName, AIListingProvider
 from domain.models import VintedListing
 from domain.templates import AnalysisProfileName, AnalysisProfile, ALL_PROFILES
+from domain.title_builder import SKU_PREFIX
 
 from .image_preview import ImagePreview  # <- widget réutilisé depuis l’ancienne app
 
@@ -71,6 +72,7 @@ class VintedAIApp(ctk.CTk):
         self.title_label: Optional[ctk.CTkLabel] = None
         self.gallery_info_label: Optional[ctk.CTkLabel] = None
         self.preview_frame: Optional[ImagePreview] = None
+        self.current_listing: Optional[VintedListing] = None
 
         self._build_ui()
 
@@ -584,8 +586,13 @@ class VintedAIApp(ctk.CTk):
                 ui_data=ui_data,
             )
 
+            self.current_listing = listing
+
             output = self._format_listing(listing)
             self.result_text.insert("1.0", output)
+
+            if self._needs_manual_sku(listing):
+                self._prompt_for_sku(listing)
 
         except Exception as exc:
             logger.error("Erreur provider IA: %s", exc, exc_info=True)
@@ -616,4 +623,133 @@ class VintedAIApp(ctk.CTk):
             lines.append("")
             lines.append(f"Tags : {', '.join(listing.tags)}")
 
+        if getattr(listing, "sku", None):
+            lines.append("")
+            lines.append(f"SKU : {listing.sku}")
+
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Gestion du SKU manuel
+    # ------------------------------------------------------------------
+
+    def _needs_manual_sku(self, listing: VintedListing) -> bool:
+        try:
+            sku_value = getattr(listing, "sku", None)
+            sku_status = getattr(listing, "sku_status", None)
+
+            if sku_value:
+                logger.info("SKU détecté (%s), pas de saisie manuelle requise.", sku_value)
+                return False
+
+            if sku_status and sku_status != "ok":
+                logger.warning(
+                    "SKU manquant ou illisible (statut=%s), ouverture de la saisie manuelle.",
+                    sku_status,
+                )
+                return True
+
+            logger.info("SKU absent sans statut explicite, demande manuelle enclenchée.")
+            return True
+        except Exception as exc:
+            logger.error("Erreur lors de la vérification du SKU: %s", exc, exc_info=True)
+            return False
+
+    def _apply_manual_sku(self, listing: VintedListing, sku_value: str) -> None:
+        try:
+            normalized = sku_value.strip()
+            if not normalized:
+                logger.info("SKU manuel vide, aucune mise à jour appliquée.")
+                return
+
+            base_title = listing.title.strip()
+            if SKU_PREFIX in base_title:
+                base_title = base_title.split(SKU_PREFIX)[0].strip()
+
+            listing.sku = normalized
+            listing.sku_status = "manual"
+            listing.title = f"{base_title} {SKU_PREFIX}{normalized}".strip()
+
+            logger.info("SKU manuel appliqué: %s", listing.title)
+
+            if self.result_text:
+                output = self._format_listing(listing)
+                self.result_text.delete("1.0", "end")
+                self.result_text.insert("1.0", output)
+
+        except Exception as exc:
+            logger.error("Erreur lors de l'application du SKU manuel: %s", exc, exc_info=True)
+
+    def _prompt_for_sku(self, listing: VintedListing) -> None:
+        try:
+            sku_window = ctk.CTkToplevel(self)
+            sku_window.title("SKU manquant")
+            sku_window.geometry("420x220")
+            sku_window.transient(self)
+            sku_window.grab_set()
+            sku_window.lift()
+            sku_window.focus_force()
+            sku_window.attributes("-topmost", True)
+
+            info_label = ctk.CTkLabel(
+                sku_window,
+                text=(
+                    "SKU non détecté dans les photos.\n"
+                    "Merci de le saisir manuellement (ou fermez pour ignorer)."
+                ),
+                justify="center",
+            )
+            info_label.pack(padx=20, pady=(20, 10))
+
+            sku_var = ctk.StringVar()
+            sku_entry = ctk.CTkEntry(sku_window, textvariable=sku_var, width=260)
+            sku_entry.pack(pady=8)
+            sku_entry.focus_set()
+
+            button_frame = ctk.CTkFrame(sku_window)
+            button_frame.pack(pady=10)
+
+            def close_window() -> None:
+                try:
+                    logger.info("Fermeture de la fenêtre de saisie SKU.")
+                    sku_window.grab_release()
+                    sku_window.destroy()
+                    self.focus_force()
+                except Exception as exc_close:
+                    logger.error(
+                        "Erreur lors de la fermeture de la fenêtre SKU: %s",
+                        exc_close,
+                        exc_info=True,
+                    )
+
+            def validate_sku() -> None:
+                try:
+                    self._apply_manual_sku(listing, sku_var.get())
+                    close_window()
+                except Exception as exc_validate:
+                    logger.error(
+                        "Erreur lors de la validation du SKU manuel: %s",
+                        exc_validate,
+                        exc_info=True,
+                    )
+
+            validate_btn = ctk.CTkButton(
+                button_frame,
+                text="Valider",
+                command=validate_sku,
+                width=120,
+            )
+            validate_btn.pack(side="left", padx=8)
+
+            cancel_btn = ctk.CTkButton(
+                button_frame,
+                text="Annuler",
+                command=close_window,
+                width=120,
+            )
+            cancel_btn.pack(side="left", padx=8)
+
+            sku_window.protocol("WM_DELETE_WINDOW", close_window)
+            logger.info("Fenêtre de saisie SKU affichée en modal.")
+        except Exception as exc:
+            logger.error("Erreur lors de l'affichage de la saisie SKU: %s", exc, exc_info=True)
