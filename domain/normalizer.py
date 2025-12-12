@@ -367,25 +367,35 @@ def build_features_for_pull_tommy(
         size = ui_data.get("size") or raw_features.get("size") or ai_data.get("size")
         sku_from_ui = ui_data.get("sku")
         sku_from_ai = raw_features.get("sku") or ai_data.get("sku")
+        sku_status_raw = raw_features.get("sku_status") or ai_data.get("sku_status")
+        sku_status = (
+            str(sku_status_raw).strip().lower() if sku_status_raw is not None else None
+        )
         sku_source = "ui" if sku_from_ui is not None else "ai"
-        sku = sku_from_ui if sku_from_ui is not None else sku_from_ai
 
-        sku_status = raw_features.get("sku_status") or ai_data.get("sku_status")
-        if sku_source == "ai":
-            if sku:
-                logger.info(
-                    "build_features_for_pull_tommy: SKU IA ignoré pour éviter les hallucinations (%s)",
-                    sku,
-                )
-            sku = None
-            sku_status = "missing"
-        else:
+        if sku_source == "ui":
+            sku = sku_from_ui
             if not sku_status or sku_status.lower() != "ok":
                 sku_status = "ok"
             logger.debug(
                 "build_features_for_pull_tommy: SKU fourni via UI conservé (%s)",
                 sku,
             )
+        else:
+            sku = None
+            if sku_from_ai and sku_status and sku_status.lower() == "ok":
+                sku = sku_from_ai
+                logger.info(
+                    "build_features_for_pull_tommy: SKU conservé depuis l'étiquette (IA, statut ok) -> %s",
+                    sku,
+                )
+            elif sku_from_ai:
+                logger.info(
+                    "build_features_for_pull_tommy: SKU IA ignoré (statut=%s, valeur=%s)",
+                    sku_status,
+                    sku_from_ai,
+                )
+            sku_status = sku_status if sku_status in {"ok", "low_confidence"} else "missing"
 
         features: Dict[str, Any] = {
             "brand": brand,
