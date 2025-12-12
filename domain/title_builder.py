@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-SKU_PREFIX = "------"
+SKU_PREFIX = "- "
 
 
 def _normalize_str(value: Optional[str]) -> Optional[str]:
@@ -306,7 +306,7 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
     if color:
         parts.append(color)
 
-    # SKU (avec tiret de 6 caractères)
+    # SKU (préfixé d'un tiret)
     if sku:
         parts.append(f"{SKU_PREFIX}{sku}")
 
