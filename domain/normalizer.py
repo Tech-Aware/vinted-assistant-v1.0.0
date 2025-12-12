@@ -374,8 +374,12 @@ def build_features_for_pull_tommy(
         sku_source = "ui" if sku_from_ui is not None else "ai"
 
         def _is_label_sku(value: str) -> bool:
+            """
+            Valide un SKU de type étiquette tenue en main ou collée sur le produit :
+            lettres (au moins 2) suivies de chiffres (ex : PTF127).
+            """
             try:
-                return bool(re.match(r"^[a-zA-Z]+[0-9]+$", value.strip()))
+                return bool(re.match(r"^[a-zA-Z]{2,}[0-9]+$", value.strip()))
             except Exception:
                 logger.debug(
                     "build_features_for_pull_tommy: validation SKU impossible pour '%s'",
@@ -395,7 +399,7 @@ def build_features_for_pull_tommy(
             if sku_from_ai and sku_status == "ok" and _is_label_sku(sku_from_ai):
                 sku = sku_from_ai
                 logger.info(
-                    "build_features_for_pull_tommy: SKU détecté sur étiquette photo accepté (%s)",
+                    "build_features_for_pull_tommy: SKU détecté sur étiquette au premier plan accepté (%s)",
                     sku,
                 )
             else:

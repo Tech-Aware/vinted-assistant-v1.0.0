@@ -250,6 +250,7 @@ Rules:
 - NEVER invent information.
 - If a field is not visible on a label or obvious from photos, set it to null.
 - If the SKU tag is unreadable or absent, set sku_status="missing".
+- For SKU: only set sku_status="ok" when a printed label is clearly visible in the foreground (held by a hand or stuck on the product) showing letters followed by digits (e.g. "PTF127"); otherwise leave sku null and set sku_status="missing".
 - Use the exact words printed on the composition tag for "material". Do NOT guess percentages.
 - If colors are not clear, keep main_colors as null instead of guessing.
 - Do NOT translate JSON keys; they must remain in English exactly as written above.
