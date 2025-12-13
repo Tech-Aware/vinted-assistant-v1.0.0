@@ -72,6 +72,17 @@ class ImagePreview(ctk.CTkFrame):
         self._empty_label.pack_forget()
         self._scroll_frame.pack(expand=True, fill="both")
 
+    def set_removal_enabled(self, enabled: bool) -> None:
+        """Active ou désactive les boutons de suppression des vignettes."""
+        try:
+            self._removal_enabled = enabled
+            state = "normal" if enabled else "disabled"
+            for btn in self._remove_buttons:
+                btn.configure(state=state)
+            logger.info("set_removal_enabled: suppression %s", "activée" if enabled else "désactivée")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("set_removal_enabled: erreur %s", exc, exc_info=True)
+
     def update_images(self, paths: Iterable[Path]) -> None:
         self._labels.clear()
         self._preview_images.clear()

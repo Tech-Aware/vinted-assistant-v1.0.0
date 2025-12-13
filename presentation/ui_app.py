@@ -588,6 +588,8 @@ class VintedAIApp(ctk.CTk):
 
             self.current_listing = listing
 
+            self._prompt_composition_if_needed(listing)
+
             output = self._format_listing(listing)
             self.result_text.insert("1.0", output)
 
@@ -600,6 +602,122 @@ class VintedAIApp(ctk.CTk):
                 "Erreur IA",
                 f"Une erreur est survenue pendant l'analyse IA :\n{exc}",
             )
+
+    def _prompt_composition_if_needed(self, listing: VintedListing) -> None:
+        try:
+            placeholder = "Composition non lisible (voir photos)."
+            if placeholder not in (listing.description or ""):
+                logger.info("_prompt_composition_if_needed: composition déjà renseignée.")
+                return
+
+            logger.info("_prompt_composition_if_needed: ouverture de la saisie composition manuelle.")
+            self._open_composition_modal(listing, placeholder)
+        except Exception as exc:
+            logger.error("_prompt_composition_if_needed: erreur %s", exc, exc_info=True)
+
+    def _open_composition_modal(self, listing: VintedListing, placeholder: str) -> None:
+        try:
+            modal = ctk.CTkToplevel(self)
+            modal.title("Composition illisible")
+            modal.geometry("720x640")
+            modal.transient(self)
+            modal.grab_set()
+            modal.lift()
+            modal.focus_force()
+            modal.attributes("-topmost", True)
+
+            info_label = ctk.CTkLabel(
+                modal,
+                text=(
+                    "La composition de l'étiquette n'a pas été reconnue.\n"
+                    "Merci de consulter les photos dans la galerie ci-dessous puis d'indiquer le texte exact."
+                ),
+                justify="center",
+            )
+            info_label.pack(padx=16, pady=(18, 10))
+
+            gallery_frame = ctk.CTkFrame(modal)
+            gallery_frame.pack(expand=True, fill="both", padx=12, pady=(0, 10))
+
+            gallery = ImagePreview(gallery_frame, width=240, height=260)
+            gallery.set_removal_enabled(False)
+            gallery.update_images(self.selected_images)
+            gallery.pack(expand=True, fill="both", padx=6, pady=6)
+
+            entry_label = ctk.CTkLabel(
+                modal,
+                text="Recopiez le texte de l'étiquette de composition (ou laissez vide si coupée) :",
+                anchor="w",
+            )
+            entry_label.pack(fill="x", padx=16, pady=(8, 4))
+
+            composition_text = ctk.CTkTextbox(modal, height=80)
+            composition_text.pack(fill="x", padx=16, pady=(0, 10))
+
+            def _apply_composition_text(raw_text: str) -> None:
+                try:
+                    clean_text = raw_text.strip()
+                    if clean_text:
+                        sentence = f"Composition : {clean_text.rstrip('.')}."
+                    else:
+                        sentence = "Etiquette de composition coupée pour plus de confort."
+
+                    updated_description = (listing.description or "").replace(placeholder, sentence)
+                    listing.description = updated_description
+
+                    logger.info("Composition manuelle appliquée: %s", sentence)
+                    if self.result_text:
+                        output = self._format_listing(listing)
+                        self.result_text.delete("1.0", "end")
+                        self.result_text.insert("1.0", output)
+                except Exception as exc_apply:  # pragma: no cover - defensive
+                    logger.error("Erreur lors de l'application de la composition: %s", exc_apply, exc_info=True)
+
+            def close_modal() -> None:
+                try:
+                    modal.grab_release()
+                    modal.destroy()
+                    self.focus_force()
+                except Exception as exc_close:  # pragma: no cover - defensive
+                    logger.error("Erreur lors de la fermeture de la modale composition: %s", exc_close, exc_info=True)
+
+            def validate_composition() -> None:
+                try:
+                    user_text = composition_text.get("1.0", "end")
+                    _apply_composition_text(user_text)
+                    close_modal()
+                except Exception as exc_validate:  # pragma: no cover - defensive
+                    logger.error("Erreur lors de la validation de la composition: %s", exc_validate, exc_info=True)
+
+            def fallback_composition() -> None:
+                try:
+                    _apply_composition_text("")
+                    close_modal()
+                except Exception as exc_fallback:  # pragma: no cover - defensive
+                    logger.error("Erreur lors de l'application du fallback composition: %s", exc_fallback, exc_info=True)
+
+            button_frame = ctk.CTkFrame(modal)
+            button_frame.pack(pady=(4, 14))
+
+            validate_btn = ctk.CTkButton(
+                button_frame,
+                text="Valider la composition",
+                command=validate_composition,
+                width=180,
+            )
+            validate_btn.pack(side="left", padx=8)
+
+            missing_btn = ctk.CTkButton(
+                button_frame,
+                text="Étiquette coupée/absente",
+                command=fallback_composition,
+                width=180,
+            )
+            missing_btn.pack(side="left", padx=8)
+
+            modal.protocol("WM_DELETE_WINDOW", fallback_composition)
+        except Exception as exc:
+            logger.error("_open_composition_modal: erreur %s", exc, exc_info=True)
 
     # ------------------------------------------------------------------
     # Format
