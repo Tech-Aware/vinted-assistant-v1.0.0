@@ -87,10 +87,9 @@ def _build_state_sentence(defects: Optional[str]) -> str:
         clean_defects = _normalize_defects(defects)
         if not clean_defects:
             return "Très bon état."
-        return (
-            "Très bon état. Légères traces d'usage : "
-            f"{clean_defects}, typiques de cette composition (voir photos)."
-        )
+        concise_state = f"Très bon état : {clean_defects} (voir photos)."
+        logger.info("_build_state_sentence: état décrit = %s", concise_state)
+        return concise_state
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("_build_state_sentence: erreur %s", exc)
         return "État non précisé (voir photos)."
