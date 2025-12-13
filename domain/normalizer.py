@@ -8,7 +8,7 @@ import logging
 
 from domain.description_builder import build_jean_levis_description
 from domain.templates import AnalysisProfileName
-from domain.title_builder import build_jean_levis_title
+from domain.title_builder import build_jean_levis_title, build_pull_tommy_title
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +336,105 @@ def build_features_for_jean_levis(
 
 
 # ---------------------------------------------------------------------------
+# Construction des features pour PULL_TOMMY
+# ---------------------------------------------------------------------------
+
+
+def build_features_for_pull_tommy(
+    ai_data: Dict[str, Any], ui_data: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Construit le dict 'features' pour un pull/gilet Tommy Hilfiger.
+
+    Priorités :
+      - données IA détaillées (ai_data["features"]),
+      - corrections UI (taille, genre, SKU),
+      - pas d'invention si les champs sont absents.
+    """
+    try:
+        ui_data = ui_data or {}
+        raw_features = ai_data.get("features") or {}
+
+        brand = raw_features.get("brand") or ai_data.get("brand")
+        garment_type = raw_features.get("garment_type") or ai_data.get("style")
+        neckline = raw_features.get("neckline") or ai_data.get("neckline")
+        pattern = raw_features.get("pattern") or ai_data.get("pattern")
+        material = raw_features.get("material")
+        cotton_percent = raw_features.get("cotton_percent")
+        wool_percent = raw_features.get("wool_percent")
+        main_colors = raw_features.get("main_colors") or raw_features.get("colors")
+        gender = ui_data.get("gender") or raw_features.get("gender")
+        size = ui_data.get("size") or raw_features.get("size") or ai_data.get("size")
+        sku_from_ui = ui_data.get("sku")
+        sku_from_ai = raw_features.get("sku") or ai_data.get("sku")
+        sku_status_raw = raw_features.get("sku_status") or ai_data.get("sku_status")
+        sku_status = (
+            str(sku_status_raw).strip().lower() if sku_status_raw is not None else None
+        )
+        sku_source = "ui" if sku_from_ui is not None else "ai"
+
+        def _is_label_sku(value: str) -> bool:
+            """
+            Valide un SKU de type étiquette tenue en main ou collée sur le produit :
+            lettres (au moins 2) suivies de chiffres (ex : PTF127).
+            """
+            try:
+                return bool(re.match(r"^[a-zA-Z]{2,}[0-9]+$", value.strip()))
+            except Exception:
+                logger.debug(
+                    "build_features_for_pull_tommy: validation SKU impossible pour '%s'",
+                    value,
+                )
+                return False
+
+        if sku_source == "ui":
+            sku = sku_from_ui
+            if not sku_status or sku_status.lower() != "ok":
+                sku_status = "ok"
+            logger.debug(
+                "build_features_for_pull_tommy: SKU fourni via UI conservé (%s)",
+                sku,
+            )
+        else:
+            if sku_from_ai and sku_status == "ok" and _is_label_sku(sku_from_ai):
+                sku = sku_from_ai
+                logger.info(
+                    "build_features_for_pull_tommy: SKU détecté sur étiquette au premier plan accepté (%s)",
+                    sku,
+                )
+            else:
+                if sku_from_ai:
+                    logger.info(
+                        "build_features_for_pull_tommy: SKU IA rejeté (statut=%s, valeur=%s)",
+                        sku_status,
+                        sku_from_ai,
+                    )
+                sku = None
+                sku_status = "missing"
+
+        features: Dict[str, Any] = {
+            "brand": brand,
+            "garment_type": garment_type,
+            "neckline": neckline,
+            "pattern": pattern,
+            "material": material,
+            "cotton_percent": cotton_percent,
+            "wool_percent": wool_percent,
+            "main_colors": main_colors,
+            "gender": gender,
+            "size": size,
+            "sku": sku,
+            "sku_status": sku_status,
+        }
+
+        logger.debug("build_features_for_pull_tommy: features=%s", features)
+        return features
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("build_features_for_pull_tommy: échec -> features vides (%s)", exc)
+        return {}
+
+
+# ---------------------------------------------------------------------------
 # Normalisation + post-process complet (point d'entrée)
 # ---------------------------------------------------------------------------
 
@@ -364,6 +463,9 @@ def normalize_and_postprocess(
 
         # Titre reconstruit de manière cohérente pour TOUS les providers
         title = build_jean_levis_title(features)
+    elif profile_name == AnalysisProfileName.PULL_TOMMY:
+        features = build_features_for_pull_tommy(ai_data, ui_data)
+        title = build_pull_tommy_title(features)
     else:
         # Pour les autres profils (à développer plus tard)
         features = {}

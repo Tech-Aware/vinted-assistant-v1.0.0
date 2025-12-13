@@ -191,7 +191,7 @@ The final JSON MUST respect the following structure:
 
     "gender": string | null,
     "sku": string | null,
-    "sku_status": "ok" | "missing" | "low_confidence"
+"sku_status": "ok" | "missing" | "low_confidence"
   }
 }
 
@@ -207,4 +207,51 @@ Rules:
 JSON ONLY:
 - Your final answer MUST be ONLY the JSON object.
 - No surrounding text, no explanations, no markdown.
+
+==============================================================
+ EXTENDED OUTPUT FOR PROFILE "pull_tommy"
+==============================================================
+
+If the selected analysis profile is named "pull_tommy":
+
+You must include, in addition to the base JSON fields
+(title, description, brand, style, pattern, neckline, season, defects),
+a second nested object called "features" describing the sweater.
+
+The final JSON MUST respect the following structure:
+
+{
+  "title": string,
+  "description": string,
+  "brand": string | null,
+  "style": string | null,
+  "pattern": string | null,
+  "neckline": string | null,
+  "season": string | null,
+  "defects": string | null,
+
+  "features": {
+    "brand": string | null,
+    "garment_type": string | null,       // "pull", "gilet", "cardigan" or similar
+    "neckline": string | null,           // col rond, col V, col zippé/ montant, col roulé
+    "pattern": string | null,            // uni, torsadé, rayé, colorblock, etc.
+    "main_colors": array | null,         // list of key colors seen (e.g. ["bleu", "blanc", "rouge"])
+    "material": string | null,           // raw material text from the composition label (e.g. "100% coton", "80% laine 20% nylon")
+    "cotton_percent": number | null,
+    "wool_percent": number | null,
+    "gender": string | null,             // homme / femme / unisexe if visible
+    "size": string | null,               // tag size from the label (e.g. S, M, L, XL, XXL...)
+    "sku": string | null,
+    "sku_status": "ok" | "missing" | "low_confidence"
+  }
+}
+
+Rules:
+- NEVER invent information.
+- If a field is not visible on a label or obvious from photos, set it to null.
+- If the SKU tag is unreadable or absent, set sku_status="missing".
+- For SKU: only set sku_status="ok" when a printed label is clearly visible in the foreground (held by a hand or stuck on the product) showing letters followed by digits (e.g. "PTF127"); otherwise leave sku null and set sku_status="missing".
+- Use the exact words printed on the composition tag for "material". Do NOT guess percentages.
+- If colors are not clear, keep main_colors as null instead of guessing.
+- Do NOT translate JSON keys; they must remain in English exactly as written above.
 """
