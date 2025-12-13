@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 import os
 import re
+import tkinter as tk
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image  # encore utilisé pour l’aperçu plein écran si tu le gardes ailleurs
 
@@ -647,13 +648,198 @@ class VintedAIApp(ctk.CTk):
 
             entry_label = ctk.CTkLabel(
                 modal,
-                text="Recopiez le texte de l'étiquette de composition (ou laissez vide si coupée) :",
-                anchor="w",
+                text=(
+                    "Précisez la composition via les listes déroulantes ci-dessous (jusqu'à 4 lignes).\n"
+                    "Merci d'indiquer le pourcentage uniquement si un composant est sélectionné."
+                ),
+                anchor="center",
+                justify="center",
             )
             entry_label.pack(fill="x", padx=16, pady=(8, 4))
 
-            composition_text = ctk.CTkTextbox(modal, height=80)
-            composition_text.pack(fill="x", padx=16, pady=(0, 10))
+            material_options = sorted(
+                [
+                    "acrylique",
+                    "angora",
+                    "coton",
+                    "élasthanne",
+                    "laine",
+                    "nylon",
+                    "polyester",
+                    "viscose",
+                ],
+                key=lambda value: value.lower(),
+            )
+            percent_values = [str(index) for index in range(1, 101)]
+
+            composition_frame = ctk.CTkFrame(modal)
+            composition_frame.pack(padx=12, pady=(0, 12), anchor="center")
+
+            composition_rows: List[Tuple[ctk.CTkComboBox, ctk.CTkComboBox]] = []
+            tab_sequence: List[Any] = []
+
+            def _attach_autocomplete(
+                combobox: ctk.CTkComboBox, options: List[str], label: str
+            ) -> None:
+                try:
+                    def _on_key_release(event: Any) -> None:
+                        try:
+                            current_value_raw = combobox.get()
+                            current_value = current_value_raw.strip().lower()
+                            filtered_values = [
+                                value
+                                for value in options
+                                if value.lower().startswith(current_value)
+                            ]
+                            combobox.configure(values=filtered_values or options)
+                            combobox.set(current_value_raw)
+                            try:
+                                combobox._entry.icursor(tk.END)
+                            except Exception:  # pragma: no cover - best effort
+                                pass
+                            combobox._open_dropdown_menu()
+                        except Exception as exc_key:  # pragma: no cover - defensive
+                            logger.error(
+                                "Autocomplete %s: erreur lors du filtrage: %s", label, exc_key, exc_info=True
+                            )
+
+                    combobox.bind("<KeyRelease>", _on_key_release)
+                except Exception as exc_autocomplete:  # pragma: no cover - defensive
+                    logger.error(
+                        "Autocomplete %s: impossible d'attacher le filtre: %s", label, exc_autocomplete, exc_info=True
+                    )
+
+            for row_index in range(4):
+                row_frame = ctk.CTkFrame(composition_frame)
+                row_frame.pack(padx=8, pady=6, anchor="center")
+
+                material_combo = ctk.CTkComboBox(
+                    row_frame,
+                    values=material_options,
+                    state="normal",
+                    width=260,
+                    justify="center",
+                )
+                material_combo.set("")
+                material_combo.pack(side="left", padx=(6, 10), pady=4)
+                _attach_autocomplete(material_combo, material_options, f"matière-{row_index}")
+                tab_sequence.append(material_combo._entry)
+
+                percent_combo = ctk.CTkComboBox(
+                    row_frame,
+                    values=percent_values,
+                    state="normal",
+                    width=80,
+                    justify="center",
+                )
+                percent_combo.set("")
+                percent_combo.pack(side="left", padx=(0, 6), pady=4)
+                _attach_autocomplete(percent_combo, percent_values, f"pourcentage-{row_index}")
+                tab_sequence.append(percent_combo._entry)
+
+                percent_label = ctk.CTkLabel(row_frame, text="%")
+                percent_label.pack(side="left", padx=(0, 4))
+
+                composition_rows.append((material_combo, percent_combo))
+
+            def _collect_composition_rows() -> Optional[str]:
+                try:
+                    collected_parts: List[str] = []
+                    for index, (material_combo, percent_combo) in enumerate(
+                        composition_rows, start=1
+                    ):
+                        selected_material = material_combo.get().strip()
+                        selected_percent = percent_combo.get().strip()
+
+                        if selected_material and not selected_percent:
+                            logger.warning(
+                                "Ligne %s: pourcentage absent pour le composant %s.",
+                                index,
+                                selected_material,
+                            )
+                            messagebox.showerror(
+                                "Pourcentage manquant",
+                                (
+                                    "Merci d'indiquer un pourcentage pour le composant de la ligne "
+                                    f"{index}."
+                                ),
+                            )
+                            return None
+
+                        if selected_percent and not selected_material:
+                            logger.warning(
+                                "Ligne %s: composant manquant pour un pourcentage saisi.", index
+                            )
+                            messagebox.showerror(
+                                "Composant manquant",
+                                (
+                                    "Merci de sélectionner un composant avant de renseigner un pourcentage "
+                                    f"(ligne {index})."
+                                ),
+                            )
+                            return None
+
+                        if selected_material and selected_percent:
+                            if selected_material.lower() not in [
+                                option.lower() for option in material_options
+                            ]:
+                                logger.warning(
+                                    "Ligne %s: composant inconnu saisi: %s.",
+                                    index,
+                                    selected_material,
+                                )
+                                messagebox.showerror(
+                                    "Composant invalide",
+                                    (
+                                        "Merci de choisir un composant depuis la liste déroulante pour la ligne "
+                                        f"{index}."
+                                    ),
+                                )
+                                return None
+
+                            if not selected_percent.isdigit():
+                                logger.warning(
+                                    "Ligne %s: pourcentage non numérique saisi: %s.",
+                                    index,
+                                    selected_percent,
+                                )
+                                messagebox.showerror(
+                                    "Pourcentage invalide",
+                                    "Le pourcentage doit être un nombre entre 1 et 100.",
+                                )
+                                return None
+
+                            percent_value = int(selected_percent)
+                            if percent_value < 1 or percent_value > 100:
+                                logger.warning(
+                                    "Ligne %s: pourcentage hors plage (%s).",
+                                    index,
+                                    percent_value,
+                                )
+                                messagebox.showerror(
+                                    "Pourcentage invalide",
+                                    "Les pourcentages doivent être compris entre 1 et 100.",
+                                )
+                                return None
+                            collected_parts.append(f"{percent_value}% {selected_material}")
+
+                    return ", ".join(collected_parts)
+                except ValueError as exc_value:
+                    logger.error(
+                        "Erreur de conversion du pourcentage saisi: %s", exc_value, exc_info=True
+                    )
+                    messagebox.showerror(
+                        "Saisie invalide", "Le pourcentage doit être un nombre entre 1 et 100."
+                    )
+                    return None
+                except Exception as exc_collect:  # pragma: no cover - defensive
+                    logger.error(
+                        "Erreur lors de la collecte des compositions: %s", exc_collect, exc_info=True
+                    )
+                    messagebox.showerror(
+                        "Erreur de saisie", f"Une erreur est survenue pendant la saisie : {exc_collect}"
+                    )
+                    return None
 
             def _apply_composition_text(raw_text: str) -> None:
                 try:
@@ -689,8 +875,10 @@ class VintedAIApp(ctk.CTk):
 
             def validate_composition() -> None:
                 try:
-                    user_text = composition_text.get("1.0", "end")
-                    _apply_composition_text(user_text)
+                    collected_text = _collect_composition_rows()
+                    if collected_text is None:
+                        return
+                    _apply_composition_text(collected_text)
                     close_modal()
                 except Exception as exc_validate:  # pragma: no cover - defensive
                     logger.error("Erreur lors de la validation de la composition: %s", exc_validate, exc_info=True)
@@ -720,6 +908,50 @@ class VintedAIApp(ctk.CTk):
                 width=180,
             )
             missing_btn.pack(side="left", padx=8)
+
+            try:
+                def _bind_tab_order() -> None:
+                    try:
+                        ordered_targets: List[Any] = tab_sequence + [validate_btn, missing_btn]
+                        for idx, widget in enumerate(tab_sequence):
+                            try:
+                                next_widget = ordered_targets[idx + 1]
+                            except Exception:
+                                next_widget = validate_btn
+
+                            def _focus_next(event: Any, target: Any = next_widget) -> str:
+                                try:
+                                    target.focus_set()
+                                except Exception as exc_focus:  # pragma: no cover - defensive
+                                    logger.error(
+                                        "Navigation tabulation: focus impossible sur %s: %s",
+                                        target,
+                                        exc_focus,
+                                        exc_info=True,
+                                    )
+                                return "break"
+
+                            try:
+                                widget.bind("<Tab>", _focus_next)
+                            except Exception as exc_bind:  # pragma: no cover - defensive
+                                logger.error(
+                                    "Navigation tabulation: liaison impossible sur widget %s: %s",
+                                    widget,
+                                    exc_bind,
+                                    exc_info=True,
+                                )
+                    except Exception as exc_tab:  # pragma: no cover - defensive
+                        logger.error(
+                            "Navigation tabulation: erreur lors de la configuration: %s",
+                            exc_tab,
+                            exc_info=True,
+                        )
+
+                _bind_tab_order()
+            except Exception as exc_tab_bind:  # pragma: no cover - defensive
+                logger.error(
+                    "Navigation tabulation: erreur inattendue: %s", exc_tab_bind, exc_info=True
+                )
 
             modal.protocol("WM_DELETE_WINDOW", fallback_composition)
         except Exception as exc:
