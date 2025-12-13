@@ -254,6 +254,19 @@ def _strip_footer_lines(description: str) -> str:
             filtered_lines.append(line)
 
         cleaned = "\n".join(filtered_lines)
+
+        try:
+            import re
+
+            cleaned = re.sub(
+                r"(?im)^\s*(marque|couleur|taille|sku)[^\n]*$",
+                "",
+                cleaned,
+            )
+            cleaned = "\n".join([ln for ln in cleaned.split("\n") if ln.strip()])
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("_strip_footer_lines: nettoyage étendu ignoré (%s)", exc)
+
         return cleaned
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("_strip_footer_lines: erreur %s", exc)

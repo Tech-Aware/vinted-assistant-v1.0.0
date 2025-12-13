@@ -9,6 +9,7 @@ import logging
 from domain.description_builder import (
     build_jean_levis_description,
     build_pull_tommy_description,
+    _strip_footer_lines,
 )
 from domain.templates import AnalysisProfileName
 from domain.title_builder import build_jean_levis_title, build_pull_tommy_title
@@ -553,7 +554,18 @@ def normalize_and_postprocess(
             "normalize_and_postprocess: erreur description -> fallback brut (%s)",
             exc,
         )
-        description = ai_data.get("description")
+        raw_description = ai_data.get("description") or ""
+        if profile_name == AnalysisProfileName.PULL_TOMMY:
+            try:
+                description = _strip_footer_lines(raw_description)
+            except Exception as nested_exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "normalize_and_postprocess: nettoyage footer ignoré (%s)",
+                    nested_exc,
+                )
+                description = raw_description
+        else:
+            description = raw_description
 
     # --- 3) Merge final ----------------------------------------------------
     result.update(features)
