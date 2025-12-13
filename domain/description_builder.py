@@ -89,7 +89,7 @@ def _build_state_sentence(defects: Optional[str]) -> str:
             return "Très bon état."
         return (
             "Très bon état. Légères traces d'usage : "
-            f"{clean_defects} (voir photos)."
+            f"{clean_defects}, typiques de cette composition (voir photos)."
         )
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("_build_state_sentence: erreur %s", exc)
@@ -239,6 +239,9 @@ def _strip_footer_lines(description: str) -> str:
             if lowered.startswith("couleur :"):
                 logger.debug("_strip_footer_lines: ligne couleur supprimée: %s", line)
                 continue
+            if lowered.startswith("taille :"):
+                logger.debug("_strip_footer_lines: ligne taille supprimée: %s", line)
+                continue
             if lowered.startswith("sku"):
                 logger.debug("_strip_footer_lines: ligne SKU supprimée: %s", line)
                 continue
@@ -255,19 +258,58 @@ def _build_pull_tommy_composition(
     material: Optional[str], cotton_percent: Optional[Any], wool_percent: Optional[Any]
 ) -> str:
     try:
+        fibers: List[str] = []
+        seen: set[str] = set()
+
+        def _add_fiber(label: str, percent: Optional[int]) -> None:
+            try:
+                label_clean = _safe_clean(label).lower()
+                if not label_clean:
+                    return
+                key = f"{percent}-{label_clean}" if percent is not None else label_clean
+                if key in seen:
+                    return
+                seen.add(key)
+                display = label_clean.capitalize()
+                if percent is not None:
+                    fibers.append(f"{percent}% {display}")
+                else:
+                    fibers.append(display)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug(
+                    "_build_pull_tommy_composition: impossible d'ajouter %s (%s)",
+                    label,
+                    exc,
+                )
+
+        clean_material = _safe_clean(material)
+        if clean_material:
+            try:
+                import re
+
+                matches = re.findall(
+                    r"(\d+)\s*%\s*([A-Za-zÀ-ÿ]+)", clean_material, flags=re.IGNORECASE
+                )
+                for percent_txt, fiber_name in matches:
+                    percent_val = _format_percent(percent_txt)
+                    _add_fiber(fiber_name, percent_val)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "_build_pull_tommy_composition: parsing partiel de la composition (%s)",
+                    exc,
+                )
+
         cotton_val = _format_percent(cotton_percent)
         wool_val = _format_percent(wool_percent)
 
-        fibers: List[str] = []
         if cotton_val is not None:
-            fibers.append(f"{cotton_val}% coton")
+            _add_fiber("coton", cotton_val)
         if wool_val is not None:
-            fibers.append(f"{wool_val}% laine")
+            _add_fiber("laine", wool_val)
 
         if fibers:
             return "Composition : " + ", ".join(fibers) + "."
 
-        clean_material = _safe_clean(material)
         if clean_material:
             return f"Composition (étiquette) : {clean_material}."
 
@@ -491,10 +533,15 @@ def build_pull_tommy_description(
             material_phrase = f"maille {material}".strip()
 
         color_text = colors or "aux couleurs iconiques"
-        neckline_text = f"Col {neckline}" if neckline else "Maille"
-        style_clause = f" en style {pattern}" if pattern else ""
+        if neckline:
+            neckline_low = neckline.lower()
+            neckline_text = neckline if neckline_low.startswith("col") else f"Col {neckline}"
+        else:
+            neckline_text = "Maille"
+
+        style_clause = f" dans un style {pattern}" if pattern else ""
         descriptive_sentence = (
-            f"{neckline_text}{style_clause}, dans un coloris {color_text} et une {material_phrase} pour un look confortable."
+            f"{neckline_text}{style_clause}, dans un coloris {color_text} et une {material_phrase} pour un look iconique et confortable."
         ).strip()
 
         composition_sentence = _build_pull_tommy_composition(
@@ -548,6 +595,7 @@ def build_pull_tommy_description(
             [
                 "✨ Retrouvez tous mes pulls Tommy femme ici 👉 #durin31tfM",
                 "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
+                "",
                 hashtags_block,
             ]
         )
