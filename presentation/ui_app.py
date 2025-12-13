@@ -606,28 +606,40 @@ class VintedAIApp(ctk.CTk):
     # ------------------------------------------------------------------
 
     def _format_listing(self, listing: VintedListing) -> str:
-        lines: List[str] = []
+        try:
+            lines: List[str] = []
 
-        lines.append(f"TITRE : {listing.title or '(vide)'}")
-        lines.append("")
-        lines.append("DESCRIPTION :")
-        lines.append(listing.description or "(vide)")
-        lines.append("")
-
-        if listing.size:
-            lines.append(f"Taille : {listing.size}")
-        if listing.condition:
-            lines.append(f"État : {listing.condition}")
-
-        if listing.tags:
+            lines.append(f"TITRE : {listing.title or '(vide)'}")
             lines.append("")
-            lines.append(f"Tags : {', '.join(listing.tags)}")
-
-        if getattr(listing, "sku", None):
+            lines.append("DESCRIPTION :")
+            lines.append(listing.description or "(vide)")
             lines.append("")
-            lines.append(f"SKU : {listing.sku}")
 
-        return "\n".join(lines)
+            if listing.condition:
+                lines.append(f"État : {listing.condition}")
+
+            if listing.tags:
+                lines.append("")
+                lines.append(f"Tags : {', '.join(listing.tags)}")
+
+            if listing.size:
+                logger.info(
+                    "_format_listing: taille %s disponible mais non ajoutée pour éviter les pieds de description.",
+                    listing.size,
+                )
+            if getattr(listing, "sku", None):
+                logger.info(
+                    "_format_listing: SKU %s disponible mais non affiché pour éviter les pieds de description.",
+                    listing.sku,
+                )
+
+            return "\n".join(lines)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("_format_listing: erreur -> rendu brut (%s)", exc, exc_info=True)
+            return (
+                f"TITRE : {getattr(listing, 'title', '(vide)')}\n\nDESCRIPTION :\n"
+                f"{getattr(listing, 'description', '(vide)')}"
+            )
 
     # ------------------------------------------------------------------
     # Gestion du SKU manuel
