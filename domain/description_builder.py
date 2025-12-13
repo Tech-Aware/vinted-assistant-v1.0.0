@@ -230,6 +230,11 @@ def _strip_footer_lines(description: str) -> str:
         if not description:
             return ""
 
+        try:
+            description = description.replace("\u00A0", " ")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("_strip_footer_lines: normalisation espaces ignorée (%s)", exc)
+
         filtered_lines: List[str] = []
         for line in description.split("\n"):
             lowered = line.strip().lower()
@@ -259,9 +264,12 @@ def _strip_footer_lines(description: str) -> str:
             import re
 
             cleaned = re.sub(
-                r"(?im)^\s*(marque|couleur|taille|sku)[^\n]*$",
+                r"(?im)^\s*(marque|couleur|taille|sku)\s*:[^\n]*$",
                 "",
                 cleaned,
+            )
+            cleaned = re.sub(
+                r"(?is)\n+\s*(marque|couleur|taille|sku)\s*:[^\n]*", "", cleaned
             )
 
             final_lines: List[str] = []

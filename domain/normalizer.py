@@ -577,6 +577,13 @@ def normalize_and_postprocess(
     # --- 3) Merge final ----------------------------------------------------
     result.update(features)
     result["title"] = title
-    result["description"] = description
+    try:
+        result["description"] = _strip_footer_lines(description)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "normalize_and_postprocess: impossibilité de nettoyer le footer final (%s)",
+            exc,
+        )
+        result["description"] = description
 
     return result
