@@ -547,6 +547,13 @@ def normalize_and_postprocess(
                 ai_description=ai_data.get("description"),
                 ai_defects=ai_data.get("defects"),
             )
+            try:
+                description = _strip_footer_lines(description)
+            except Exception as nested_exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "normalize_and_postprocess: nettoyage complémentaire ignoré (%s)",
+                    nested_exc,
+                )
         else:
             description = ai_data.get("description")
     except Exception as exc:  # pragma: no cover - defensive

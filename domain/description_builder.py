@@ -263,7 +263,19 @@ def _strip_footer_lines(description: str) -> str:
                 "",
                 cleaned,
             )
-            cleaned = "\n".join([ln for ln in cleaned.split("\n") if ln.strip()])
+
+            final_lines: List[str] = []
+            blank_seen = False
+            for raw_line in cleaned.split("\n"):
+                if not raw_line.strip():
+                    if not blank_seen:
+                        final_lines.append("")
+                        blank_seen = True
+                    continue
+                final_lines.append(raw_line.rstrip())
+                blank_seen = False
+
+            cleaned = "\n".join(final_lines).strip()
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("_strip_footer_lines: nettoyage étendu ignoré (%s)", exc)
 
