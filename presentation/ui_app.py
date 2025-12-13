@@ -672,7 +672,7 @@ class VintedAIApp(ctk.CTk):
             percent_values = [str(index) for index in range(1, 101)]
 
             composition_frame = ctk.CTkFrame(modal)
-            composition_frame.pack(fill="x", padx=12, pady=(0, 12), anchor="center")
+            composition_frame.pack(padx=12, pady=(0, 12), anchor="center")
 
             composition_rows: List[Tuple[ctk.CTkComboBox, ctk.CTkComboBox]] = []
 
@@ -689,6 +689,7 @@ class VintedAIApp(ctk.CTk):
                                 if value.lower().startswith(current_value)
                             ]
                             combobox.configure(values=filtered_values or options)
+                            combobox._open_dropdown_menu()
                         except Exception as exc_key:  # pragma: no cover - defensive
                             logger.error(
                                 "Autocomplete %s: erreur lors du filtrage: %s", label, exc_key, exc_info=True
@@ -702,7 +703,7 @@ class VintedAIApp(ctk.CTk):
 
             for row_index in range(4):
                 row_frame = ctk.CTkFrame(composition_frame)
-                row_frame.pack(fill="x", padx=8, pady=4, anchor="center")
+                row_frame.pack(padx=8, pady=6, anchor="center")
 
                 material_combo = ctk.CTkComboBox(
                     row_frame,
@@ -712,7 +713,7 @@ class VintedAIApp(ctk.CTk):
                     justify="center",
                 )
                 material_combo.set("")
-                material_combo.pack(side="left", padx=(4, 8), pady=4)
+                material_combo.pack(side="left", padx=(6, 10), pady=4)
                 _attach_autocomplete(material_combo, material_options, f"matière-{row_index}")
 
                 percent_combo = ctk.CTkComboBox(
