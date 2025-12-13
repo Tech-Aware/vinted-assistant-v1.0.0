@@ -40,6 +40,8 @@ class VintedListing:
     tags: List[str] = field(default_factory=list)
     sku: Optional[str] = None
     sku_status: Optional[str] = None
+    features: Dict[str, Any] = field(default_factory=dict)
+    manual_composition_text: Optional[str] = None
 
     # ------------------------------------------------------------------ #
     # Validation métier
@@ -156,6 +158,9 @@ class VintedListing:
             else:
                 logger.warning("Champ 'tags' non liste: %r", raw_tags)
 
+            features = data.get("features") or {}
+            manual_composition_text = data.get("manual_composition_text")
+
             listing = cls(
                 title=title,
                 description=description,
@@ -166,6 +171,8 @@ class VintedListing:
                 tags=tags,
                 sku=sku,
                 sku_status=sku_status,
+                features=features,
+                manual_composition_text=manual_composition_text,
             )
 
             listing.validate()
@@ -195,6 +202,8 @@ class VintedListing:
                 "tags": list(self.tags),
                 "sku": self.sku,
                 "sku_status": self.sku_status,
+                "features": dict(self.features),
+                "manual_composition_text": self.manual_composition_text,
             }
             logger.debug("Sérialisation VintedListing: %r", result)
             return result

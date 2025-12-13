@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 import os
-from typing import Dict, List, Optional
+import re
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from PIL import Image  # encore utilisé pour l’aperçu plein écran si tu le gardes ailleurs
 
@@ -15,7 +16,7 @@ from tkinter import filedialog, messagebox
 from domain.ai_provider import AIProviderName, AIListingProvider
 from domain.models import VintedListing
 from domain.templates import AnalysisProfileName, AnalysisProfile, ALL_PROFILES
-from domain.title_builder import SKU_PREFIX
+from domain.title_builder import SKU_PREFIX, build_pull_tommy_title
 
 from .image_preview import ImagePreview  # <- widget réutilisé depuis l’ancienne app
 
@@ -662,6 +663,11 @@ class VintedAIApp(ctk.CTk):
                     else:
                         sentence = "Etiquette de composition coupée pour plus de confort."
 
+                    listing.manual_composition_text = clean_text or None
+                    listing.features = getattr(listing, "features", {}) or {}
+                    self._update_composition_features(listing, clean_text)
+                    self._rebuild_title_with_manual_composition(listing)
+
                     updated_description = (listing.description or "").replace(placeholder, sentence)
                     listing.description = updated_description
 
@@ -718,6 +724,97 @@ class VintedAIApp(ctk.CTk):
             modal.protocol("WM_DELETE_WINDOW", fallback_composition)
         except Exception as exc:
             logger.error("_open_composition_modal: erreur %s", exc, exc_info=True)
+
+    def _update_composition_features(self, listing: VintedListing, raw_text: str) -> None:
+        try:
+            features = getattr(listing, "features", {}) or {}
+            lowered = raw_text.lower()
+            parsed: Dict[str, Any] = {}
+
+            def _search_percent(keywords: List[str]) -> Optional[int]:
+                try:
+                    for keyword in keywords:
+                        before_match = re.search(rf"(\d{{1,3}})\s*%?\s*{keyword}", lowered)
+                        if before_match:
+                            return int(before_match.group(1))
+
+                        after_match = re.search(rf"{keyword}[^\d]*(\d{{1,3}})\s*%", lowered)
+                        if after_match:
+                            return int(after_match.group(1))
+                    return None
+                except Exception:
+                    return None
+
+            cotton_percent = _search_percent(["coton", "cotton"])
+            wool_percent = _search_percent(["laine", "wool", "cachemire", "cashmere", "angora"])
+
+            if cotton_percent is not None:
+                parsed["cotton_percent"] = cotton_percent
+            if wool_percent is not None:
+                parsed["wool_percent"] = wool_percent
+
+            material_mapping = [
+                ("cachemire", "cachemire"),
+                ("cashmere", "cachemire"),
+                ("angora", "angora"),
+                ("laine", "laine"),
+                ("wool", "laine"),
+                ("coton", "coton"),
+                ("cotton", "coton"),
+            ]
+
+            for keyword, label in material_mapping:
+                if keyword in lowered:
+                    parsed["material"] = label
+                    break
+
+            parsed["manual_composition_text"] = raw_text.strip() or None
+
+            if parsed:
+                features.update({k: v for k, v in parsed.items() if v is not None})
+                listing.features = features
+                logger.info("Features composition mis à jour: %s", parsed)
+        except Exception as exc:
+            logger.error("_update_composition_features: erreur %s", exc, exc_info=True)
+
+    def _rebuild_title_with_manual_composition(self, listing: VintedListing) -> None:
+        try:
+            profile_value = self.profile_var.get()
+            try:
+                profile_name = AnalysisProfileName(profile_value)
+            except Exception:
+                logger.warning(
+                    "_rebuild_title_with_manual_composition: profil inconnu (%s)",
+                    profile_value,
+                )
+                return
+
+            if profile_name != AnalysisProfileName.PULL_TOMMY:
+                logger.info(
+                    "_rebuild_title_with_manual_composition: profil %s sans recalcul titre.",
+                    profile_value,
+                )
+                return
+
+            features = getattr(listing, "features", {}) or {}
+            if not features:
+                logger.warning(
+                    "_rebuild_title_with_manual_composition: aucun feature disponible pour recalculer."
+                )
+                return
+
+            updated_title = build_pull_tommy_title(features)
+            if updated_title and updated_title != listing.title:
+                logger.info(
+                    "Titre recalculé pour profil pull_tommy après composition: %s", updated_title
+                )
+                listing.title = updated_title
+        except Exception as exc:
+            logger.error(
+                "_rebuild_title_with_manual_composition: erreur lors du recalcul de titre: %s",
+                exc,
+                exc_info=True,
+            )
 
     # ------------------------------------------------------------------
     # Format

@@ -614,6 +614,7 @@ def normalize_and_postprocess(
 
     # --- 3) Merge final ----------------------------------------------------
     result.update(features)
+    result["features"] = dict(features)
     result["title"] = title
     try:
         result["description"] = _strip_footer_lines(description)
