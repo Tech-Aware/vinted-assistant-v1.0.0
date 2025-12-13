@@ -6,7 +6,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image  # encore utilisé pour l’aperçu plein écran si tu le gardes ailleurs
 
@@ -647,13 +647,135 @@ class VintedAIApp(ctk.CTk):
 
             entry_label = ctk.CTkLabel(
                 modal,
-                text="Recopiez le texte de l'étiquette de composition (ou laissez vide si coupée) :",
+                text=(
+                    "Précisez la composition via les listes déroulantes ci-dessous (jusqu'à 4 lignes).\n"
+                    "Merci d'indiquer le pourcentage uniquement si un composant est sélectionné."
+                ),
                 anchor="w",
+                justify="left",
             )
             entry_label.pack(fill="x", padx=16, pady=(8, 4))
 
-            composition_text = ctk.CTkTextbox(modal, height=80)
-            composition_text.pack(fill="x", padx=16, pady=(0, 10))
+            material_options = sorted(
+                [
+                    "acrylique",
+                    "angora",
+                    "coton",
+                    "élasthanne",
+                    "laine",
+                    "nylon",
+                    "polyester",
+                    "viscose",
+                ],
+                key=lambda value: value.lower(),
+            )
+            percent_values = [str(index) for index in range(1, 101)]
+
+            composition_frame = ctk.CTkFrame(modal)
+            composition_frame.pack(fill="x", padx=12, pady=(0, 12))
+
+            composition_rows: List[Tuple[ctk.CTkComboBox, ctk.CTkComboBox]] = []
+
+            for row_index in range(4):
+                row_frame = ctk.CTkFrame(composition_frame)
+                row_frame.pack(fill="x", padx=8, pady=4)
+
+                material_combo = ctk.CTkComboBox(
+                    row_frame,
+                    values=material_options,
+                    state="readonly",
+                    width=260,
+                    justify="left",
+                    placeholder_text="Choisir un composant",
+                )
+                material_combo.set("")
+                material_combo.pack(side="left", padx=(4, 8), pady=4)
+
+                percent_combo = ctk.CTkComboBox(
+                    row_frame,
+                    values=percent_values,
+                    state="readonly",
+                    width=80,
+                    justify="center",
+                    placeholder_text="%",
+                )
+                percent_combo.set("")
+                percent_combo.pack(side="left", padx=(0, 6), pady=4)
+
+                percent_label = ctk.CTkLabel(row_frame, text="%")
+                percent_label.pack(side="left", padx=(0, 4))
+
+                composition_rows.append((material_combo, percent_combo))
+
+            def _collect_composition_rows() -> Optional[str]:
+                try:
+                    collected_parts: List[str] = []
+                    for index, (material_combo, percent_combo) in enumerate(
+                        composition_rows, start=1
+                    ):
+                        selected_material = material_combo.get().strip()
+                        selected_percent = percent_combo.get().strip()
+
+                        if selected_material and not selected_percent:
+                            logger.warning(
+                                "Ligne %s: pourcentage absent pour le composant %s.",
+                                index,
+                                selected_material,
+                            )
+                            messagebox.showerror(
+                                "Pourcentage manquant",
+                                (
+                                    "Merci d'indiquer un pourcentage pour le composant de la ligne "
+                                    f"{index}."
+                                ),
+                            )
+                            return None
+
+                        if selected_percent and not selected_material:
+                            logger.warning(
+                                "Ligne %s: composant manquant pour un pourcentage saisi.", index
+                            )
+                            messagebox.showerror(
+                                "Composant manquant",
+                                (
+                                    "Merci de sélectionner un composant avant de renseigner un pourcentage "
+                                    f"(ligne {index})."
+                                ),
+                            )
+                            return None
+
+                        if selected_material and selected_percent:
+                            percent_value = int(selected_percent)
+                            if percent_value < 1 or percent_value > 100:
+                                logger.warning(
+                                    "Ligne %s: pourcentage hors plage (%s).",
+                                    index,
+                                    percent_value,
+                                )
+                                messagebox.showerror(
+                                    "Pourcentage invalide",
+                                    "Les pourcentages doivent être compris entre 1 et 100.",
+                                )
+                                return None
+                            collected_parts.append(f"{percent_value}% {selected_material}")
+
+                    return ", ".join(collected_parts)
+                except ValueError as exc_value:
+                    logger.error(
+                        "Erreur de conversion du pourcentage saisi: %s", exc_value, exc_info=True
+                    )
+                    messagebox.showerror(
+                        "Saisie invalide", "Le pourcentage doit être un nombre entre 1 et 100."
+                    )
+                    return None
+                except Exception as exc_collect:  # pragma: no cover - defensive
+                    logger.error(
+                        "Erreur lors de la collecte des compositions: %s", exc_collect, exc_info=True
+                    )
+                    messagebox.showerror(
+                        "Erreur de saisie", f"Une erreur est survenue pendant la saisie : {exc_collect}"
+                    )
+                    return None
 
             def _apply_composition_text(raw_text: str) -> None:
                 try:
@@ -689,8 +811,10 @@ class VintedAIApp(ctk.CTk):
 
             def validate_composition() -> None:
                 try:
-                    user_text = composition_text.get("1.0", "end")
-                    _apply_composition_text(user_text)
+                    collected_text = _collect_composition_rows()
+                    if collected_text is None:
+                        return
+                    _apply_composition_text(collected_text)
                     close_modal()
                 except Exception as exc_validate:  # pragma: no cover - defensive
                     logger.error("Erreur lors de la validation de la composition: %s", exc_validate, exc_info=True)
