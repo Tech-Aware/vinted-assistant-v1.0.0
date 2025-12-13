@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -203,13 +204,13 @@ class VintedAIApp(ctk.CTk):
 
     def _build_generate_button(self, parent: ctk.CTkFrame) -> None:
         try:
-            generate_btn = ctk.CTkButton(
+            self.generate_btn = ctk.CTkButton(
                 parent,
                 text="Générer",
                 command=self.generate_listing,
                 width=120,
             )
-            generate_btn.pack(anchor="e", padx=10, pady=(0, 10))
+            self.generate_btn.pack(anchor="e", padx=10, pady=(0, 10))
 
             logger.info("Bouton de génération positionné sous la zone de résultat.")
         except Exception as exc:
@@ -523,86 +524,142 @@ class VintedAIApp(ctk.CTk):
     # ------------------------------------------------------------------
 
     def generate_listing(self) -> None:
-        if not self.selected_images:
-            messagebox.showwarning(
-                "Images manquantes",
-                "Merci de sélectionner au moins une image de l'article.",
-            )
-            return
-
-        provider = self._get_selected_provider()
-        if not provider:
-            messagebox.showerror(
-                "Provider IA manquant",
-                "Provider IA inconnu ou non configuré.",
-            )
-            return
-
-        profile = self._get_selected_profile()
-        if not profile:
-            messagebox.showerror(
-                "Profil manquant",
-                "Profil d'analyse inconnu ou non configuré.",
-            )
-            return
-
-        logger.info(
-            "Lancement analyse IA (provider=%s, profile=%s, images=%s)",
-            provider.name.value,
-            profile.name.value,
-            [str(p) for p in self.selected_images],
-        )
-
-        self.result_text.delete("1.0", "end")
-
-        # ---- UI DATA (v1 simple) ----
-        profile_requires_measure = self._profile_requires_measure_mode(profile.name.value)
-
-        if profile_requires_measure:
-            measurement_mode = self.measure_mode_var.get()
-            ui_data = {"measurement_mode": measurement_mode}
-            logger.info(
-                "Mode de relevé sélectionné pour le profil %s: %s",
-                profile.name.value,
-                measurement_mode,
-            )
-        else:
-            size_fr = self.size_fr_var.get().strip() or None
-            size_us = self.size_us_var.get().strip() or None
-
-            ui_data = {
-                "size_fr": size_fr,
-                "size_us": size_us,
-            }
-            logger.info(
-                "Tailles fournies (FR=%s, US=%s) pour le profil %s",
-                size_fr,
-                size_us,
-                profile.name.value,
-            )
-
         try:
-            listing: VintedListing = provider.generate_listing(
-                self.selected_images,
-                profile,
-                ui_data=ui_data,
+            if not self.selected_images:
+                messagebox.showwarning(
+                    "Images manquantes",
+                    "Merci de sélectionner au moins une image de l'article.",
+                )
+                return
+
+            provider = self._get_selected_provider()
+            if not provider:
+                messagebox.showerror(
+                    "Provider IA manquant",
+                    "Provider IA inconnu ou non configuré.",
+                )
+                return
+
+            profile = self._get_selected_profile()
+            if not profile:
+                messagebox.showerror(
+                    "Profil manquant",
+                    "Profil d'analyse inconnu ou non configuré.",
+                )
+                return
+
+            logger.info(
+                "Lancement analyse IA (provider=%s, profile=%s, images=%s)",
+                provider.name.value,
+                profile.name.value,
+                [str(p) for p in self.selected_images],
             )
+
+            if self.generate_btn:
+                self.generate_btn.configure(state="disabled")
+
+            if self.result_text:
+                self.result_text.delete("1.0", "end")
+                self.result_text.insert("1.0", "Analyse en cours...\n")
+
+            profile_requires_measure = self._profile_requires_measure_mode(
+                profile.name.value
+            )
+
+            if profile_requires_measure:
+                measurement_mode = self.measure_mode_var.get()
+                ui_data = {"measurement_mode": measurement_mode}
+                logger.info(
+                    "Mode de relevé sélectionné pour le profil %s: %s",
+                    profile.name.value,
+                    measurement_mode,
+                )
+            else:
+                size_fr = self.size_fr_var.get().strip() or None
+                size_us = self.size_us_var.get().strip() or None
+
+                ui_data = {
+                    "size_fr": size_fr,
+                    "size_us": size_us,
+                }
+                logger.info(
+                    "Tailles fournies (FR=%s, US=%s) pour le profil %s",
+                    size_fr,
+                    size_us,
+                    profile.name.value,
+                )
+
+            def _run_generation() -> None:
+                try:
+                    listing: VintedListing = provider.generate_listing(
+                        self.selected_images,
+                        profile,
+                        ui_data=ui_data,
+                    )
+                    logger.info("Analyse IA terminée, scheduling de la mise à jour UI.")
+                    self.after(0, lambda: self._handle_generation_success(listing))
+                except Exception as exc_generation:
+                    logger.error(
+                        "Erreur provider IA: %s", exc_generation, exc_info=True
+                    )
+                    self.after(0, lambda: self._handle_generation_failure(exc_generation))
+
+            try:
+                thread = threading.Thread(
+                    daemon=True,
+                    target=_run_generation,
+                )
+                thread.start()
+                logger.info("Thread de génération lancé en mode daemon.")
+            except Exception as exc_thread:
+                logger.error(
+                    "Erreur lors du démarrage du thread de génération: %s",
+                    exc_thread,
+                    exc_info=True,
+                )
+                self._handle_generation_failure(exc_thread)
+        except Exception as exc:
+            logger.error("Erreur inattendue lors de la génération: %s", exc, exc_info=True)
+            messagebox.showerror(
+                "Erreur IA",
+                f"Une erreur est survenue pendant l'analyse IA :\n{exc}",
+            )
+
+    def _handle_generation_success(self, listing: VintedListing) -> None:
+        try:
+            if self.generate_btn:
+                self.generate_btn.configure(state="normal")
 
             self.current_listing = listing
 
             self._prompt_composition_if_needed(listing)
 
-            output = self._format_listing(listing)
-            self.result_text.insert("1.0", output)
+            if self.result_text:
+                output = self._format_listing(listing)
+                self.result_text.delete("1.0", "end")
+                self.result_text.insert("1.0", output)
 
             if self._needs_manual_sku(listing):
                 self._prompt_for_sku(listing)
-
         except Exception as exc:
-            logger.error("Erreur provider IA: %s", exc, exc_info=True)
+            logger.error(
+                "Erreur lors de la finalisation de la génération: %s",
+                exc,
+                exc_info=True,
+            )
+
+    def _handle_generation_failure(self, exc: Exception) -> None:
+        try:
+            if self.generate_btn:
+                self.generate_btn.configure(state="normal")
+
             messagebox.showerror(
                 "Erreur IA",
                 f"Une erreur est survenue pendant l'analyse IA :\n{exc}",
+            )
+        except Exception as exc_ui:
+            logger.error(
+                "Erreur lors de l'affichage de l'erreur IA: %s", exc_ui, exc_info=True
             )
 
     def _prompt_composition_if_needed(self, listing: VintedListing) -> None:
