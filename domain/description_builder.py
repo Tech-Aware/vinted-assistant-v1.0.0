@@ -325,9 +325,16 @@ def _build_pull_tommy_composition(
                     "cotone": "coton",
                     "wool": "laine",
                     "lana": "laine",
+                    "angora": "angora",
+                    "angora rabbit": "angora",
+                    "rabbit angora": "angora",
+                    "rabbit": "angora",
+                    "lapin": "angora",
+                    "lapin angora": "angora",
                 }
                 cleaned = raw_label.strip(" .")
-                return aliases.get(cleaned, cleaned)
+                cleaned_lower = cleaned.lower()
+                return aliases.get(cleaned_lower, cleaned_lower)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug(
                     "_build_pull_tommy_composition: normalisation matière échouée (%s)",
