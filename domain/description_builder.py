@@ -300,16 +300,40 @@ def _build_pull_tommy_composition(
         fibers: List[str] = []
         seen: set[str] = set()
 
+        def _normalize_fiber_label(raw_label: str) -> str:
+            try:
+                aliases = {
+                    "cotton": "coton",
+                    "cotton.": "coton",
+                    "cot": "coton",
+                    "cotone": "coton",
+                    "wool": "laine",
+                    "lana": "laine",
+                }
+                cleaned = raw_label.strip(" .")
+                return aliases.get(cleaned, cleaned)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug(
+                    "_build_pull_tommy_composition: normalisation matière échouée (%s)",
+                    exc,
+                )
+                return raw_label
+
         def _add_fiber(label: str, percent: Optional[int]) -> None:
             try:
                 label_clean = _safe_clean(label).lower()
                 if not label_clean:
                     return
-                key = f"{percent}-{label_clean}" if percent is not None else label_clean
+                normalized_label = _normalize_fiber_label(label_clean)
+                key = (
+                    f"{percent}-{normalized_label}"
+                    if percent is not None
+                    else normalized_label
+                )
                 if key in seen:
                     return
                 seen.add(key)
-                display = label_clean.capitalize()
+                display = normalized_label.capitalize()
                 if percent is not None:
                     fibers.append(f"{percent}% {display}")
                 else:
@@ -599,6 +623,14 @@ def build_pull_tommy_description(
 
         tokens_hashtag: List[str] = []
         try:
+            size_token = size.replace(" ", "").upper() if size else "NC"
+            durin_tag = f"#durin31tf{size_token}"
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("build_pull_tommy_description: durin_tag défaut (%s)", exc)
+            size_token = "NC"
+            durin_tag = "#durin31tfNC"
+
+        try:
             def _add_tag(token: str) -> None:
                 if token and token not in tokens_hashtag:
                     tokens_hashtag.append(token)
@@ -610,7 +642,7 @@ def build_pull_tommy_description(
                 "#pullfemme",
                 "#modefemme",
                 "#preloved",
-                "#durin31tfM",
+                durin_tag,
                 "#ptf",
             ]
             for token in base_tags:
@@ -632,7 +664,7 @@ def build_pull_tommy_description(
         hashtags_block = " ".join(tokens_hashtag)
         hashtags_with_cta = "\n".join(
             [
-                "✨ Retrouvez tous mes pulls Tommy femme ici 👉 #durin31tfM",
+                f"✨ Retrouvez tous mes pulls Tommy femme ici 👉 {durin_tag}",
                 "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
                 "",
                 hashtags_block,
