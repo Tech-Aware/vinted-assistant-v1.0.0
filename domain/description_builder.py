@@ -310,7 +310,10 @@ def _strip_footer_lines(description: str) -> str:
 
 
 def _build_pull_tommy_composition(
-    material: Optional[str], cotton_percent: Optional[Any], wool_percent: Optional[Any]
+    material: Optional[str],
+    cotton_percent: Optional[Any],
+    wool_percent: Optional[Any],
+    angora_percent: Optional[Any] = None,
 ) -> str:
     try:
         fibers: List[str] = []
@@ -369,6 +372,7 @@ def _build_pull_tommy_composition(
                 )
 
         clean_material = _safe_clean(material)
+        material_lower = clean_material.lower()
         if clean_material:
             try:
                 import re
@@ -387,11 +391,29 @@ def _build_pull_tommy_composition(
 
         cotton_val = _format_percent(cotton_percent)
         wool_val = _format_percent(wool_percent)
+        angora_val = _format_percent(angora_percent)
 
         if cotton_val is not None:
             _add_fiber("coton", cotton_val)
-        if wool_val is not None:
-            _add_fiber("laine", wool_val)
+
+        if angora_val is not None:
+            _add_fiber("angora", angora_val)
+        elif wool_val is not None:
+            try:
+                if "angora" in material_lower and "laine" not in material_lower:
+                    logger.info(
+                        "_build_pull_tommy_composition: wool_percent traité comme angora (material=%s)",
+                        clean_material,
+                    )
+                    _add_fiber("angora", wool_val)
+                else:
+                    _add_fiber("laine", wool_val)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug(
+                    "_build_pull_tommy_composition: impossible d'interpréter wool_percent (%s)",
+                    exc,
+                )
+                _add_fiber("laine", wool_val)
 
         if fibers:
             return "Composition : " + ", ".join(fibers) + "."
@@ -575,6 +597,7 @@ def build_pull_tommy_description(
         material = _safe_clean(features.get("material"))
         cotton_percent = features.get("cotton_percent")
         wool_percent = features.get("wool_percent")
+        angora_percent = features.get("angora_percent")
         colors_raw = features.get("main_colors")
         size = _normalize_pull_size(features.get("size"))
         size_source = (_safe_clean(features.get("size_source")) or "").lower()
@@ -610,8 +633,11 @@ def build_pull_tommy_description(
         material_phrase = "maille agréable"
         cotton_val = _format_percent(cotton_percent)
         wool_val = _format_percent(wool_percent)
+        angora_val = _format_percent(angora_percent)
 
-        if wool_val is not None:
+        if angora_val is not None:
+            material_phrase = f"maille {angora_val}% angora"
+        elif wool_val is not None:
             material_phrase = f"maille {wool_val}% laine"
         elif cotton_val is not None:
             material_phrase = f"maille {cotton_val}% coton"
@@ -626,14 +652,34 @@ def build_pull_tommy_description(
             neckline_text = "Maille"
 
         style_clause = f" dans un style {pattern}" if pattern else ""
-        descriptive_sentence = (
-            f"{neckline_text}{style_clause} aux coloris {color_text}, et une {material_phrase} pour un look iconique et confortable."
-        ).strip()
+        try:
+            comfort_phrases = {
+                "angora": "pour une douceur légère et élégante",
+                "laine": "pour une chaleur douce et confortable",
+                "coton": "pour un confort respirant au quotidien",
+            }
+            material_key = ""
+            for key in comfort_phrases:
+                if key in material_phrase.lower():
+                    material_key = key
+                    break
+            comfort_clause = comfort_phrases.get(material_key, "pour un look iconique et confortable")
+            descriptive_sentence = (
+                f"{neckline_text}{style_clause} aux coloris {color_text}, et une {material_phrase} {comfort_clause}."
+            ).strip()
+            if descriptive_sentence and not descriptive_sentence[0].isupper():
+                descriptive_sentence = descriptive_sentence[0].upper() + descriptive_sentence[1:]
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("build_pull_tommy_description: phrase descriptive par défaut (%s)", exc)
+            descriptive_sentence = (
+                f"{neckline_text}{style_clause} aux coloris {color_text}, et une {material_phrase} pour un look iconique et confortable."
+            ).strip()
 
         composition_sentence = _build_pull_tommy_composition(
             material=material,
             cotton_percent=cotton_percent,
             wool_percent=wool_percent,
+            angora_percent=angora_percent,
         )
 
         state_sentence = _build_state_sentence(defects)
