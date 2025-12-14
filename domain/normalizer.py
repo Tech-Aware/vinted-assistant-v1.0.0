@@ -571,6 +571,8 @@ def normalize_and_postprocess(
 
     logger.debug("normalize_and_postprocess: features construites: %s", features)
 
+    raw_description = ai_data.get("description") or ""
+
     # --- 2) Description ----------------------------------------------------
     try:
         if profile_name == AnalysisProfileName.JEAN_LEVIS:
@@ -599,7 +601,6 @@ def normalize_and_postprocess(
             "normalize_and_postprocess: erreur description -> fallback brut (%s)",
             exc,
         )
-        raw_description = ai_data.get("description") or ""
         if profile_name == AnalysisProfileName.PULL_TOMMY:
             try:
                 description = _strip_footer_lines(raw_description)
@@ -624,5 +625,7 @@ def normalize_and_postprocess(
             exc,
         )
         result["description"] = description
+
+    result["description_raw"] = raw_description
 
     return result
