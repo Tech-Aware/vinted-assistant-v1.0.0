@@ -1137,25 +1137,52 @@ class VintedAIApp(ctk.CTk):
         try:
             modal = ctk.CTkToplevel(self)
             modal.title("Composition illisible")
-            modal.geometry("720x640")
+            modal.geometry("780x720")
             modal.transient(self)
             modal.grab_set()
             modal.lift()
             modal.focus_force()
             modal.attributes("-topmost", True)
 
-            info_label = ctk.CTkLabel(
+            modal.configure(fg_color=self.palette.get("bg_end", "#0b3864"))
+
+            header_frame = ctk.CTkFrame(
                 modal,
+                fg_color=self.palette.get("card_bg"),
+                border_color=self.palette.get("card_border"),
+                border_width=1,
+                corner_radius=16,
+            )
+            header_frame.pack(fill="x", padx=16, pady=(16, 10))
+
+            title_label = ctk.CTkLabel(
+                header_frame,
+                text="Composition manquante",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+                anchor="w",
+            )
+            title_label.pack(fill="x", padx=16, pady=(14, 6))
+
+            info_label = ctk.CTkLabel(
+                header_frame,
                 text=(
                     "La composition de l'étiquette n'a pas été reconnue.\n"
                     "Merci de consulter les photos dans la galerie ci-dessous puis d'indiquer le texte exact."
                 ),
-                justify="center",
+                justify="left",
+                text_color=self.palette.get("text_muted"),
             )
-            info_label.pack(padx=16, pady=(18, 10))
+            info_label.pack(fill="x", padx=16, pady=(0, 14))
 
-            gallery_frame = ctk.CTkFrame(modal)
-            gallery_frame.pack(expand=True, fill="both", padx=12, pady=(0, 10))
+            gallery_frame = ctk.CTkFrame(
+                modal,
+                fg_color=self.palette.get("card_bg"),
+                border_color=self.palette.get("card_border"),
+                border_width=1,
+                corner_radius=16,
+            )
+            gallery_frame.pack(expand=True, fill="both", padx=16, pady=(0, 10))
 
             gallery = ImagePreview(gallery_frame, width=240, height=260)
             gallery.set_removal_enabled(False)
@@ -1163,13 +1190,14 @@ class VintedAIApp(ctk.CTk):
             gallery.pack(expand=True, fill="both", padx=6, pady=6)
 
             entry_label = ctk.CTkLabel(
-                modal,
+                gallery_frame,
                 text=(
                     "Précisez la composition via les listes déroulantes ci-dessous (jusqu'à 4 lignes).\n"
                     "Merci d'indiquer le pourcentage uniquement si un composant est sélectionné."
                 ),
                 anchor="center",
                 justify="center",
+                text_color=self.palette.get("text_muted"),
             )
             entry_label.pack(fill="x", padx=16, pady=(8, 4))
 
@@ -1188,8 +1216,14 @@ class VintedAIApp(ctk.CTk):
             )
             percent_values = [str(index) for index in range(1, 101)]
 
-            composition_frame = ctk.CTkFrame(modal)
-            composition_frame.pack(padx=12, pady=(0, 12), anchor="center")
+            composition_frame = ctk.CTkFrame(
+                modal,
+                fg_color=self.palette.get("card_bg"),
+                border_color=self.palette.get("card_border"),
+                border_width=1,
+                corner_radius=16,
+            )
+            composition_frame.pack(padx=16, pady=(0, 14), anchor="center")
 
             composition_rows: List[Tuple[ctk.CTkComboBox, ctk.CTkComboBox]] = []
             tab_sequence: List[Any] = []
@@ -1417,14 +1451,19 @@ class VintedAIApp(ctk.CTk):
                 except Exception as exc_fallback:  # pragma: no cover - defensive
                     logger.error("Erreur lors de l'application du fallback composition: %s", exc_fallback, exc_info=True)
 
-            button_frame = ctk.CTkFrame(modal)
-            button_frame.pack(pady=(4, 14))
+            button_frame = ctk.CTkFrame(
+                modal,
+                fg_color=self.palette.get("bg_end"),
+            )
+            button_frame.pack(pady=(8, 16))
 
             validate_btn = ctk.CTkButton(
                 button_frame,
                 text="Valider la composition",
                 command=validate_composition,
                 width=180,
+                fg_color=self.palette.get("accent_gradient_start"),
+                hover_color=self.palette.get("accent_gradient_end"),
             )
             validate_btn.pack(side="left", padx=8)
 
@@ -1433,6 +1472,8 @@ class VintedAIApp(ctk.CTk):
                 text="Étiquette coupée/absente",
                 command=fallback_composition,
                 width=180,
+                fg_color=self.palette.get("input_bg"),
+                hover_color=self.palette.get("card_border"),
             )
             missing_btn.pack(side="left", padx=8)
 
@@ -1777,30 +1818,68 @@ class VintedAIApp(ctk.CTk):
         try:
             sku_window = ctk.CTkToplevel(self)
             sku_window.title("SKU manquant")
-            sku_window.geometry("420x220")
+            sku_window.geometry("520x280")
             sku_window.transient(self)
             sku_window.grab_set()
             sku_window.lift()
             sku_window.focus_force()
             sku_window.attributes("-topmost", True)
 
-            info_label = ctk.CTkLabel(
+            sku_window.configure(fg_color=self.palette.get("bg_end", "#0b3864"))
+
+            container = ctk.CTkFrame(
                 sku_window,
+                fg_color=self.palette.get("card_bg"),
+                border_color=self.palette.get("card_border"),
+                border_width=1,
+                corner_radius=16,
+            )
+            container.pack(fill="both", expand=True, padx=18, pady=18)
+
+            title_label = ctk.CTkLabel(
+                container,
+                text="SKU manquant",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+                anchor="w",
+            )
+            title_label.pack(fill="x", padx=16, pady=(16, 8))
+
+            info_label = ctk.CTkLabel(
+                container,
                 text=(
                     "SKU non détecté dans les photos.\n"
                     "Merci de le saisir manuellement (ou fermez pour ignorer)."
                 ),
-                justify="center",
+                justify="left",
+                text_color=self.palette.get("text_muted"),
             )
-            info_label.pack(padx=20, pady=(20, 10))
+            info_label.pack(fill="x", padx=16, pady=(0, 6))
 
             sku_var = ctk.StringVar()
-            sku_entry = ctk.CTkEntry(sku_window, textvariable=sku_var, width=260)
-            sku_entry.pack(pady=8)
+            sku_entry = ctk.CTkEntry(
+                container,
+                textvariable=sku_var,
+                width=320,
+                fg_color=self.palette.get("input_bg"),
+                border_color=self.palette.get("border"),
+            )
+            sku_entry.pack(pady=8, padx=16)
             sku_entry.focus_set()
 
-            button_frame = ctk.CTkFrame(sku_window)
-            button_frame.pack(pady=10)
+            hint_label = ctk.CTkLabel(
+                container,
+                text="Exemple : REF12345 (sera ajouté au titre).",
+                justify="left",
+                text_color=self.palette.get("text_muted"),
+            )
+            hint_label.pack(fill="x", padx=16, pady=(0, 10))
+
+            button_frame = ctk.CTkFrame(
+                container,
+                fg_color=self.palette.get("card_bg"),
+            )
+            button_frame.pack(pady=12)
 
             def close_window() -> None:
                 try:
@@ -1830,7 +1909,9 @@ class VintedAIApp(ctk.CTk):
                 button_frame,
                 text="Valider",
                 command=validate_sku,
-                width=120,
+                width=140,
+                fg_color=self.palette.get("accent_gradient_start"),
+                hover_color=self.palette.get("accent_gradient_end"),
             )
             validate_btn.pack(side="left", padx=8)
 
@@ -1838,7 +1919,9 @@ class VintedAIApp(ctk.CTk):
                 button_frame,
                 text="Annuler",
                 command=close_window,
-                width=120,
+                width=140,
+                fg_color=self.palette.get("input_bg"),
+                hover_color=self.palette.get("card_border"),
             )
             cancel_btn.pack(side="left", padx=8)
 
