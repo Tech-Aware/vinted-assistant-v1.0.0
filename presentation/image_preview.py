@@ -37,6 +37,10 @@ class ImagePreview(ctk.CTkFrame):
         super().__init__(master)
         self._thumb_min_width = width
         self._max_height = height
+        self._card_bg = "#0f2135"
+        self._card_border = "#1f3953"
+        self._remove_bg = "#d9534f"
+        self._remove_hover = "#c33c37"
         self._preview_images: List[ctk.CTkImage] = []
         self._pil_images: List[Image.Image] = []
         self._labels: List[ctk.CTkLabel] = []
@@ -48,16 +52,29 @@ class ImagePreview(ctk.CTkFrame):
         self._remove_buttons: List[ctk.CTkButton] = []
         self._removal_enabled = True
 
-        self._scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self._scroll_frame = ctk.CTkScrollableFrame(
+            self,
+            fg_color=self._card_bg,
+            border_color=self._card_border,
+            border_width=1,
+            corner_radius=14,
+        )
         self._scroll_frame.pack_forget()
         self._scroll_frame.bind("<Enter>", self._on_scroll_enter, add="+")
         self._scroll_frame.bind("<Leave>", self._on_scroll_leave, add="+")
 
-        self._gallery_container = ctk.CTkFrame(self._scroll_frame, fg_color="transparent")
+        self._gallery_container = ctk.CTkFrame(
+            self._scroll_frame,
+            fg_color="transparent",
+        )
         self._gallery_container.grid(row=0, column=0, sticky="nwe")
         self._scroll_frame.grid_columnconfigure(0, weight=1)
 
-        self._empty_label = ctk.CTkLabel(self, text="Aucune image sélectionnée")
+        self._empty_label = ctk.CTkLabel(
+            self,
+            text="Aucune image sélectionnée",
+            text_color="#e2f4ff",
+        )
         self._empty_label.pack(expand=True, fill="both")
 
         self.bind("<Configure>", self._on_resize)
@@ -143,7 +160,13 @@ class ImagePreview(ctk.CTkFrame):
             tk_img = ctk.CTkImage(light_image=thumbnail, dark_image=thumbnail, size=thumbnail.size)
             self._preview_images.append(tk_img)
 
-            card = ctk.CTkFrame(self._gallery_container)
+            card = ctk.CTkFrame(
+                self._gallery_container,
+                fg_color=self._card_bg,
+                border_color=self._card_border,
+                border_width=1,
+                corner_radius=14,
+            )
             row, column = divmod(index, column_count)
             card.grid(row=row, column=column, padx=gap, pady=gap, sticky="nsew")
 
@@ -159,8 +182,9 @@ class ImagePreview(ctk.CTkFrame):
                     width=24,
                     height=24,
                     corner_radius=12,
-                    fg_color="#2A2A2A",
-                    hover_color="#444444",
+                    fg_color=self._remove_bg,
+                    hover_color=self._remove_hover,
+                    text_color="white",
                     command=lambda p=path: self._request_remove(p),
                 )
                 remove_button.place(relx=1.0, rely=0.0, anchor="ne", x=-6, y=6)

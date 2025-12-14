@@ -47,6 +47,9 @@ class VintedAIApp(ctk.CTk):
         self.geometry("900x600")
         self.minsize(720, 520)
 
+        self.palette: Dict[str, str] = {}
+        self.fonts: Dict[str, ctk.CTkFont] = {}
+
         self.providers = providers
         self.provider_var = ctk.StringVar(value="")
         self.provider_var.trace_add("write", self._on_provider_change)
@@ -67,6 +70,8 @@ class VintedAIApp(ctk.CTk):
 
         self.size_inputs_frame: Optional[ctk.CTkFrame] = None
         self.measure_mode_frame: Optional[ctk.CTkFrame] = None
+        self.fr_label: Optional[ctk.CTkLabel] = None
+        self.size_hint: Optional[ctk.CTkLabel] = None
 
         self.profiles_by_name_value: Dict[str, AnalysisProfile] = {
             profile.name.value: profile for profile in ALL_PROFILES.values()
@@ -74,9 +79,14 @@ class VintedAIApp(ctk.CTk):
 
         self.title_label: Optional[ctk.CTkLabel] = None
         self.gallery_info_label: Optional[ctk.CTkLabel] = None
+        self.status_label: Optional[ctk.CTkLabel] = None
         self.preview_frame: Optional[ImagePreview] = None
         self.current_listing: Optional[VintedListing] = None
 
+        self._background_canvas: Optional[tk.Canvas] = None
+        self._content_container: Optional[ctk.CTkFrame] = None
+
+        self._init_theme()
         self._build_ui()
 
         logger.info("UI VintedAIApp initialisée.")
@@ -85,33 +95,151 @@ class VintedAIApp(ctk.CTk):
     # Construction de l'UI
     # ------------------------------------------------------------------
 
+    def _init_theme(self) -> None:
+        try:
+            ctk.set_appearance_mode("light")
+            self.palette = {
+                "bg_start": "#1dd8a6",
+                "bg_end": "#0b3864",
+                "card_bg": "#0f2135",
+                "card_border": "#1f3953",
+                "accent_gradient_start": "#1cc59c",
+                "accent_gradient_end": "#1b5cff",
+                "text_primary": "#e2f4ff",
+                "text_muted": "#a7bed3",
+                "input_bg": "#102338",
+                "border": "#1e3350",
+            }
+
+            self.fonts = {
+                "heading": ctk.CTkFont(size=14, weight="bold"),
+                "small": ctk.CTkFont(size=11),
+            }
+
+            self.configure(fg_color=self.palette.get("bg_end"))
+            logger.info("Thème moderne initialisé avec palette verte/bleu.")
+        except Exception as exc:
+            logger.error("Erreur lors de l'initialisation du thème: %s", exc, exc_info=True)
+
+    def _build_background(self) -> None:
+        try:
+            if self._background_canvas is None:
+                self._background_canvas = tk.Canvas(self, highlightthickness=0, bd=0)
+                self._background_canvas.pack(fill="both", expand=True)
+                self._background_canvas.bind("<Configure>", self._draw_background_gradient, add="+")
+
+            if self._content_container is None:
+                self._content_container = ctk.CTkFrame(
+                    self,
+                    fg_color=self.palette.get("bg_end", "#0b3864"),
+                )
+                self._content_container.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+            logger.info("Fond dégradé et conteneur principal préparés.")
+        except Exception as exc:
+            logger.error("Erreur lors de la création du fond dégradé: %s", exc, exc_info=True)
+
+    def _draw_background_gradient(self, event: tk.Event) -> None:
+        try:
+            if not self._background_canvas:
+                return
+
+            self._background_canvas.delete("gradient")
+            width = max(int(getattr(event, "width", self.winfo_width())), 1)
+            height = max(int(getattr(event, "height", self.winfo_height())), 1)
+
+            start_hex = self.palette.get("bg_start", "#1dd8a6")
+            end_hex = self.palette.get("bg_end", "#0b3864")
+
+            def _hex_to_rgb(color: str) -> Tuple[int, int, int]:
+                color = color.lstrip("#")
+                return tuple(int(color[i : i + 2], 16) for i in (0, 2, 4))
+
+            start_r, start_g, start_b = _hex_to_rgb(start_hex)
+            end_r, end_g, end_b = _hex_to_rgb(end_hex)
+
+            for y in range(height):
+                ratio = y / max(height - 1, 1)
+                r = int(start_r + (end_r - start_r) * ratio)
+                g = int(start_g + (end_g - start_g) * ratio)
+                b = int(start_b + (end_b - start_b) * ratio)
+                color = f"#{r:02x}{g:02x}{b:02x}"
+                self._background_canvas.create_line(
+                    0,
+                    y,
+                    width,
+                    y,
+                    tags="gradient",
+                    fill=color,
+                )
+
+            self._background_canvas.lower("gradient")
+        except Exception as exc:
+            logger.error("Erreur lors du dessin du dégradé: %s", exc, exc_info=True)
+
+    def _create_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
+        try:
+            card = ctk.CTkFrame(
+                parent,
+                fg_color=self.palette.get("card_bg"),
+                border_color=self.palette.get("card_border"),
+                border_width=1,
+                corner_radius=14,
+            )
+            # On laisse les cartes s'adapter à leur contenu pour éviter la troncature des textes.
+            card.pack_propagate(True)
+            return card
+        except Exception as exc:
+            logger.error("Erreur lors de la création d'une carte UI: %s", exc, exc_info=True)
+            return ctk.CTkFrame(parent)
+
     def _build_ui(self) -> None:
         try:
-            ctk.set_appearance_mode("system")
-            ctk.set_default_color_theme("blue")
+            self._build_background()
 
             # Barre du haut
             self._build_top_bar()
 
             # --- Galerie d'images (header + ImagePreview) ---
-            gallery_wrapper = ctk.CTkFrame(self)
-            gallery_wrapper.pack(fill="x", padx=0, pady=(0, 8))
+            gallery_wrapper = ctk.CTkFrame(
+                self._content_container or self,
+                fg_color=self.palette.get("bg_end"),
+            )
+            gallery_wrapper.pack(fill="x", padx=0, pady=(4, 8))
 
-            header = ctk.CTkFrame(gallery_wrapper)
+            header = ctk.CTkFrame(
+                gallery_wrapper,
+                fg_color=self.palette.get("card_bg", "#0b1b2b"),
+                corner_radius=14,
+            )
             header.pack(fill="x")
 
-            gallery_label = ctk.CTkLabel(header, text="Galerie d'images :")
-            gallery_label.pack(side="left", anchor="w", padx=10)
+            gallery_label = ctk.CTkLabel(
+                header,
+                text="Galerie d'images",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            gallery_label.pack(side="left", anchor="w", padx=14, pady=10)
 
             add_image_btn = ctk.CTkButton(
                 header,
-                text="+",
-                width=30,
+                text="+ Ajouter",
+                width=110,
+                height=34,
+                corner_radius=16,
+                fg_color=self.palette.get("accent_gradient_end"),
+                hover_color=self.palette.get("accent_gradient_start"),
+                text_color="white",
                 command=self.select_images,
             )
-            add_image_btn.pack(side="right", padx=10, pady=4)
+            add_image_btn.pack(side="right", padx=14, pady=10)
 
-            self.gallery_info_label = ctk.CTkLabel(header, text="")
+            self.gallery_info_label = ctk.CTkLabel(
+                header,
+                text="",
+                text_color=self.palette.get("text_muted"),
+            )
             self.gallery_info_label.pack(side="right", padx=(0, 10))
 
             # Zone de preview réutilisée depuis l’ancienne app
@@ -119,79 +247,178 @@ class VintedAIApp(ctk.CTk):
                 gallery_wrapper,
                 on_remove=self._remove_image,
             )
+            self.preview_frame.configure(fg_color=self.palette.get("bg_end"))
             self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
 
             # --- Contenu principal (gauche = paramètres, droite = résultat) ---
-            self.main_content_frame = ctk.CTkFrame(self)
+            self.main_content_frame = ctk.CTkFrame(
+                self._content_container or self,
+                fg_color=self.palette.get("bg_end"),
+            )
             self.main_content_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
-            left_frame = ctk.CTkFrame(self.main_content_frame, width=280)
+            left_frame = ctk.CTkFrame(
+                self.main_content_frame,
+                width=280,
+                fg_color=self.palette.get("bg_end"),
+            )
             left_frame.pack(side="left", fill="y", padx=(0, 10))
 
-            right_scrollable = ctk.CTkScrollableFrame(self.main_content_frame)
+            sidebar_inner = ctk.CTkFrame(
+                left_frame,
+                fg_color=self.palette.get("bg_end"),
+            )
+            sidebar_inner.pack(fill="both", expand=True, padx=6, pady=6)
+
+            right_scrollable = ctk.CTkScrollableFrame(
+                self.main_content_frame,
+                fg_color=self.palette.get("card_bg"),
+                corner_radius=14,
+            )
             right_scrollable.pack(side="left", expand=True, fill="both")
 
             # --- Profil d'analyse ---
-            profile_label = ctk.CTkLabel(left_frame, text="Profil d'analyse :")
-            profile_label.pack(anchor="w", pady=(15, 0))
+            profile_card = self._create_card(sidebar_inner)
+            profile_card.pack(anchor="w", fill="x", pady=(8, 0), padx=4)
+            profile_label = ctk.CTkLabel(
+                profile_card,
+                text="Profil d'analyse",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            profile_label.pack(anchor="w", pady=(6, 2), padx=12)
 
             profile_values = [name.value for name in AnalysisProfileName]
             if profile_values:
                 self.profile_var.set(profile_values[0])
 
             profile_combo = ctk.CTkComboBox(
-                left_frame,
+                profile_card,
                 values=profile_values,
                 variable=self.profile_var,
                 command=self._on_profile_change,
                 state="readonly",
                 width=240,
+                fg_color=self.palette.get("input_bg"),
+                button_color=self.palette.get("card_border"),
+                border_color=self.palette.get("border"),
+                text_color=self.palette.get("text_primary"),
             )
-            profile_combo.pack(anchor="w", pady=5)
+            profile_combo.pack(anchor="w", pady=5, padx=12)
+
+            hint_profile = ctk.CTkLabel(
+                profile_card,
+                text="Choisissez le profil d'analyse adapté à l'article.",
+                font=self.fonts.get("small"),
+                text_color=self.palette.get("text_muted"),
+                justify="left",
+                wraplength=240,
+                width=240,
+                anchor="w",
+            )
+            hint_profile.pack(anchor="w", pady=(2, 6), padx=12)
 
             # --- Inputs manuels (v1 simple) ---
-            self.size_inputs_frame = ctk.CTkFrame(left_frame)
-            self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0))
+            self.size_inputs_frame = self._create_card(sidebar_inner)
+            self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0), padx=4)
 
-            fr_label = ctk.CTkLabel(self.size_inputs_frame, text="Taille FR (optionnel) :")
-            fr_label.pack(anchor="w", pady=(5, 0))
-            fr_entry = ctk.CTkEntry(self.size_inputs_frame, textvariable=self.size_fr_var, width=240)
-            fr_entry.pack(anchor="w", pady=5)
+            self.fr_label = ctk.CTkLabel(
+                self.size_inputs_frame,
+                text="Taille FR (optionnel) :",
+                text_color=self.palette.get("text_primary"),
+            )
+            self.fr_label.pack(anchor="w", pady=(5, 0), padx=12)
+            fr_entry = ctk.CTkEntry(
+                self.size_inputs_frame,
+                textvariable=self.size_fr_var,
+                width=240,
+                fg_color=self.palette.get("input_bg"),
+                border_color=self.palette.get("border"),
+                text_color=self.palette.get("text_primary"),
+            )
+            fr_entry.pack(anchor="w", pady=5, padx=12)
 
-            us_label = ctk.CTkLabel(self.size_inputs_frame, text="Taille US (optionnel) :")
-            us_label.pack(anchor="w", pady=(5, 0))
-            us_entry = ctk.CTkEntry(self.size_inputs_frame, textvariable=self.size_us_var, width=240)
-            us_entry.pack(anchor="w", pady=5)
+            us_label = ctk.CTkLabel(
+                self.size_inputs_frame,
+                text="Taille US (optionnel) :",
+                text_color=self.palette.get("text_primary"),
+            )
+            us_label.pack(anchor="w", pady=(5, 0), padx=12)
+            us_entry = ctk.CTkEntry(
+                self.size_inputs_frame,
+                textvariable=self.size_us_var,
+                width=240,
+                fg_color=self.palette.get("input_bg"),
+                border_color=self.palette.get("border"),
+                text_color=self.palette.get("text_primary"),
+            )
+            us_entry.pack(anchor="w", pady=5, padx=12)
+
+            self.size_hint = ctk.CTkLabel(
+                self.size_inputs_frame,
+                text="Renseigner les tailles améliore la précision des fiches.",
+                font=self.fonts.get("small"),
+                text_color=self.palette.get("text_muted"),
+                justify="left",
+                wraplength=240,
+                width=240,
+                anchor="w",
+            )
+            self.size_hint.pack(anchor="w", pady=(2, 8), padx=12)
 
             # Méthode de relevé (profils polaire/pull)
-            self.measure_mode_frame = ctk.CTkFrame(left_frame)
-            measure_label = ctk.CTkLabel(
+            self.measure_mode_frame = self._create_card(sidebar_inner)
+
+            measure_inner = ctk.CTkFrame(
                 self.measure_mode_frame,
-                text="Méthode de relevé :",
+                fg_color="transparent",
             )
-            measure_label.pack(anchor="w", pady=(5, 0))
+            measure_inner.pack(fill="x", padx=8, pady=8)
+
+            measure_label = ctk.CTkLabel(
+                measure_inner,
+                text="Méthode de relevé :",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            measure_label.pack(anchor="w", pady=(2, 6), padx=8)
 
             etiquette_radio = ctk.CTkRadioButton(
-                self.measure_mode_frame,
+                measure_inner,
                 text="Étiquette visible",
                 variable=self.measure_mode_var,
                 value="etiquette",
+                text_color=self.palette.get("text_primary"),
             )
-            etiquette_radio.pack(anchor="w", pady=2)
+            etiquette_radio.pack(anchor="w", pady=(2, 6), padx=12)
 
             measures_radio = ctk.CTkRadioButton(
-                self.measure_mode_frame,
+                measure_inner,
                 text="Analyser les mesures",
                 variable=self.measure_mode_var,
                 value="mesures",
+                text_color=self.palette.get("text_primary"),
             )
-            measures_radio.pack(anchor="w", pady=2)
+            measures_radio.pack(anchor="w", pady=(2, 2), padx=12)
 
             # --- Zone de résultat ---
-            result_label = ctk.CTkLabel(right_scrollable, text="Résultat (titre + description) :")
+            result_label = ctk.CTkLabel(
+                right_scrollable,
+                text="Résultat (titre + description)",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
             result_label.pack(anchor="w", pady=(10, 0), padx=10)
 
-            self.result_text = ctk.CTkTextbox(right_scrollable, wrap="word")
+            self.result_text = ctk.CTkTextbox(
+                right_scrollable,
+                wrap="word",
+                fg_color=self.palette.get("input_bg"),
+                text_color=self.palette.get("text_primary"),
+                corner_radius=12,
+                border_width=1,
+                border_color=self.palette.get("border"),
+            )
             self.result_text.pack(expand=True, fill="both", padx=10, pady=(10, 6))
 
             self._build_generate_button(right_scrollable)
@@ -204,11 +431,27 @@ class VintedAIApp(ctk.CTk):
 
     def _build_generate_button(self, parent: ctk.CTkFrame) -> None:
         try:
+            status_wrapper = ctk.CTkFrame(parent, fg_color="transparent")
+            status_wrapper.pack(anchor="e", fill="x", padx=10, pady=(0, 2))
+
+            self.status_label = ctk.CTkLabel(
+                status_wrapper,
+                text="Prêt à générer",
+                font=self.fonts.get("small"),
+                text_color=self.palette.get("text_muted"),
+            )
+            self.status_label.pack(anchor="e", pady=(0, 4))
+
             self.generate_btn = ctk.CTkButton(
                 parent,
                 text="Générer",
                 command=self.generate_listing,
-                width=120,
+                width=160,
+                height=42,
+                corner_radius=18,
+                fg_color=self.palette.get("accent_gradient_start"),
+                hover_color=self.palette.get("accent_gradient_end"),
+                text_color="white",
             )
             self.generate_btn.pack(anchor="e", padx=10, pady=(0, 10))
 
@@ -220,13 +463,24 @@ class VintedAIApp(ctk.CTk):
 
     def _build_top_bar(self) -> None:
         try:
-            top_bar = ctk.CTkFrame(self)
-            top_bar.pack(fill="x", padx=0, pady=(5, 0))
+            top_bar = ctk.CTkFrame(
+                self._content_container or self,
+                fg_color=self.palette.get("card_bg"),
+                corner_radius=16,
+                border_width=1,
+                border_color=self.palette.get("card_border"),
+            )
+            top_bar.pack(fill="x", padx=12, pady=(10, 8))
 
             settings_btn = ctk.CTkButton(
                 top_bar,
                 text="⚙️",
-                width=40,
+                width=36,
+                height=36,
+                corner_radius=12,
+                fg_color=self.palette.get("accent_gradient_start"),
+                hover_color=self.palette.get("accent_gradient_end"),
+                text_color="white",
                 command=self.open_settings_menu,
             )
             settings_btn.pack(side="left", padx=(5, 10), pady=5)
@@ -235,6 +489,7 @@ class VintedAIApp(ctk.CTk):
                 top_bar,
                 text="Assistant Vinted - Préférences adaptatives",
                 font=ctk.CTkFont(size=16, weight="bold"),
+                text_color=self.palette.get("text_primary"),
             )
             self.title_label.pack(side="left", pady=5)
 
@@ -475,7 +730,7 @@ class VintedAIApp(ctk.CTk):
                 if self.size_inputs_frame:
                     self.size_inputs_frame.pack_forget()
                 if self.measure_mode_frame and not self.measure_mode_frame.winfo_manager():
-                    self.measure_mode_frame.pack(anchor="w", fill="x", pady=(10, 0))
+                    self.measure_mode_frame.pack(anchor="w", fill="x", pady=(10, 0), padx=4)
                 logger.info(
                     "Profil %s détecté : affichage des options de méthode de relevé.",
                     profile_key,
@@ -484,13 +739,51 @@ class VintedAIApp(ctk.CTk):
                 if self.measure_mode_frame:
                     self.measure_mode_frame.pack_forget()
                 if self.size_inputs_frame and not self.size_inputs_frame.winfo_manager():
-                    self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0))
+                    self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0), padx=4)
                 logger.info(
                     "Profil %s détecté : affichage des tailles FR/US.",
                     profile_key,
                 )
+
+            self._refresh_size_requirements(profile_key)
         except Exception as exc:
             logger.error("Erreur lors de la mise à jour de l'UI du profil: %s", exc, exc_info=True)
+
+    def _refresh_size_requirements(self, profile_key: str) -> None:
+        try:
+            if not self.fr_label or not self.size_hint:
+                logger.warning("Labels de taille non initialisés, impossible de rafraîchir les exigences.")
+                return
+
+            is_levis = profile_key == AnalysisProfileName.JEAN_LEVIS.value
+            fr_text = "Taille FR (obligatoire) :" if is_levis else "Taille FR (optionnel) :"
+            hint_text = (
+                "Pour un jean Levi's, la taille FR est requise. La taille US reste optionnelle."
+                if is_levis
+                else "Renseigner les tailles améliore la précision des fiches."
+            )
+
+            self.fr_label.configure(text=fr_text, text_color=self.palette.get("text_primary"))
+            self.size_hint.configure(
+                text=hint_text,
+                text_color=self.palette.get("text_muted"),
+                wraplength=240,
+                anchor="w",
+                justify="left",
+            )
+
+            logger.info(
+                "Mise à jour des indications de taille (profil=%s, taille FR %s)",
+                profile_key,
+                "obligatoire" if is_levis else "optionnelle",
+            )
+        except Exception as exc:
+            logger.error(
+                "Erreur lors de la mise à jour des exigences de taille pour le profil %s: %s",
+                profile_key,
+                exc,
+                exc_info=True,
+            )
 
     def _on_profile_change(self, _choice: Optional[str] = None) -> None:
         try:
@@ -530,6 +823,11 @@ class VintedAIApp(ctk.CTk):
                     "Images manquantes",
                     "Merci de sélectionner au moins une image de l'article.",
                 )
+                if self.status_label:
+                    self.status_label.configure(
+                        text="Veuillez ajouter au moins une image.",
+                        text_color="#f5c542",
+                    )
                 return
 
             provider = self._get_selected_provider()
@@ -538,6 +836,11 @@ class VintedAIApp(ctk.CTk):
                     "Provider IA manquant",
                     "Provider IA inconnu ou non configuré.",
                 )
+                if self.status_label:
+                    self.status_label.configure(
+                        text="Provider IA non configuré.",
+                        text_color="#f5c542",
+                    )
                 return
 
             profile = self._get_selected_profile()
@@ -546,6 +849,11 @@ class VintedAIApp(ctk.CTk):
                     "Profil manquant",
                     "Profil d'analyse inconnu ou non configuré.",
                 )
+                if self.status_label:
+                    self.status_label.configure(
+                        text="Profil d'analyse manquant.",
+                        text_color="#f5c542",
+                    )
                 return
 
             logger.info(
@@ -561,6 +869,11 @@ class VintedAIApp(ctk.CTk):
             if self.result_text:
                 self.result_text.delete("1.0", "end")
                 self.result_text.insert("1.0", "Analyse en cours...\n")
+
+            if self.status_label:
+                self.status_label.configure(
+                    text="Analyse en cours...", text_color=self.palette.get("text_muted")
+                )
 
             profile_requires_measure = self._profile_requires_measure_mode(
                 profile.name.value
@@ -645,6 +958,12 @@ class VintedAIApp(ctk.CTk):
 
             self.current_listing = listing
 
+            if self.status_label:
+                self.status_label.configure(
+                    text="Fiche générée avec succès.",
+                    text_color=self.palette.get("accent_gradient_start", "#1cc59c"),
+                )
+
             self._prompt_composition_if_needed(listing)
 
             if self.result_text:
@@ -665,6 +984,12 @@ class VintedAIApp(ctk.CTk):
         try:
             if self.generate_btn:
                 self.generate_btn.configure(state="normal")
+
+            if self.status_label:
+                self.status_label.configure(
+                    text="Échec de la génération : consultez le message.",
+                    text_color="#f87171",
+                )
 
             messagebox.showerror(
                 "Erreur IA",
