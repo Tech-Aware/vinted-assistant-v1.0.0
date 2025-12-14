@@ -9,6 +9,7 @@ import logging
 from domain.description_builder import (
     build_jean_levis_description,
     build_pull_tommy_description,
+    _build_hashtags,
     _strip_footer_lines,
 )
 from domain.templates import AnalysisProfileName
@@ -210,8 +211,102 @@ MANDATORY_RAW_FOOTER = (
 )
 
 
+def _build_dynamic_footer(
+    profile_name: AnalysisProfileName, context: Dict[str, Any]
+) -> str:
+    """
+    Construit un footer obligatoire dynamique en fonction du profil et des tailles.
+    """
+    try:
+        if profile_name == AnalysisProfileName.JEAN_LEVIS:
+            size_fr = (context.get("size_fr") or "").strip()
+            size_us = (context.get("size_us") or "").strip()
+            length = (context.get("length") or "").strip()
+            brand = (context.get("brand") or "Levi's").strip()
+            model = (context.get("model") or "").strip()
+            fit = (context.get("fit") or "").strip()
+            color = (context.get("color") or "").strip()
+            gender = (context.get("gender") or "").strip()
+            rise_label = (context.get("rise_type") or "").strip()
+
+            size_token = (size_fr or size_us or "nc").lower().replace(" ", "")
+            durin_tag = f"#durin31fr{size_token}"
+
+            hashtags = _build_hashtags(
+                brand=brand,
+                model=model,
+                fit=fit,
+                color=color,
+                size_fr=size_fr,
+                size_us=size_us,
+                length=length,
+                gender=gender,
+                rise_label=rise_label,
+                durin_tag=durin_tag,
+            )
+
+            footer_lines = [
+                "📏 Mesures détaillées visibles en photo pour plus de précisions.",
+                "📦 Envoi rapide et soigné.",
+                f"✨ Retrouvez tous mes articles Levi’s à votre taille ici 👉 {durin_tag}",
+                "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
+                hashtags,
+            ]
+            footer = "\n".join(line for line in footer_lines if line).strip()
+            logger.info(
+                "_build_dynamic_footer: footer jean Levi's généré avec taille=%s", size_token
+            )
+            return footer
+
+        if profile_name == AnalysisProfileName.PULL_TOMMY:
+            size_value = context.get("size") or context.get("size_estimated")
+            color = ""
+            try:
+                colors = context.get("main_colors") or context.get("colors") or []
+                if isinstance(colors, list) and colors:
+                    color = str(colors[0]).lower()
+            except Exception as color_exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "_build_dynamic_footer: extraction couleur échouée (%s)", color_exc
+                )
+
+            from domain.description_builder import _normalize_pull_size  # local import
+
+            size_token = _normalize_pull_size(size_value) or "NC"
+            size_token = size_token.replace(" ", "")
+            durin_tag = f"#durin31tf{size_token}"
+            size_hashtag = f"#tf{size_token.lower()}"
+
+            color_tag = f"#{color}" if color else ""
+            footer_lines = [
+                "📏 Mesures détaillées visibles en photo pour plus de précisions.",
+                "📦 Envoi rapide et soigné.",
+                f"✨ Retrouvez tous mes pulls Tommy femme ici 👉 {durin_tag}",
+                "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
+            ]
+
+            base_tags = "#tommyhilfiger #pulltommy #tommy #pullfemme #modefemme #preloved"
+            tokens = " ".join(
+                token
+                for token in [base_tags, size_hashtag, durin_tag, color_tag]
+                if token
+            ).strip()
+            footer_core = "\n".join(footer_lines)
+            footer = (footer_core + "\n\n" + tokens).strip()
+            logger.info(
+                "_build_dynamic_footer: footer pull Tommy généré avec taille=%s", size_token
+            )
+            return footer
+
+        logger.info("_build_dynamic_footer: profil non géré, footer par défaut")
+        return MANDATORY_RAW_FOOTER
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("_build_dynamic_footer: échec (%s)", exc)
+        return MANDATORY_RAW_FOOTER
+
+
 def _enrich_raw_description(
-    raw_description: str, context: Dict[str, Any]
+    raw_description: str, context: Dict[str, Any], profile_name: AnalysisProfileName
 ) -> str:
     """
     Ajoute uniquement le footer obligatoire au texte brut fourni par l'IA et
@@ -220,6 +315,7 @@ def _enrich_raw_description(
     try:
         base_text = (raw_description or "").strip()
         manual_compo = (context.get("manual_composition_text") or "").strip()
+        dynamic_footer = _build_dynamic_footer(profile_name, context)
 
         def _split_body_footer(text: str) -> tuple[str, str]:
             try:
@@ -227,12 +323,11 @@ def _enrich_raw_description(
                 idx = text.find(anchor)
                 if idx != -1:
                     body = text[:idx].rstrip()
-                    footer = text[idx:].lstrip()
-                    return body, footer
+                    return body, ""
 
                 if MANDATORY_RAW_FOOTER in text:
                     body = text.replace(MANDATORY_RAW_FOOTER, "").rstrip()
-                    return body, MANDATORY_RAW_FOOTER
+                    return body, ""
 
                 return text.rstrip(), ""
             except Exception as exc_split:  # pragma: no cover - defensive
@@ -267,17 +362,14 @@ def _enrich_raw_description(
                 )
                 return body_text.strip()
 
-        body, footer = _split_body_footer(base_text)
+        body, _ = _split_body_footer(base_text)
 
         if manual_compo:
             replacement = f"Composition : {manual_compo.rstrip('.')}."
             body = _inject_composition(body, replacement)
 
-        final_footer = footer if footer else MANDATORY_RAW_FOOTER
+        final_footer = dynamic_footer or MANDATORY_RAW_FOOTER
         enriched_text = (body + "\n\n" + final_footer).strip()
-
-        if MANDATORY_RAW_FOOTER not in enriched_text:
-            enriched_text = (enriched_text + "\n\n" + MANDATORY_RAW_FOOTER).strip()
 
         logger.debug("_enrich_raw_description: texte enrichi produit")
         return enriched_text
@@ -662,7 +754,7 @@ def normalize_and_postprocess(
 
     try:
         raw_description = _enrich_raw_description(
-            raw_description, {**ai_data, **features}
+            raw_description, {**ai_data, **features}, profile_name
         )
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception(
