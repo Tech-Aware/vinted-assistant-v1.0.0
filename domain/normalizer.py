@@ -199,6 +199,86 @@ def _extract_color_from_text(text: str) -> Optional[str]:
     return None
 
 
+MANDATORY_RAW_FOOTER = (
+    "📏 Mesures détaillées visibles en photo pour plus de précisions.\n"
+    "📦 Envoi rapide et soigné.\n"
+    "✨ Retrouvez tous mes pulls Tommy femme ici 👉 #durin31tfM\n"
+    "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et "
+    "économiser des frais d’envoi !\n\n"
+    "#tommyhilfiger #pulltommy #tommy #pullfemme #modefemme #preloved "
+    "#durin31tfM #ptf #rouge"
+)
+
+
+def _enrich_raw_description(
+    raw_description: str, context: Dict[str, Any]
+) -> str:
+    """
+    Ajoute un rappel synthétique des informations clés et le footer obligatoire
+    au texte brut fourni par l'IA.
+    """
+    try:
+        base_text = raw_description or ""
+        info_lines: list[str] = []
+
+        brand = context.get("brand")
+        if brand:
+            info_lines.append(f"Marque : {brand}")
+
+        size = (
+            context.get("size")
+            or context.get("size_fr")
+            or context.get("size_us")
+            or context.get("length")
+        )
+        if size:
+            info_lines.append(f"Taille : {size}")
+
+        color = context.get("color") or context.get("main_colors")
+        if color:
+            info_lines.append(f"Couleur : {color}")
+
+        pattern = context.get("pattern")
+        if pattern:
+            info_lines.append(f"Motifs : {pattern}")
+
+        style = context.get("style") or context.get("garment_type")
+        if style:
+            info_lines.append(f"Style : {style}")
+
+        composition_parts = []
+        if context.get("cotton_percent"):
+            composition_parts.append(f"{context['cotton_percent']}% coton")
+        if context.get("wool_percent"):
+            composition_parts.append(f"{context['wool_percent']}% laine")
+        if context.get("elasthane_percent"):
+            composition_parts.append(f"{context['elasthane_percent']}% élasthanne")
+        material = context.get("material")
+        if material:
+            composition_parts.append(str(material))
+        if composition_parts:
+            info_lines.append("Composition : " + ", ".join(composition_parts))
+
+        defects = context.get("defects")
+        if defects:
+            info_lines.append(f"Défauts : {defects}")
+
+        enriched_text = base_text.strip()
+        if info_lines:
+            recap = "Résumé express : " + " | ".join(info_lines)
+            if recap not in enriched_text:
+                enriched_text = (enriched_text + "\n\n" + recap).strip()
+
+        if MANDATORY_RAW_FOOTER not in enriched_text:
+            enriched_text = (enriched_text + "\n\n" + MANDATORY_RAW_FOOTER).strip()
+
+        logger.debug("_enrich_raw_description: texte enrichi produit")
+        return enriched_text
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("_enrich_raw_description: échec, retour texte brut (%s)", exc)
+        return raw_description
+
+
 def _extract_sizes_from_text(text: str) -> tuple[Optional[str], Optional[str]]:
     """
     Extrait (size_us, length) à partir d'un texte contenant des W/L :
@@ -572,6 +652,16 @@ def normalize_and_postprocess(
     logger.debug("normalize_and_postprocess: features construites: %s", features)
 
     raw_description = ai_data.get("description") or ""
+
+    try:
+        raw_description = _enrich_raw_description(
+            raw_description, {**ai_data, **features}
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception(
+            "normalize_and_postprocess: enrichissement description brute échoué (%s)",
+            exc,
+        )
 
     # --- 2) Description ----------------------------------------------------
     try:
