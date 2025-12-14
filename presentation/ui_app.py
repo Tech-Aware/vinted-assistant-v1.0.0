@@ -128,7 +128,8 @@ class VintedAIApp(ctk.CTk):
 
             if self._content_container is None:
                 self._content_container = ctk.CTkFrame(
-                    self, fg_color=self.palette.get("bg_end", "#0b3864")
+                    self,
+                    fg_color=self.palette.get("bg_end", "#0b3864"),
                 )
                 self._content_container.place(relx=0, rely=0, relwidth=1, relheight=1)
 
@@ -199,7 +200,7 @@ class VintedAIApp(ctk.CTk):
             # --- Galerie d'images (header + ImagePreview) ---
             gallery_wrapper = ctk.CTkFrame(
                 self._content_container or self,
-                fg_color="transparent",
+                fg_color=self.palette.get("bg_end"),
             )
             gallery_wrapper.pack(fill="x", padx=0, pady=(4, 8))
 
@@ -243,11 +244,13 @@ class VintedAIApp(ctk.CTk):
                 gallery_wrapper,
                 on_remove=self._remove_image,
             )
+            self.preview_frame.configure(fg_color=self.palette.get("bg_end"))
             self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
 
             # --- Contenu principal (gauche = paramètres, droite = résultat) ---
             self.main_content_frame = ctk.CTkFrame(
-                self._content_container or self, fg_color="transparent"
+                self._content_container or self,
+                fg_color=self.palette.get("bg_end"),
             )
             self.main_content_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
@@ -258,6 +261,12 @@ class VintedAIApp(ctk.CTk):
             )
             left_frame.pack(side="left", fill="y", padx=(0, 10))
 
+            sidebar_inner = ctk.CTkFrame(
+                left_frame,
+                fg_color=self.palette.get("bg_end"),
+            )
+            sidebar_inner.pack(fill="both", expand=True, padx=6, pady=6)
+
             right_scrollable = ctk.CTkScrollableFrame(
                 self.main_content_frame,
                 fg_color=self.palette.get("card_bg"),
@@ -266,7 +275,7 @@ class VintedAIApp(ctk.CTk):
             right_scrollable.pack(side="left", expand=True, fill="both")
 
             # --- Profil d'analyse ---
-            profile_card = self._create_card(left_frame)
+            profile_card = self._create_card(sidebar_inner)
             profile_card.pack(anchor="w", fill="x", pady=(8, 0), padx=4)
             profile_label = ctk.CTkLabel(
                 profile_card,
@@ -299,11 +308,13 @@ class VintedAIApp(ctk.CTk):
                 text="Choisissez le profil d'analyse adapté à l'article.",
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
+                justify="left",
+                wraplength=220,
             )
             hint_profile.pack(anchor="w", pady=(2, 6), padx=12)
 
             # --- Inputs manuels (v1 simple) ---
-            self.size_inputs_frame = self._create_card(left_frame)
+            self.size_inputs_frame = self._create_card(sidebar_inner)
             self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0), padx=4)
 
             fr_label = ctk.CTkLabel(
@@ -343,11 +354,13 @@ class VintedAIApp(ctk.CTk):
                 text="Renseigner les tailles améliore la précision des fiches.",
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
+                justify="left",
+                wraplength=220,
             )
             size_hint.pack(anchor="w", pady=(2, 8), padx=12)
 
             # Méthode de relevé (profils polaire/pull)
-            self.measure_mode_frame = self._create_card(left_frame)
+            self.measure_mode_frame = self._create_card(sidebar_inner)
             measure_label = ctk.CTkLabel(
                 self.measure_mode_frame,
                 text="Méthode de relevé :",
