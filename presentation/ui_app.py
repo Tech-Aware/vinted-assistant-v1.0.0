@@ -184,7 +184,8 @@ class VintedAIApp(ctk.CTk):
                 border_width=1,
                 corner_radius=14,
             )
-            card.pack_propagate(False)
+            # On laisse les cartes s'adapter à leur contenu pour éviter la troncature des textes.
+            card.pack_propagate(True)
             return card
         except Exception as exc:
             logger.error("Erreur lors de la création d'une carte UI: %s", exc, exc_info=True)
@@ -309,7 +310,9 @@ class VintedAIApp(ctk.CTk):
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
                 justify="left",
-                wraplength=220,
+                wraplength=240,
+                width=240,
+                anchor="w",
             )
             hint_profile.pack(anchor="w", pady=(2, 6), padx=12)
 
@@ -355,7 +358,9 @@ class VintedAIApp(ctk.CTk):
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
                 justify="left",
-                wraplength=220,
+                wraplength=240,
+                width=240,
+                anchor="w",
             )
             size_hint.pack(anchor="w", pady=(2, 8), padx=12)
 
