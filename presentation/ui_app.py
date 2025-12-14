@@ -79,6 +79,7 @@ class VintedAIApp(ctk.CTk):
 
         self.title_label: Optional[ctk.CTkLabel] = None
         self.gallery_info_label: Optional[ctk.CTkLabel] = None
+        self.clear_gallery_btn: Optional[ctk.CTkButton] = None
         self.status_label: Optional[ctk.CTkLabel] = None
         self.preview_frame: Optional[ImagePreview] = None
         self.current_listing: Optional[VintedListing] = None
@@ -242,6 +243,20 @@ class VintedAIApp(ctk.CTk):
                 command=self.select_images,
             )
             add_image_btn.pack(side="right", padx=14, pady=10)
+
+            self.clear_gallery_btn = ctk.CTkButton(
+                header,
+                text="Vider",
+                width=94,
+                height=30,
+                corner_radius=14,
+                fg_color=self.palette.get("card_border"),
+                hover_color=self.palette.get("accent_gradient_start"),
+                text_color="white",
+                command=self._clear_gallery,
+            )
+            self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=10)
+            self.clear_gallery_btn.pack_forget()
 
             self.gallery_info_label = ctk.CTkLabel(
                 header,
@@ -795,6 +810,29 @@ class VintedAIApp(ctk.CTk):
                 f"Impossible de retirer cette image :\n{exc}",
             )
 
+    def _clear_gallery(self) -> None:
+        try:
+            if not self.selected_images:
+                logger.info("Aucune image à supprimer: galerie déjà vide.")
+                return
+
+            cleared_count = len(self.selected_images)
+            self.selected_images.clear()
+            self.image_paths = []
+            self._image_directories.clear()
+
+            if self.preview_frame:
+                self.preview_frame.update_images([])
+
+            self._update_gallery_info()
+            logger.info("Galerie vidée (%d image(s) supprimée(s)).", cleared_count)
+        except Exception as exc:
+            logger.error("Erreur lors du vidage de la galerie: %s", exc, exc_info=True)
+            messagebox.showerror(
+                "Vider la galerie",
+                f"Impossible de vider la galerie :\n{exc}",
+            )
+
     def _update_gallery_info(self) -> None:
         try:
             if not self.gallery_info_label:
@@ -804,11 +842,43 @@ class VintedAIApp(ctk.CTk):
             if not count:
                 self.gallery_info_label.configure(text="")
                 logger.info("Compteur de galerie vidé (aucune image affichée).")
+                if self.clear_gallery_btn and self.clear_gallery_btn.winfo_manager():
+                    try:
+                        self.clear_gallery_btn.pack_forget()
+                        logger.info("Bouton de vidage de galerie masqué (aucune image).")
+                    except Exception as btn_exc:
+                        logger.error(
+                            "Erreur lors du masquage du bouton de vidage: %s",
+                            btn_exc,
+                            exc_info=True,
+                        )
                 return
 
             plural = "s" if count > 1 else ""
             self.gallery_info_label.configure(text=f"{count} image{plural} sélectionnée{plural}")
             logger.info("Mise à jour du compteur de galerie: %s", count)
+
+            if self.clear_gallery_btn:
+                try:
+                    if count >= 2:
+                        if not self.clear_gallery_btn.winfo_manager():
+                            self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=10)
+                            logger.info(
+                                "Bouton de vidage de galerie affiché (compte: %s).",
+                                count,
+                            )
+                    elif self.clear_gallery_btn.winfo_manager():
+                        self.clear_gallery_btn.pack_forget()
+                        logger.info(
+                            "Bouton de vidage de galerie masqué (compte: %s).",
+                            count,
+                        )
+                except Exception as btn_exc:
+                    logger.error(
+                        "Erreur lors de la mise à jour du bouton de vidage: %s",
+                        btn_exc,
+                        exc_info=True,
+                    )
         except Exception as exc:
             logger.error("Erreur lors de la mise à jour des informations de galerie: %s", exc, exc_info=True)
 
