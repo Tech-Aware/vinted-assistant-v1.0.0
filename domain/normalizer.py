@@ -218,43 +218,63 @@ def _enrich_raw_description(
     applique, si disponible, la composition saisie manuellement.
     """
     try:
-        base_text = raw_description or ""
-
+        base_text = (raw_description or "").strip()
         manual_compo = (context.get("manual_composition_text") or "").strip()
-        if manual_compo:
+
+        def _split_body_footer(text: str) -> tuple[str, str]:
             try:
-                replacement = f"Composition : {manual_compo.rstrip('.')}."
-                footer_already_there = MANDATORY_RAW_FOOTER in base_text
+                anchor = "📏 Mesures détaillées visibles en photo pour plus de précisions."
+                idx = text.find(anchor)
+                if idx != -1:
+                    body = text[:idx].rstrip()
+                    footer = text[idx:].lstrip()
+                    return body, footer
 
-                text_without_footer = (
-                    base_text.replace(MANDATORY_RAW_FOOTER, "").strip()
-                    if footer_already_there
-                    else base_text
-                )
+                if MANDATORY_RAW_FOOTER in text:
+                    body = text.replace(MANDATORY_RAW_FOOTER, "").rstrip()
+                    return body, MANDATORY_RAW_FOOTER
 
-                updated_text = text_without_footer.replace(
-                    "Composition non lisible (voir photos).", replacement
-                )
-                updated_text = updated_text.replace(
-                    "Etiquette de composition coupée pour plus de confort.",
-                    replacement,
-                )
-
-                if replacement not in updated_text:
-                    updated_text = (updated_text + "\n\n" + replacement).strip()
-
-                base_text = (
-                    (updated_text + "\n\n" + MANDATORY_RAW_FOOTER).strip()
-                    if footer_already_there
-                    else updated_text
-                )
-            except Exception as nested_exc:  # pragma: no cover - defensive
+                return text.rstrip(), ""
+            except Exception as exc_split:  # pragma: no cover - defensive
                 logger.warning(
-                    "_enrich_raw_description: remplacement composition ignoré (%s)",
-                    nested_exc,
+                    "_enrich_raw_description: split body/footer échoué (%s)",
+                    exc_split,
                 )
+                return text.rstrip(), ""
 
-        enriched_text = base_text.strip()
+        def _inject_composition(body_text: str, composition: str) -> str:
+            try:
+                placeholders = [
+                    "Composition non lisible (voir photos).",
+                    "Etiquette de composition coupée pour plus de confort.",
+                ]
+                cleaned_body = body_text
+                for placeholder in placeholders:
+                    cleaned_body = cleaned_body.replace(placeholder, composition)
+
+                if composition in cleaned_body:
+                    return cleaned_body.strip()
+
+                if "\n\n" in cleaned_body:
+                    first_paragraph, rest = cleaned_body.split("\n\n", 1)
+                    return f"{first_paragraph.strip()}\n\n{composition}\n\n{rest.strip()}".strip()
+
+                return f"{cleaned_body.strip()}\n\n{composition}".strip()
+            except Exception as exc_inject:  # pragma: no cover - defensive
+                logger.warning(
+                    "_enrich_raw_description: injection composition échouée (%s)",
+                    exc_inject,
+                )
+                return body_text.strip()
+
+        body, footer = _split_body_footer(base_text)
+
+        if manual_compo:
+            replacement = f"Composition : {manual_compo.rstrip('.')}."
+            body = _inject_composition(body, replacement)
+
+        final_footer = footer if footer else MANDATORY_RAW_FOOTER
+        enriched_text = (body + "\n\n" + final_footer).strip()
 
         if MANDATORY_RAW_FOOTER not in enriched_text:
             enriched_text = (enriched_text + "\n\n" + MANDATORY_RAW_FOOTER).strip()
