@@ -214,60 +214,32 @@ def _enrich_raw_description(
     raw_description: str, context: Dict[str, Any]
 ) -> str:
     """
-    Ajoute un rappel synthétique des informations clés et le footer obligatoire
-    au texte brut fourni par l'IA.
+    Ajoute uniquement le footer obligatoire au texte brut fourni par l'IA et
+    applique, si disponible, la composition saisie manuellement.
     """
     try:
         base_text = raw_description or ""
-        info_lines: list[str] = []
 
-        brand = context.get("brand")
-        if brand:
-            info_lines.append(f"Marque : {brand}")
-
-        size = (
-            context.get("size")
-            or context.get("size_fr")
-            or context.get("size_us")
-            or context.get("length")
-        )
-        if size:
-            info_lines.append(f"Taille : {size}")
-
-        color = context.get("color") or context.get("main_colors")
-        if color:
-            info_lines.append(f"Couleur : {color}")
-
-        pattern = context.get("pattern")
-        if pattern:
-            info_lines.append(f"Motifs : {pattern}")
-
-        style = context.get("style") or context.get("garment_type")
-        if style:
-            info_lines.append(f"Style : {style}")
-
-        composition_parts = []
-        if context.get("cotton_percent"):
-            composition_parts.append(f"{context['cotton_percent']}% coton")
-        if context.get("wool_percent"):
-            composition_parts.append(f"{context['wool_percent']}% laine")
-        if context.get("elasthane_percent"):
-            composition_parts.append(f"{context['elasthane_percent']}% élasthanne")
-        material = context.get("material")
-        if material:
-            composition_parts.append(str(material))
-        if composition_parts:
-            info_lines.append("Composition : " + ", ".join(composition_parts))
-
-        defects = context.get("defects")
-        if defects:
-            info_lines.append(f"Défauts : {defects}")
+        manual_compo = (context.get("manual_composition_text") or "").strip()
+        if manual_compo:
+            try:
+                replacement = f"Composition : {manual_compo.rstrip('.')}."
+                base_text = base_text.replace(
+                    "Composition non lisible (voir photos).", replacement
+                )
+                base_text = base_text.replace(
+                    "Etiquette de composition coupée pour plus de confort.",
+                    replacement,
+                )
+                if replacement not in base_text:
+                    base_text = (base_text + "\n\n" + replacement).strip()
+            except Exception as nested_exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "_enrich_raw_description: remplacement composition ignoré (%s)",
+                    nested_exc,
+                )
 
         enriched_text = base_text.strip()
-        if info_lines:
-            recap = "Résumé express : " + " | ".join(info_lines)
-            if recap not in enriched_text:
-                enriched_text = (enriched_text + "\n\n" + recap).strip()
 
         if MANDATORY_RAW_FOOTER not in enriched_text:
             enriched_text = (enriched_text + "\n\n" + MANDATORY_RAW_FOOTER).strip()

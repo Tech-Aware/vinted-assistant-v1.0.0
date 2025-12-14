@@ -336,6 +336,7 @@ def _build_pull_tommy_composition(
     cotton_percent: Optional[Any],
     wool_percent: Optional[Any],
     angora_percent: Optional[Any] = None,
+    manual_composition_text: Optional[str] = None,
 ) -> str:
     try:
         fibers: List[str] = []
@@ -392,6 +393,10 @@ def _build_pull_tommy_composition(
                     label,
                     exc,
                 )
+
+        manual_text = _safe_clean(manual_composition_text)
+        if manual_text:
+            return f"Composition : {manual_text.rstrip('.')}."
 
         clean_material = _safe_clean(material)
         material_lower = clean_material.lower()
@@ -702,6 +707,7 @@ def build_pull_tommy_description(
             cotton_percent=cotton_percent,
             wool_percent=wool_percent,
             angora_percent=angora_percent,
+            manual_composition_text=features.get("manual_composition_text"),
         )
 
         state_sentence = _build_state_sentence(defects)

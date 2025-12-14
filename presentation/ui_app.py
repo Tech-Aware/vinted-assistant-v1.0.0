@@ -1370,8 +1370,22 @@ class VintedAIApp(ctk.CTk):
                     self._update_composition_features(listing, clean_text)
                     self._rebuild_title_with_manual_composition(listing)
 
-                    updated_description = (listing.description or "").replace(placeholder, sentence)
+                    updated_description = (listing.description or "").replace(
+                        placeholder, sentence
+                    )
                     listing.description = updated_description
+
+                    try:
+                        raw_desc = getattr(listing, "description_raw", "") or ""
+                        updated_raw = raw_desc.replace(placeholder, sentence)
+                        if updated_raw.strip() and sentence not in updated_raw:
+                            updated_raw = (updated_raw.strip() + "\n\n" + sentence).strip()
+                        listing.description_raw = updated_raw
+                    except Exception as exc_raw:  # pragma: no cover - defensive
+                        logger.warning(
+                            "_apply_composition_text: mise à jour description brute ignorée (%s)",
+                            exc_raw,
+                        )
 
                     logger.info("Composition manuelle appliquée: %s", sentence)
                     self._update_result_fields(listing)
