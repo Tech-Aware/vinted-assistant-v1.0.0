@@ -42,6 +42,7 @@ class VintedListing:
     sku_status: Optional[str] = None
     features: Dict[str, Any] = field(default_factory=dict)
     manual_composition_text: Optional[str] = None
+    description_raw: Optional[str] = None
 
     # ------------------------------------------------------------------ #
     # Validation métier
@@ -142,6 +143,7 @@ class VintedListing:
             color = data.get("color")
             sku = data.get("sku")
             sku_status = data.get("sku_status")
+            description_raw = data.get("description_raw")
 
             raw_condition = data.get("condition")
             condition = cls._parse_condition(raw_condition)
@@ -173,6 +175,7 @@ class VintedListing:
                 sku_status=sku_status,
                 features=features,
                 manual_composition_text=manual_composition_text,
+                description_raw=description_raw,
             )
 
             listing.validate()
@@ -195,6 +198,7 @@ class VintedListing:
             result = {
                 "title": self.title,
                 "description": self.description,
+                "description_raw": self.description_raw,
                 "brand": self.brand,
                 "size": self.size,
                 "condition": condition_value,

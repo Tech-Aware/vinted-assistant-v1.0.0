@@ -9,6 +9,7 @@ import logging
 from domain.description_builder import (
     build_jean_levis_description,
     build_pull_tommy_description,
+    _build_hashtags,
     _strip_footer_lines,
 )
 from domain.templates import AnalysisProfileName
@@ -197,6 +198,285 @@ def _extract_color_from_text(text: str) -> Optional[str]:
         return "bleu"
 
     return None
+
+
+MANDATORY_RAW_FOOTER = (
+    "📏 Mesures détaillées visibles en photo pour plus de précisions.\n"
+    "📦 Envoi rapide et soigné.\n"
+    "✨ Retrouvez tous mes pulls Tommy femme ici 👉 #durin31tfM\n"
+    "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et "
+    "économiser des frais d’envoi !\n\n"
+    "#tommyhilfiger #pulltommy #tommy #pullfemme #modefemme #preloved "
+    "#durin31tfM #ptf #rouge"
+)
+
+
+def _build_dynamic_footer(
+    profile_name: AnalysisProfileName, context: Dict[str, Any]
+) -> str:
+    """
+    Construit un footer obligatoire dynamique en fonction du profil et des tailles.
+    """
+    try:
+        if profile_name == AnalysisProfileName.JEAN_LEVIS:
+            size_fr = (context.get("size_fr") or "").strip()
+            size_us = (context.get("size_us") or "").strip()
+            length = (context.get("length") or "").strip()
+            brand = (context.get("brand") or "Levi's").strip()
+            model = (context.get("model") or "").strip()
+            fit = (context.get("fit") or "").strip()
+            color = (context.get("color") or "").strip()
+            gender = (context.get("gender") or "").strip()
+            rise_label = (context.get("rise_type") or "").strip()
+
+            size_token = (size_fr or size_us or "nc").lower().replace(" ", "")
+            durin_tag = f"#durin31fr{size_token}"
+
+            hashtags = _build_hashtags(
+                brand=brand,
+                model=model,
+                fit=fit,
+                color=color,
+                size_fr=size_fr,
+                size_us=size_us,
+                length=length,
+                gender=gender,
+                rise_label=rise_label,
+                durin_tag=durin_tag,
+            )
+
+            footer_lines = [
+                "📏 Mesures détaillées visibles en photo pour plus de précisions.",
+                "📦 Envoi rapide et soigné.",
+                f"✨ Retrouvez tous mes articles Levi’s à votre taille ici 👉 {durin_tag}",
+                "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
+                hashtags,
+            ]
+            footer = "\n".join(line for line in footer_lines if line).strip()
+            logger.info(
+                "_build_dynamic_footer: footer jean Levi's généré avec taille=%s", size_token
+            )
+            return footer
+
+        if profile_name == AnalysisProfileName.PULL_TOMMY:
+            size_value = context.get("size") or context.get("size_estimated")
+            color = ""
+            try:
+                colors = context.get("main_colors") or context.get("colors") or []
+                if isinstance(colors, list) and colors:
+                    color = str(colors[0]).lower()
+            except Exception as color_exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "_build_dynamic_footer: extraction couleur échouée (%s)", color_exc
+                )
+
+            from domain.description_builder import _normalize_pull_size  # local import
+
+            size_token = _normalize_pull_size(size_value) or "NC"
+            size_token = size_token.replace(" ", "")
+            durin_tag = f"#durin31tf{size_token}"
+            size_hashtag = f"#tf{size_token.lower()}"
+
+            color_tag = f"#{color}" if color else ""
+            footer_lines = [
+                "📏 Mesures détaillées visibles en photo pour plus de précisions.",
+                "📦 Envoi rapide et soigné.",
+                f"✨ Retrouvez tous mes pulls Tommy femme ici 👉 {durin_tag}",
+                "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
+            ]
+
+            base_tags = "#tommyhilfiger #pulltommy #tommy #pullfemme #modefemme #preloved"
+            tokens = " ".join(
+                token
+                for token in [base_tags, size_hashtag, durin_tag, color_tag]
+                if token
+            ).strip()
+            footer_core = "\n".join(footer_lines)
+            footer = (footer_core + "\n\n" + tokens).strip()
+            logger.info(
+                "_build_dynamic_footer: footer pull Tommy généré avec taille=%s", size_token
+            )
+            return footer
+
+        logger.info("_build_dynamic_footer: profil non géré, footer par défaut")
+        return MANDATORY_RAW_FOOTER
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("_build_dynamic_footer: échec (%s)", exc)
+        return MANDATORY_RAW_FOOTER
+
+
+def _enrich_raw_description(
+    raw_description: str, context: Dict[str, Any], profile_name: AnalysisProfileName
+) -> str:
+    """
+    Ajoute uniquement le footer obligatoire au texte brut fourni par l'IA et
+    applique, si disponible, la composition saisie manuellement.
+    """
+    try:
+        base_text = (raw_description or "").strip()
+        manual_compo = (context.get("manual_composition_text") or "").strip()
+        dynamic_footer = _build_dynamic_footer(profile_name, context)
+
+        def _split_body_footer(text: str) -> tuple[str, str]:
+            try:
+                anchor = "📏 Mesures détaillées visibles en photo pour plus de précisions."
+                idx = text.find(anchor)
+                if idx != -1:
+                    body = text[:idx].rstrip()
+                    return body, ""
+
+                if MANDATORY_RAW_FOOTER in text:
+                    body = text.replace(MANDATORY_RAW_FOOTER, "").rstrip()
+                    return body, ""
+
+                return text.rstrip(), ""
+            except Exception as exc_split:  # pragma: no cover - defensive
+                logger.warning(
+                    "_enrich_raw_description: split body/footer échoué (%s)",
+                    exc_split,
+                )
+                return text.rstrip(), ""
+
+        def _normalize_body_sizes(body_text: str) -> str:
+            try:
+                size_fr_val = context.get("size_fr")
+                size_us_val = context.get("size_us")
+                length_val = context.get("length")
+
+                size_fr_clean = (
+                    str(size_fr_val).strip() if size_fr_val is not None else None
+                )
+                size_us_clean = (
+                    str(size_us_val).upper().replace(" ", "")
+                    if size_us_val is not None
+                    else None
+                )
+                length_clean = (
+                    str(length_val).upper().replace(" ", "")
+                    if length_val is not None
+                    else None
+                )
+
+                if not any([size_fr_clean, size_us_clean, length_clean]):
+                    return body_text.strip()
+
+                parts = body_text.split("\n\n", 1)
+                main_paragraph = parts[0].strip()
+                remainder = parts[1] if len(parts) > 1 else ""
+
+                for pattern in [r"W\d+\s*L\d+", r"W\d+", r"L\d+"]:
+                    try:
+                        main_paragraph = re.sub(
+                            pattern, "", main_paragraph, flags=re.IGNORECASE
+                        )
+                    except Exception as replace_exc:  # pragma: no cover - defensive
+                        logger.debug(
+                            "_enrich_raw_description: regex taille ignorée (%s)",
+                            replace_exc,
+                        )
+
+                main_paragraph = re.sub(r"\s{2,}", " ", main_paragraph).strip()
+
+                size_tokens = []
+                us_block = None
+                if size_us_clean:
+                    us_block = size_us_clean
+                    if length_clean:
+                        us_block = f"{us_block} {length_clean}".strip()
+
+                if size_fr_clean and us_block:
+                    size_tokens.append(f"Taille {size_fr_clean} FR (US {us_block})")
+                elif size_fr_clean:
+                    size_tokens.append(f"Taille {size_fr_clean} FR")
+                elif us_block:
+                    size_tokens.append(f"Taille US {us_block}")
+                elif length_clean:
+                    size_tokens.append(f"Longueur {length_clean}")
+
+                if size_tokens:
+                    size_sentence = ", ".join(size_tokens) + "."
+                    try:
+                        replaced = re.sub(
+                            r"\b[Tt]aille[^.?!]*[.?!]?",
+                            size_sentence,
+                            main_paragraph,
+                            count=1,
+                        ).strip()
+                        if replaced != main_paragraph:
+                            main_paragraph = replaced
+                        else:
+                            main_paragraph = f"{main_paragraph} {size_sentence}".strip()
+                    except Exception as size_replace_exc:  # pragma: no cover - defensive
+                        logger.warning(
+                            "_enrich_raw_description: réinjection taille échouée (%s)",
+                            size_replace_exc,
+                        )
+                        main_paragraph = f"{main_paragraph} {size_sentence}".strip()
+
+                recombined = (
+                    main_paragraph
+                    if not remainder
+                    else f"{main_paragraph}\n\n{remainder.strip()}"
+                )
+                logger.debug(
+                    "_enrich_raw_description: taille normalisée dans le corps = %s",
+                    recombined,
+                )
+                return recombined.strip()
+            except Exception as exc_size:  # pragma: no cover - defensive
+                logger.warning(
+                    "_enrich_raw_description: normalisation tailles échouée (%s)",
+                    exc_size,
+                )
+                return body_text.strip()
+
+        def _inject_composition(body_text: str, composition: str) -> str:
+            try:
+                placeholders = [
+                    "Composition non lisible (voir photos).",
+                    "Etiquette de composition coupée pour plus de confort.",
+                ]
+                cleaned_body = body_text
+                for placeholder in placeholders:
+                    cleaned_body = cleaned_body.replace(placeholder, composition)
+
+                if composition in cleaned_body:
+                    return cleaned_body.strip()
+
+                if "\n\n" in cleaned_body:
+                    first_paragraph, rest = cleaned_body.split("\n\n", 1)
+                    return f"{first_paragraph.strip()}\n\n{composition}\n\n{rest.strip()}".strip()
+
+                return f"{cleaned_body.strip()}\n\n{composition}".strip()
+            except Exception as exc_inject:  # pragma: no cover - defensive
+                logger.warning(
+                    "_enrich_raw_description: injection composition échouée (%s)",
+                    exc_inject,
+                )
+                return body_text.strip()
+
+        body, _ = _split_body_footer(base_text)
+
+        try:
+            body = _normalize_body_sizes(body)
+        except Exception as size_norm_exc:  # pragma: no cover - defensive
+            logger.warning(
+                "_enrich_raw_description: normalisation taille ignorée (%s)",
+                size_norm_exc,
+            )
+
+        if manual_compo:
+            replacement = f"Composition : {manual_compo.rstrip('.')}."
+            body = _inject_composition(body, replacement)
+
+        final_footer = dynamic_footer or MANDATORY_RAW_FOOTER
+        enriched_text = (body + "\n\n" + final_footer).strip()
+
+        logger.debug("_enrich_raw_description: texte enrichi produit")
+        return enriched_text
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("_enrich_raw_description: échec, retour texte brut (%s)", exc)
+        return raw_description
 
 
 def _extract_sizes_from_text(text: str) -> tuple[Optional[str], Optional[str]]:
@@ -571,6 +851,18 @@ def normalize_and_postprocess(
 
     logger.debug("normalize_and_postprocess: features construites: %s", features)
 
+    raw_description = ai_data.get("description") or ""
+
+    try:
+        raw_description = _enrich_raw_description(
+            raw_description, {**ai_data, **features}, profile_name
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception(
+            "normalize_and_postprocess: enrichissement description brute échoué (%s)",
+            exc,
+        )
+
     # --- 2) Description ----------------------------------------------------
     try:
         if profile_name == AnalysisProfileName.JEAN_LEVIS:
@@ -599,7 +891,6 @@ def normalize_and_postprocess(
             "normalize_and_postprocess: erreur description -> fallback brut (%s)",
             exc,
         )
-        raw_description = ai_data.get("description") or ""
         if profile_name == AnalysisProfileName.PULL_TOMMY:
             try:
                 description = _strip_footer_lines(raw_description)
@@ -624,5 +915,7 @@ def normalize_and_postprocess(
             exc,
         )
         result["description"] = description
+
+    result["description_raw"] = raw_description
 
     return result

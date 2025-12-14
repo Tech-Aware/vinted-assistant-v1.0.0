@@ -83,6 +83,14 @@ class VintedAIApp(ctk.CTk):
         self.preview_frame: Optional[ImagePreview] = None
         self.current_listing: Optional[VintedListing] = None
 
+        self.title_text: Optional[ctk.CTkTextbox] = None
+        self.description_text: Optional[ctk.CTkTextbox] = None
+        self.description_header_label: Optional[ctk.CTkLabel] = None
+        self.description_toggle_btn: Optional[ctk.CTkButton] = None
+
+        self.description_variants: List[Dict[str, str]] = []
+        self.description_variant_index: int = 0
+
         self._background_canvas: Optional[tk.Canvas] = None
         self._content_container: Optional[ctk.CTkFrame] = None
 
@@ -401,17 +409,49 @@ class VintedAIApp(ctk.CTk):
             )
             measures_radio.pack(anchor="w", pady=(2, 2), padx=12)
 
-            # --- Zone de résultat ---
+            # --- Zone de résultat : titre + descriptions ---
             result_label = ctk.CTkLabel(
                 right_scrollable,
-                text="Résultat (titre + description)",
+                text="Résultat généré",
                 font=self.fonts.get("heading"),
                 text_color=self.palette.get("text_primary"),
             )
             result_label.pack(anchor="w", pady=(10, 0), padx=10)
 
-            self.result_text = ctk.CTkTextbox(
-                right_scrollable,
+            # Carte Titre
+            title_card = self._create_card(right_scrollable)
+            title_card.pack(fill="x", padx=10, pady=(8, 6))
+
+            title_header = ctk.CTkFrame(
+                title_card,
+                fg_color="transparent",
+            )
+            title_header.pack(fill="x", padx=10, pady=(8, 0))
+
+            title_label = ctk.CTkLabel(
+                title_header,
+                text="Titre",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            title_label.pack(side="left", padx=(0, 8))
+
+            title_copy_btn = ctk.CTkButton(
+                title_header,
+                text="📋",
+                width=36,
+                height=32,
+                corner_radius=10,
+                fg_color=self.palette.get("card_border"),
+                hover_color=self.palette.get("accent_gradient_start"),
+                text_color="white",
+                command=self._copy_title_to_clipboard,
+            )
+            title_copy_btn.pack(side="right")
+
+            self.title_text = ctk.CTkTextbox(
+                title_card,
+                height=48,
                 wrap="word",
                 fg_color=self.palette.get("input_bg"),
                 text_color=self.palette.get("text_primary"),
@@ -419,7 +459,68 @@ class VintedAIApp(ctk.CTk):
                 border_width=1,
                 border_color=self.palette.get("border"),
             )
-            self.result_text.pack(expand=True, fill="both", padx=10, pady=(10, 6))
+            self.title_text.pack(fill="x", padx=10, pady=(6, 10))
+
+            # Carte Description avec carrousel
+            description_card = self._create_card(right_scrollable)
+            description_card.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+
+            description_header = ctk.CTkFrame(
+                description_card,
+                fg_color="transparent",
+            )
+            description_header.pack(fill="x", padx=10, pady=(8, 0))
+
+            self.description_header_label = ctk.CTkLabel(
+                description_header,
+                text="Description (en attente)",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            self.description_header_label.pack(side="left", padx=(0, 8))
+
+            description_controls = ctk.CTkFrame(
+                description_header,
+                fg_color="transparent",
+            )
+            description_controls.pack(side="right")
+
+            self.description_toggle_btn = ctk.CTkButton(
+                description_controls,
+                text="▶",
+                width=38,
+                height=32,
+                corner_radius=10,
+                fg_color=self.palette.get("card_border"),
+                hover_color=self.palette.get("accent_gradient_start"),
+                text_color="white",
+                command=self._toggle_description_variant,
+            )
+            self.description_toggle_btn.pack(side="left", padx=(0, 6))
+
+            description_copy_btn = ctk.CTkButton(
+                description_controls,
+                text="📋",
+                width=36,
+                height=32,
+                corner_radius=10,
+                fg_color=self.palette.get("card_border"),
+                hover_color=self.palette.get("accent_gradient_start"),
+                text_color="white",
+                command=self._copy_description_to_clipboard,
+            )
+            description_copy_btn.pack(side="left")
+
+            self.description_text = ctk.CTkTextbox(
+                description_card,
+                wrap="word",
+                fg_color=self.palette.get("input_bg"),
+                text_color=self.palette.get("text_primary"),
+                corner_radius=12,
+                border_width=1,
+                border_color=self.palette.get("border"),
+            )
+            self.description_text.pack(expand=True, fill="both", padx=10, pady=(6, 10))
 
             self._build_generate_button(right_scrollable)
 
@@ -866,9 +967,32 @@ class VintedAIApp(ctk.CTk):
             if self.generate_btn:
                 self.generate_btn.configure(state="disabled")
 
-            if self.result_text:
-                self.result_text.delete("1.0", "end")
-                self.result_text.insert("1.0", "Analyse en cours...\n")
+            if self.title_text:
+                try:
+                    self.title_text.delete("1.0", "end")
+                    self.title_text.insert("1.0", "Analyse en cours...")
+                except Exception as exc_text:
+                    logger.error(
+                        "Erreur lors de la mise à jour du titre temporaire: %s",
+                        exc_text,
+                        exc_info=True,
+                    )
+
+            if self.description_text:
+                try:
+                    self.description_text.delete("1.0", "end")
+                    self.description_text.insert("1.0", "Analyse en cours...\n")
+                    if self.description_header_label:
+                        self.description_header_label.configure(text="Description (analyse en cours)")
+                except Exception as exc_text:
+                    logger.error(
+                        "Erreur lors de la mise à jour de la description temporaire: %s",
+                        exc_text,
+                        exc_info=True,
+                    )
+
+            self.description_variants = []
+            self.description_variant_index = 0
 
             if self.status_label:
                 self.status_label.configure(
@@ -966,10 +1090,7 @@ class VintedAIApp(ctk.CTk):
 
             self._prompt_composition_if_needed(listing)
 
-            if self.result_text:
-                output = self._format_listing(listing)
-                self.result_text.delete("1.0", "end")
-                self.result_text.insert("1.0", output)
+            self._update_result_fields(listing)
 
             if self._needs_manual_sku(listing):
                 self._prompt_for_sku(listing)
@@ -1249,14 +1370,25 @@ class VintedAIApp(ctk.CTk):
                     self._update_composition_features(listing, clean_text)
                     self._rebuild_title_with_manual_composition(listing)
 
-                    updated_description = (listing.description or "").replace(placeholder, sentence)
+                    updated_description = (listing.description or "").replace(
+                        placeholder, sentence
+                    )
                     listing.description = updated_description
 
+                    try:
+                        raw_desc = getattr(listing, "description_raw", "") or ""
+                        updated_raw = raw_desc.replace(placeholder, sentence)
+                        if updated_raw.strip() and sentence not in updated_raw:
+                            updated_raw = (updated_raw.strip() + "\n\n" + sentence).strip()
+                        listing.description_raw = updated_raw
+                    except Exception as exc_raw:  # pragma: no cover - defensive
+                        logger.warning(
+                            "_apply_composition_text: mise à jour description brute ignorée (%s)",
+                            exc_raw,
+                        )
+
                     logger.info("Composition manuelle appliquée: %s", sentence)
-                    if self.result_text:
-                        output = self._format_listing(listing)
-                        self.result_text.delete("1.0", "end")
-                        self.result_text.insert("1.0", output)
+                    self._update_result_fields(listing)
                 except Exception as exc_apply:  # pragma: no cover - defensive
                     logger.error("Erreur lors de l'application de la composition: %s", exc_apply, exc_info=True)
 
@@ -1444,6 +1576,116 @@ class VintedAIApp(ctk.CTk):
             )
 
     # ------------------------------------------------------------------
+    # Mise à jour des zones de résultat
+    # ------------------------------------------------------------------
+
+    def _update_result_fields(self, listing: VintedListing) -> None:
+        try:
+            if not listing:
+                logger.warning("_update_result_fields: listing manquant.")
+                return
+
+            if self.title_text:
+                self.title_text.delete("1.0", "end")
+                self.title_text.insert("1.0", listing.title or "(vide)")
+
+            self._set_description_variants(listing)
+        except Exception as exc:
+            logger.error("_update_result_fields: erreur %s", exc, exc_info=True)
+
+    def _set_description_variants(self, listing: VintedListing) -> None:
+        try:
+            variants: List[Dict[str, str]] = []
+
+            raw_desc = getattr(listing, "description_raw", "") or ""
+            refined_desc = listing.description or ""
+
+            if raw_desc.strip():
+                variants.append(
+                    {
+                        "label": "Description brute IA",
+                        "value": raw_desc.strip(),
+                    }
+                )
+
+            variants.append(
+                {
+                    "label": "Description raffinée",
+                    "value": refined_desc.strip() or "(vide)",
+                }
+            )
+
+            if not variants:
+                variants.append(
+                    {
+                        "label": "Description",
+                        "value": "(vide)",
+                    }
+                )
+
+            self.description_variants = variants
+            self.description_variant_index = 0
+            self._render_description_variant()
+        except Exception as exc:
+            logger.error("_set_description_variants: erreur %s", exc, exc_info=True)
+
+    def _render_description_variant(self) -> None:
+        try:
+            if not self.description_text:
+                logger.debug("_render_description_variant: zone de description indisponible.")
+                return
+
+            if not self.description_variants:
+                logger.warning("_render_description_variant: aucune variante à afficher.")
+                return
+
+            variant = self.description_variants[self.description_variant_index % len(self.description_variants)]
+            self.description_text.delete("1.0", "end")
+            self.description_text.insert("1.0", variant.get("value", "(vide)"))
+
+            if self.description_header_label:
+                self.description_header_label.configure(text=variant.get("label", "Description"))
+        except Exception as exc:
+            logger.error("_render_description_variant: erreur %s", exc, exc_info=True)
+
+    def _toggle_description_variant(self) -> None:
+        try:
+            if len(self.description_variants) <= 1:
+                logger.info("_toggle_description_variant: une seule variante disponible.")
+                return
+
+            self.description_variant_index = (self.description_variant_index + 1) % len(
+                self.description_variants
+            )
+            self._render_description_variant()
+        except Exception as exc:
+            logger.error("_toggle_description_variant: erreur %s", exc, exc_info=True)
+
+    def _copy_title_to_clipboard(self) -> None:
+        try:
+            if not self.title_text:
+                logger.warning("_copy_title_to_clipboard: zone de titre absente.")
+                return
+            text = self.title_text.get("1.0", "end").strip()
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            logger.info("Titre copié dans le presse-papiers.")
+        except Exception as exc:
+            logger.error("_copy_title_to_clipboard: erreur %s", exc, exc_info=True)
+
+    def _copy_description_to_clipboard(self) -> None:
+        try:
+            if not self.description_text:
+                logger.warning("_copy_description_to_clipboard: zone de description absente.")
+                return
+            text = self.description_text.get("1.0", "end").strip()
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            logger.info("Description courante copiée dans le presse-papiers.")
+        except Exception as exc:
+            logger.error("_copy_description_to_clipboard: erreur %s", exc, exc_info=True)
+
+    # ------------------------------------------------------------------
     # Format
     # ------------------------------------------------------------------
 
@@ -1526,10 +1768,7 @@ class VintedAIApp(ctk.CTk):
 
             logger.info("SKU manuel appliqué: %s", listing.title)
 
-            if self.result_text:
-                output = self._format_listing(listing)
-                self.result_text.delete("1.0", "end")
-                self.result_text.insert("1.0", output)
+            self._update_result_fields(listing)
 
         except Exception as exc:
             logger.error("Erreur lors de l'application du SKU manuel: %s", exc, exc_info=True)
