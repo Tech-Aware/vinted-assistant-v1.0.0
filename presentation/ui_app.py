@@ -70,6 +70,8 @@ class VintedAIApp(ctk.CTk):
 
         self.size_inputs_frame: Optional[ctk.CTkFrame] = None
         self.measure_mode_frame: Optional[ctk.CTkFrame] = None
+        self.fr_label: Optional[ctk.CTkLabel] = None
+        self.size_hint: Optional[ctk.CTkLabel] = None
 
         self.profiles_by_name_value: Dict[str, AnalysisProfile] = {
             profile.name.value: profile for profile in ALL_PROFILES.values()
@@ -320,12 +322,12 @@ class VintedAIApp(ctk.CTk):
             self.size_inputs_frame = self._create_card(sidebar_inner)
             self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0), padx=4)
 
-            fr_label = ctk.CTkLabel(
+            self.fr_label = ctk.CTkLabel(
                 self.size_inputs_frame,
                 text="Taille FR (optionnel) :",
                 text_color=self.palette.get("text_primary"),
             )
-            fr_label.pack(anchor="w", pady=(5, 0), padx=12)
+            self.fr_label.pack(anchor="w", pady=(5, 0), padx=12)
             fr_entry = ctk.CTkEntry(
                 self.size_inputs_frame,
                 textvariable=self.size_fr_var,
@@ -352,7 +354,7 @@ class VintedAIApp(ctk.CTk):
             )
             us_entry.pack(anchor="w", pady=5, padx=12)
 
-            size_hint = ctk.CTkLabel(
+            self.size_hint = ctk.CTkLabel(
                 self.size_inputs_frame,
                 text="Renseigner les tailles améliore la précision des fiches.",
                 font=self.fonts.get("small"),
@@ -362,7 +364,7 @@ class VintedAIApp(ctk.CTk):
                 width=240,
                 anchor="w",
             )
-            size_hint.pack(anchor="w", pady=(2, 8), padx=12)
+            self.size_hint.pack(anchor="w", pady=(2, 8), padx=12)
 
             # Méthode de relevé (profils polaire/pull)
             self.measure_mode_frame = self._create_card(sidebar_inner)
@@ -735,8 +737,46 @@ class VintedAIApp(ctk.CTk):
                     "Profil %s détecté : affichage des tailles FR/US.",
                     profile_key,
                 )
+
+            self._refresh_size_requirements(profile_key)
         except Exception as exc:
             logger.error("Erreur lors de la mise à jour de l'UI du profil: %s", exc, exc_info=True)
+
+    def _refresh_size_requirements(self, profile_key: str) -> None:
+        try:
+            if not self.fr_label or not self.size_hint:
+                logger.warning("Labels de taille non initialisés, impossible de rafraîchir les exigences.")
+                return
+
+            is_levis = profile_key == AnalysisProfileName.JEAN_LEVIS.value
+            fr_text = "Taille FR (obligatoire) :" if is_levis else "Taille FR (optionnel) :"
+            hint_text = (
+                "Pour un jean Levi's, la taille FR est requise. La taille US reste optionnelle."
+                if is_levis
+                else "Renseigner les tailles améliore la précision des fiches."
+            )
+
+            self.fr_label.configure(text=fr_text, text_color=self.palette.get("text_primary"))
+            self.size_hint.configure(
+                text=hint_text,
+                text_color=self.palette.get("text_muted"),
+                wraplength=240,
+                anchor="w",
+                justify="left",
+            )
+
+            logger.info(
+                "Mise à jour des indications de taille (profil=%s, taille FR %s)",
+                profile_key,
+                "obligatoire" if is_levis else "optionnelle",
+            )
+        except Exception as exc:
+            logger.error(
+                "Erreur lors de la mise à jour des exigences de taille pour le profil %s: %s",
+                profile_key,
+                exc,
+                exc_info=True,
+            )
 
     def _on_profile_change(self, _choice: Optional[str] = None) -> None:
         try:
