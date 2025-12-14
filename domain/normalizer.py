@@ -224,15 +224,30 @@ def _enrich_raw_description(
         if manual_compo:
             try:
                 replacement = f"Composition : {manual_compo.rstrip('.')}."
-                base_text = base_text.replace(
+                footer_already_there = MANDATORY_RAW_FOOTER in base_text
+
+                text_without_footer = (
+                    base_text.replace(MANDATORY_RAW_FOOTER, "").strip()
+                    if footer_already_there
+                    else base_text
+                )
+
+                updated_text = text_without_footer.replace(
                     "Composition non lisible (voir photos).", replacement
                 )
-                base_text = base_text.replace(
+                updated_text = updated_text.replace(
                     "Etiquette de composition coupée pour plus de confort.",
                     replacement,
                 )
-                if replacement not in base_text:
-                    base_text = (base_text + "\n\n" + replacement).strip()
+
+                if replacement not in updated_text:
+                    updated_text = (updated_text + "\n\n" + replacement).strip()
+
+                base_text = (
+                    (updated_text + "\n\n" + MANDATORY_RAW_FOOTER).strip()
+                    if footer_already_there
+                    else updated_text
+                )
             except Exception as nested_exc:  # pragma: no cover - defensive
                 logger.warning(
                     "_enrich_raw_description: remplacement composition ignoré (%s)",
