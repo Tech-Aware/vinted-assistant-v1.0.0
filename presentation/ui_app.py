@@ -127,7 +127,9 @@ class VintedAIApp(ctk.CTk):
                 self._background_canvas.bind("<Configure>", self._draw_background_gradient, add="+")
 
             if self._content_container is None:
-                self._content_container = ctk.CTkFrame(self, fg_color="transparent")
+                self._content_container = ctk.CTkFrame(
+                    self, fg_color=self.palette.get("bg_end", "#0b3864")
+                )
                 self._content_container.place(relx=0, rely=0, relwidth=1, relheight=1)
 
             logger.info("Fond dégradé et conteneur principal préparés.")
@@ -195,7 +197,10 @@ class VintedAIApp(ctk.CTk):
             self._build_top_bar()
 
             # --- Galerie d'images (header + ImagePreview) ---
-            gallery_wrapper = ctk.CTkFrame(self._content_container or self, fg_color="transparent")
+            gallery_wrapper = ctk.CTkFrame(
+                self._content_container or self,
+                fg_color="transparent",
+            )
             gallery_wrapper.pack(fill="x", padx=0, pady=(4, 8))
 
             header = ctk.CTkFrame(
@@ -249,7 +254,7 @@ class VintedAIApp(ctk.CTk):
             left_frame = ctk.CTkFrame(
                 self.main_content_frame,
                 width=280,
-                fg_color="transparent",
+                fg_color=self.palette.get("bg_end"),
             )
             left_frame.pack(side="left", fill="y", padx=(0, 10))
 
@@ -262,14 +267,14 @@ class VintedAIApp(ctk.CTk):
 
             # --- Profil d'analyse ---
             profile_card = self._create_card(left_frame)
-            profile_card.pack(anchor="w", fill="x", pady=(8, 0))
+            profile_card.pack(anchor="w", fill="x", pady=(8, 0), padx=4)
             profile_label = ctk.CTkLabel(
                 profile_card,
                 text="Profil d'analyse",
                 font=self.fonts.get("heading"),
                 text_color=self.palette.get("text_primary"),
             )
-            profile_label.pack(anchor="w", pady=(6, 2))
+            profile_label.pack(anchor="w", pady=(6, 2), padx=12)
 
             profile_values = [name.value for name in AnalysisProfileName]
             if profile_values:
@@ -287,7 +292,7 @@ class VintedAIApp(ctk.CTk):
                 border_color=self.palette.get("border"),
                 text_color=self.palette.get("text_primary"),
             )
-            profile_combo.pack(anchor="w", pady=5)
+            profile_combo.pack(anchor="w", pady=5, padx=12)
 
             hint_profile = ctk.CTkLabel(
                 profile_card,
@@ -295,14 +300,18 @@ class VintedAIApp(ctk.CTk):
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
             )
-            hint_profile.pack(anchor="w", pady=(2, 6))
+            hint_profile.pack(anchor="w", pady=(2, 6), padx=12)
 
             # --- Inputs manuels (v1 simple) ---
             self.size_inputs_frame = self._create_card(left_frame)
-            self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0))
+            self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0), padx=4)
 
-            fr_label = ctk.CTkLabel(self.size_inputs_frame, text="Taille FR (optionnel) :")
-            fr_label.pack(anchor="w", pady=(5, 0))
+            fr_label = ctk.CTkLabel(
+                self.size_inputs_frame,
+                text="Taille FR (optionnel) :",
+                text_color=self.palette.get("text_primary"),
+            )
+            fr_label.pack(anchor="w", pady=(5, 0), padx=12)
             fr_entry = ctk.CTkEntry(
                 self.size_inputs_frame,
                 textvariable=self.size_fr_var,
@@ -311,10 +320,14 @@ class VintedAIApp(ctk.CTk):
                 border_color=self.palette.get("border"),
                 text_color=self.palette.get("text_primary"),
             )
-            fr_entry.pack(anchor="w", pady=5)
+            fr_entry.pack(anchor="w", pady=5, padx=12)
 
-            us_label = ctk.CTkLabel(self.size_inputs_frame, text="Taille US (optionnel) :")
-            us_label.pack(anchor="w", pady=(5, 0))
+            us_label = ctk.CTkLabel(
+                self.size_inputs_frame,
+                text="Taille US (optionnel) :",
+                text_color=self.palette.get("text_primary"),
+            )
+            us_label.pack(anchor="w", pady=(5, 0), padx=12)
             us_entry = ctk.CTkEntry(
                 self.size_inputs_frame,
                 textvariable=self.size_us_var,
@@ -323,7 +336,7 @@ class VintedAIApp(ctk.CTk):
                 border_color=self.palette.get("border"),
                 text_color=self.palette.get("text_primary"),
             )
-            us_entry.pack(anchor="w", pady=5)
+            us_entry.pack(anchor="w", pady=5, padx=12)
 
             size_hint = ctk.CTkLabel(
                 self.size_inputs_frame,
@@ -331,7 +344,7 @@ class VintedAIApp(ctk.CTk):
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
             )
-            size_hint.pack(anchor="w", pady=(2, 8))
+            size_hint.pack(anchor="w", pady=(2, 8), padx=12)
 
             # Méthode de relevé (profils polaire/pull)
             self.measure_mode_frame = self._create_card(left_frame)
@@ -341,23 +354,25 @@ class VintedAIApp(ctk.CTk):
                 font=self.fonts.get("heading"),
                 text_color=self.palette.get("text_primary"),
             )
-            measure_label.pack(anchor="w", pady=(5, 0))
+            measure_label.pack(anchor="w", pady=(5, 0), padx=12)
 
             etiquette_radio = ctk.CTkRadioButton(
                 self.measure_mode_frame,
                 text="Étiquette visible",
                 variable=self.measure_mode_var,
                 value="etiquette",
+                text_color=self.palette.get("text_primary"),
             )
-            etiquette_radio.pack(anchor="w", pady=2)
+            etiquette_radio.pack(anchor="w", pady=2, padx=12)
 
             measures_radio = ctk.CTkRadioButton(
                 self.measure_mode_frame,
                 text="Analyser les mesures",
                 variable=self.measure_mode_var,
                 value="mesures",
+                text_color=self.palette.get("text_primary"),
             )
-            measures_radio.pack(anchor="w", pady=2)
+            measures_radio.pack(anchor="w", pady=2, padx=12)
 
             # --- Zone de résultat ---
             result_label = ctk.CTkLabel(
@@ -688,7 +703,7 @@ class VintedAIApp(ctk.CTk):
                 if self.size_inputs_frame:
                     self.size_inputs_frame.pack_forget()
                 if self.measure_mode_frame and not self.measure_mode_frame.winfo_manager():
-                    self.measure_mode_frame.pack(anchor="w", fill="x", pady=(10, 0))
+                    self.measure_mode_frame.pack(anchor="w", fill="x", pady=(10, 0), padx=4)
                 logger.info(
                     "Profil %s détecté : affichage des options de méthode de relevé.",
                     profile_key,
@@ -697,7 +712,7 @@ class VintedAIApp(ctk.CTk):
                 if self.measure_mode_frame:
                     self.measure_mode_frame.pack_forget()
                 if self.size_inputs_frame and not self.size_inputs_frame.winfo_manager():
-                    self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0))
+                    self.size_inputs_frame.pack(anchor="w", fill="x", pady=(10, 0), padx=4)
                 logger.info(
                     "Profil %s détecté : affichage des tailles FR/US.",
                     profile_key,
