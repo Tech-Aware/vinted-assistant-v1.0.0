@@ -368,31 +368,38 @@ class VintedAIApp(ctk.CTk):
 
             # Méthode de relevé (profils polaire/pull)
             self.measure_mode_frame = self._create_card(sidebar_inner)
-            measure_label = ctk.CTkLabel(
+
+            measure_inner = ctk.CTkFrame(
                 self.measure_mode_frame,
+                fg_color="transparent",
+            )
+            measure_inner.pack(fill="x", padx=8, pady=8)
+
+            measure_label = ctk.CTkLabel(
+                measure_inner,
                 text="Méthode de relevé :",
                 font=self.fonts.get("heading"),
                 text_color=self.palette.get("text_primary"),
             )
-            measure_label.pack(anchor="w", pady=(5, 0), padx=12)
+            measure_label.pack(anchor="w", pady=(2, 6), padx=8)
 
             etiquette_radio = ctk.CTkRadioButton(
-                self.measure_mode_frame,
+                measure_inner,
                 text="Étiquette visible",
                 variable=self.measure_mode_var,
                 value="etiquette",
                 text_color=self.palette.get("text_primary"),
             )
-            etiquette_radio.pack(anchor="w", pady=2, padx=12)
+            etiquette_radio.pack(anchor="w", pady=(2, 6), padx=12)
 
             measures_radio = ctk.CTkRadioButton(
-                self.measure_mode_frame,
+                measure_inner,
                 text="Analyser les mesures",
                 variable=self.measure_mode_var,
                 value="mesures",
                 text_color=self.palette.get("text_primary"),
             )
-            measures_radio.pack(anchor="w", pady=2, padx=12)
+            measures_radio.pack(anchor="w", pady=(2, 2), padx=12)
 
             # --- Zone de résultat ---
             result_label = ctk.CTkLabel(
