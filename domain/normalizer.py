@@ -337,6 +337,99 @@ def _enrich_raw_description(
                 )
                 return text.rstrip(), ""
 
+        def _normalize_body_sizes(body_text: str) -> str:
+            try:
+                size_fr_val = context.get("size_fr")
+                size_us_val = context.get("size_us")
+                length_val = context.get("length")
+
+                size_fr_clean = (
+                    str(size_fr_val).strip() if size_fr_val is not None else None
+                )
+                size_us_clean = (
+                    str(size_us_val).upper().replace(" ", "")
+                    if size_us_val is not None
+                    else None
+                )
+                length_clean = (
+                    str(length_val).upper().replace(" ", "")
+                    if length_val is not None
+                    else None
+                )
+
+                if not any([size_fr_clean, size_us_clean, length_clean]):
+                    return body_text.strip()
+
+                parts = body_text.split("\n\n", 1)
+                main_paragraph = parts[0].strip()
+                remainder = parts[1] if len(parts) > 1 else ""
+
+                for pattern in [r"W\d+\s*L\d+", r"W\d+", r"L\d+"]:
+                    try:
+                        main_paragraph = re.sub(
+                            pattern, "", main_paragraph, flags=re.IGNORECASE
+                        )
+                    except Exception as replace_exc:  # pragma: no cover - defensive
+                        logger.debug(
+                            "_enrich_raw_description: regex taille ignorée (%s)",
+                            replace_exc,
+                        )
+
+                main_paragraph = re.sub(r"\s{2,}", " ", main_paragraph).strip()
+
+                size_tokens = []
+                us_block = None
+                if size_us_clean:
+                    us_block = size_us_clean
+                    if length_clean:
+                        us_block = f"{us_block} {length_clean}".strip()
+
+                if size_fr_clean and us_block:
+                    size_tokens.append(f"Taille {size_fr_clean} FR (US {us_block})")
+                elif size_fr_clean:
+                    size_tokens.append(f"Taille {size_fr_clean} FR")
+                elif us_block:
+                    size_tokens.append(f"Taille US {us_block}")
+                elif length_clean:
+                    size_tokens.append(f"Longueur {length_clean}")
+
+                if size_tokens:
+                    size_sentence = ", ".join(size_tokens) + "."
+                    try:
+                        replaced = re.sub(
+                            r"\b[Tt]aille[^.?!]*[.?!]?",
+                            size_sentence,
+                            main_paragraph,
+                            count=1,
+                        ).strip()
+                        if replaced != main_paragraph:
+                            main_paragraph = replaced
+                        else:
+                            main_paragraph = f"{main_paragraph} {size_sentence}".strip()
+                    except Exception as size_replace_exc:  # pragma: no cover - defensive
+                        logger.warning(
+                            "_enrich_raw_description: réinjection taille échouée (%s)",
+                            size_replace_exc,
+                        )
+                        main_paragraph = f"{main_paragraph} {size_sentence}".strip()
+
+                recombined = (
+                    main_paragraph
+                    if not remainder
+                    else f"{main_paragraph}\n\n{remainder.strip()}"
+                )
+                logger.debug(
+                    "_enrich_raw_description: taille normalisée dans le corps = %s",
+                    recombined,
+                )
+                return recombined.strip()
+            except Exception as exc_size:  # pragma: no cover - defensive
+                logger.warning(
+                    "_enrich_raw_description: normalisation tailles échouée (%s)",
+                    exc_size,
+                )
+                return body_text.strip()
+
         def _inject_composition(body_text: str, composition: str) -> str:
             try:
                 placeholders = [
@@ -363,6 +456,14 @@ def _enrich_raw_description(
                 return body_text.strip()
 
         body, _ = _split_body_footer(base_text)
+
+        try:
+            body = _normalize_body_sizes(body)
+        except Exception as size_norm_exc:  # pragma: no cover - defensive
+            logger.warning(
+                "_enrich_raw_description: normalisation taille ignorée (%s)",
+                size_norm_exc,
+            )
 
         if manual_compo:
             replacement = f"Composition : {manual_compo.rstrip('.')}."
