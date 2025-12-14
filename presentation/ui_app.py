@@ -575,8 +575,21 @@ class VintedAIApp(ctk.CTk):
                     measurement_mode,
                 )
             else:
-                size_fr = self.size_fr_var.get().strip() or None
+                size_fr_input = self.size_fr_var.get().strip()
+                size_fr = size_fr_input or None
                 size_us = self.size_us_var.get().strip() or None
+
+                if profile.name == AnalysisProfileName.JEAN_LEVIS and not size_fr:
+                    if self.generate_btn:
+                        self.generate_btn.configure(state="normal")
+                    logger.warning(
+                        "Blocage génération: taille FR manquante pour le profil jean Levi's."
+                    )
+                    messagebox.showwarning(
+                        "Taille FR requise",
+                        "Merci de renseigner la taille FR pour un jean Levi's avant de lancer la génération.",
+                    )
+                    return
 
                 ui_data = {
                     "size_fr": size_fr,
