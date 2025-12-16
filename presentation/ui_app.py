@@ -289,6 +289,23 @@ class VintedAIApp(ctk.CTk):
             self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=10)
             self.clear_gallery_btn.pack_forget()
 
+            self.reset_gallery_btn = ctk.CTkButton(
+                header,
+                text="⟲",  # ton symbole
+                width=34,
+                height=30,
+                corner_radius=14,
+                fg_color=self.palette.get("accent_gradient_end"),
+                hover_color=self.palette.get("accent_gradient_start"),
+                text_color="white",
+                font=ctk.CTkFont(size=16, weight="bold"),
+                border_spacing=0,  # clé: padding interne
+                anchor="center",  # si ta version CTk le supporte
+                command=self._reset_all,
+            )
+            self.reset_gallery_btn.pack(side="right", padx=(0, 6), pady=10)
+
+
             self.gallery_info_label = ctk.CTkLabel(
                 header,
                 text="",
@@ -837,6 +854,72 @@ class VintedAIApp(ctk.CTk):
                 "Vider la galerie",
                 f"Impossible de vider la galerie :\n{exc}",
             )
+
+
+    def _reset_all(self):
+        """
+        Reset complet:
+        - supprime les fichiers images actuellement sélectionnés (dans leurs dossiers source)
+        - vide la galerie
+        - vide titre + description
+        - reset états internes
+        """
+        # 1) Récupérer la liste des fichiers images à supprimer
+        files_to_delete = []
+        if hasattr(self, "selected_images") and self.selected_images:
+            files_to_delete = [Path(p) for p in self.selected_images]
+        elif hasattr(self, "image_paths") and self.image_paths:
+            files_to_delete = [Path(p) for p in self.image_paths]
+
+        # Filtrer (sécurité)
+        files_to_delete = [f for f in files_to_delete if isinstance(f, Path)]
+
+        # 2) Confirmation
+        n_files = sum(1 for f in files_to_delete if f.exists() and f.is_file())
+        ok = messagebox.askyesno(
+            "Réinitialiser",
+            f"Cette action va supprimer {n_files} image(s) (fichiers) depuis leur dossier source,\n"
+            f"puis vider la galerie, le titre et la description.\n\n"
+            f"Continuer ?"
+        )
+        if not ok:
+            return
+
+        # 3) Supprimer les fichiers (sans toucher aux dossiers)
+        for f in files_to_delete:
+            try:
+                f = f.resolve()
+                if f.exists() and f.is_file():
+                    f.unlink()
+            except Exception as e:
+                print(f"[RESET] Impossible de supprimer {f}: {e}")
+
+        # 4) Vider la galerie (ta méthode existante)
+        self._clear_gallery()
+
+        # 5) Vider titre + description
+        try:
+            if hasattr(self, "title_text") and self.title_text:
+                self.title_text.delete("1.0", "end")
+        except Exception as e:
+            print(f"[RESET] title_text delete error: {e}")
+
+        try:
+            if hasattr(self, "description_text") and self.description_text:
+                self.description_text.delete("1.0", "end")
+        except Exception as e:
+            print(f"[RESET] description_text delete error: {e}")
+
+        # 6) Reset variantes/états
+        self.description_variants = []
+        self.description_variant_index = 0
+
+        if hasattr(self, "current_listing"):
+            self.current_listing = None
+
+        # 7) Mettre à jour l’affichage du bouton reset (si tu actives la logique show/hide)
+        if hasattr(self, "_update_reset_button_visibility"):
+            self._update_reset_button_visibility()
 
     def _update_gallery_info(self) -> None:
         try:
