@@ -20,7 +20,7 @@ from domain.models import VintedListing
 from domain.templates import AnalysisProfileName, AnalysisProfile, ALL_PROFILES
 from domain.title_builder import SKU_PREFIX, build_pull_tommy_title
 
-from .image_preview import ImagePreview  # <- widget réutilisé depuis l’ancienne app
+from presentation.image_preview import ImagePreview  # <- widget réutilisé depuis l’ancienne app
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class VintedAIApp(ctk.CTk):
 
         self.title("Assistant Vinted - Analyse d'images multi-IA")
         self.geometry("900x600")
-        self.minsize(720, 520)
+        self.minsize(520, 520)
 
         self.palette: Dict[str, str] = {}
         self.fonts: Dict[str, ctk.CTkFont] = {}
@@ -202,12 +202,43 @@ class VintedAIApp(ctk.CTk):
             logger.error("Erreur lors de la création d'une carte UI: %s", exc, exc_info=True)
             return ctk.CTkFrame(parent)
 
+    def _build_generate_button(self, parent: ctk.CTkFrame) -> None:
+        try:
+            status_wrapper = ctk.CTkFrame(parent, fg_color="transparent")
+            status_wrapper.pack(anchor="e", fill="x", padx=10, pady=(0, 2))
+
+            self.status_label = ctk.CTkLabel(
+                status_wrapper,
+                text="Prêt à générer",
+                font=self.fonts.get("small"),
+                text_color=self.palette.get("text_muted"),
+            )
+            self.status_label.pack(anchor="e", pady=(0, 4))
+
+            self.generate_btn = ctk.CTkButton(
+                parent,
+                text="Générer",
+                command=self.generate_listing,
+                width=160,
+                height=42,
+                corner_radius=18,
+                fg_color=self.palette.get("accent_gradient_start"),
+                hover_color=self.palette.get("accent_gradient_end"),
+                text_color="white",
+            )
+            self.generate_btn.pack(anchor="e", padx=10, pady=(0, 10))
+
+            logger.info("Bouton de génération positionné sous la zone de résultat.")
+        except Exception as exc:
+            logger.error(
+                "Erreur lors de l'initialisation du bouton de génération: %s", exc, exc_info=True
+            )
     def _build_ui(self) -> None:
         try:
             self._build_background()
 
             # Barre du haut
-            self._build_top_bar()
+            # self._build_top_bar()
 
             # --- Galerie d'images (header + ImagePreview) ---
             gallery_wrapper = ctk.CTkFrame(
@@ -274,18 +305,15 @@ class VintedAIApp(ctk.CTk):
             self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
 
             # --- Contenu principal (gauche = paramètres, droite = résultat) ---
-            self.main_content_frame = ctk.CTkFrame(
+            self.main_content_frame = ctk.CTkScrollableFrame(
                 self._content_container or self,
                 fg_color=self.palette.get("bg_end"),
             )
             self.main_content_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
-            left_frame = ctk.CTkFrame(
-                self.main_content_frame,
-                width=280,
-                fg_color=self.palette.get("bg_end"),
-            )
+            left_frame = ctk.CTkFrame(self.main_content_frame, width=220, fg_color=self.palette.get("bg_end"))
             left_frame.pack(side="left", fill="y", padx=(0, 10))
+            left_frame.pack_propagate(False)  # important pour respecter width
 
             sidebar_inner = ctk.CTkFrame(
                 left_frame,
@@ -293,9 +321,9 @@ class VintedAIApp(ctk.CTk):
             )
             sidebar_inner.pack(fill="both", expand=True, padx=6, pady=6)
 
-            right_scrollable = ctk.CTkScrollableFrame(
+            right_scrollable = ctk.CTkFrame(
                 self.main_content_frame,
-                fg_color=self.palette.get("card_bg"),
+                fg_color=self.palette.get("bg_end"),
                 corner_radius=14,
             )
             right_scrollable.pack(side="left", expand=True, fill="both")
@@ -303,6 +331,19 @@ class VintedAIApp(ctk.CTk):
             # --- Profil d'analyse ---
             profile_card = self._create_card(sidebar_inner)
             profile_card.pack(anchor="w", fill="x", pady=(8, 0), padx=4)
+            settings_btn = ctk.CTkButton(
+                profile_card,
+                text="⚙️",
+                width=36,
+                height=36,
+                corner_radius=12,
+                fg_color=self.palette.get("accent_gradient_start"),
+                hover_color=self.palette.get("accent_gradient_end"),
+                text_color="white",
+                command=self.open_settings_menu,
+            )
+            settings_btn.pack(side="top", padx=(5, 10), pady=10)
+
             profile_label = ctk.CTkLabel(
                 profile_card,
                 text="Profil d'analyse",
@@ -315,19 +356,22 @@ class VintedAIApp(ctk.CTk):
             if profile_values:
                 self.profile_var.set(profile_values[0])
 
+            FIELD_WRAP = 170
+
+            # --- Profil d'analyse ---
             profile_combo = ctk.CTkComboBox(
                 profile_card,
                 values=profile_values,
                 variable=self.profile_var,
                 command=self._on_profile_change,
                 state="readonly",
-                width=240,
+                # width=240,  # <- retirer
                 fg_color=self.palette.get("input_bg"),
                 button_color=self.palette.get("card_border"),
                 border_color=self.palette.get("border"),
                 text_color=self.palette.get("text_primary"),
             )
-            profile_combo.pack(anchor="w", pady=5, padx=12)
+            profile_combo.pack(anchor="w", fill="x", pady=5, padx=12)
 
             hint_profile = ctk.CTkLabel(
                 profile_card,
@@ -335,11 +379,11 @@ class VintedAIApp(ctk.CTk):
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
                 justify="left",
-                wraplength=240,
-                width=240,
+                wraplength=FIELD_WRAP,
+                # width=240,  # <- retirer
                 anchor="w",
             )
-            hint_profile.pack(anchor="w", pady=(2, 6), padx=12)
+            hint_profile.pack(anchor="w", fill="x", pady=(2, 6), padx=12)
 
             # --- Inputs manuels (v1 simple) ---
             self.size_inputs_frame = self._create_card(sidebar_inner)
@@ -351,15 +395,17 @@ class VintedAIApp(ctk.CTk):
                 text_color=self.palette.get("text_primary"),
             )
             self.fr_label.pack(anchor="w", pady=(5, 0), padx=12)
+
+            # --- Taille FR/US ---
             fr_entry = ctk.CTkEntry(
                 self.size_inputs_frame,
                 textvariable=self.size_fr_var,
-                width=240,
+                # width=240,  # <- retirer
                 fg_color=self.palette.get("input_bg"),
                 border_color=self.palette.get("border"),
                 text_color=self.palette.get("text_primary"),
             )
-            fr_entry.pack(anchor="w", pady=5, padx=12)
+            fr_entry.pack(anchor="w", fill="x", pady=5, padx=12)
 
             us_label = ctk.CTkLabel(
                 self.size_inputs_frame,
@@ -367,15 +413,16 @@ class VintedAIApp(ctk.CTk):
                 text_color=self.palette.get("text_primary"),
             )
             us_label.pack(anchor="w", pady=(5, 0), padx=12)
+
             us_entry = ctk.CTkEntry(
                 self.size_inputs_frame,
                 textvariable=self.size_us_var,
-                width=240,
+                # width=240,  # <- retirer
                 fg_color=self.palette.get("input_bg"),
                 border_color=self.palette.get("border"),
                 text_color=self.palette.get("text_primary"),
             )
-            us_entry.pack(anchor="w", pady=5, padx=12)
+            us_entry.pack(anchor="w", fill="x", pady=5, padx=12)
 
             self.size_hint = ctk.CTkLabel(
                 self.size_inputs_frame,
@@ -383,11 +430,11 @@ class VintedAIApp(ctk.CTk):
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
                 justify="left",
-                wraplength=240,
-                width=240,
+                wraplength=FIELD_WRAP,
+                # width=240,  # <- retirer
                 anchor="w",
             )
-            self.size_hint.pack(anchor="w", pady=(2, 8), padx=12)
+            self.size_hint.pack(anchor="w", fill="x", pady=(2, 8), padx=12)
 
             # Méthode de relevé (profils polaire/pull)
             self.measure_mode_frame = self._create_card(sidebar_inner)
@@ -435,22 +482,14 @@ class VintedAIApp(ctk.CTk):
 
             # Carte Titre
             title_card = self._create_card(right_scrollable)
-            title_card.pack(fill="x", padx=10, pady=(8, 6))
+            title_card.configure(fg_color=self.palette.get("bg_end"))
+            title_card.pack(fill="x", padx=10, pady=(0, 0))
 
             title_header = ctk.CTkFrame(
                 title_card,
-                fg_color="transparent",
+                fg_color=self.palette.get("bg_end"),
             )
-            title_header.pack(fill="x", padx=10, pady=(8, 0))
-
-            title_label = ctk.CTkLabel(
-                title_header,
-                text="Titre",
-                font=self.fonts.get("heading"),
-                text_color=self.palette.get("text_primary"),
-            )
-            title_label.pack(side="left", padx=(0, 8))
-
+            title_header.pack(fill="x", padx=10, pady=(4, 0))
             title_copy_btn = ctk.CTkButton(
                 title_header,
                 text="📋",
@@ -464,12 +503,20 @@ class VintedAIApp(ctk.CTk):
             )
             title_copy_btn.pack(side="right")
 
+            title_label = ctk.CTkLabel(
+                title_header,
+                text="Titre",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            title_label.pack(side="left", padx=(0, 8))
+
             self.title_text = ctk.CTkTextbox(
                 title_card,
-                height=48,
+                height=24,
                 wrap="word",
-                fg_color=self.palette.get("input_bg"),
-                text_color=self.palette.get("text_primary"),
+                fg_color=self.palette.get("white"),
+                text_color="black",
                 corner_radius=12,
                 border_width=1,
                 border_color=self.palette.get("border"),
@@ -478,11 +525,12 @@ class VintedAIApp(ctk.CTk):
 
             # Carte Description avec carrousel
             description_card = self._create_card(right_scrollable)
+            description_card.configure(fg_color=self.palette.get("bg_end"))
             description_card.pack(fill="both", expand=True, padx=10, pady=(0, 8))
 
             description_header = ctk.CTkFrame(
                 description_card,
-                fg_color="transparent",
+                fg_color=self.palette.get("bg_end"),
             )
             description_header.pack(fill="x", padx=10, pady=(8, 0))
 
@@ -529,53 +577,21 @@ class VintedAIApp(ctk.CTk):
             self.description_text = ctk.CTkTextbox(
                 description_card,
                 wrap="word",
-                fg_color=self.palette.get("input_bg"),
-                text_color=self.palette.get("text_primary"),
+                fg_color="white",
+                text_color="black",
                 corner_radius=12,
                 border_width=1,
                 border_color=self.palette.get("border"),
             )
             self.description_text.pack(expand=True, fill="both", padx=10, pady=(6, 10))
 
-            self._build_generate_button(right_scrollable)
+            self._build_generate_button(description_card)
 
             self._update_profile_ui()
 
             logger.info("UI principale construite avec zone droite scrollable.")
         except Exception as exc:
             logger.error("Erreur lors de la construction de l'UI principale: %s", exc, exc_info=True)
-
-    def _build_generate_button(self, parent: ctk.CTkFrame) -> None:
-        try:
-            status_wrapper = ctk.CTkFrame(parent, fg_color="transparent")
-            status_wrapper.pack(anchor="e", fill="x", padx=10, pady=(0, 2))
-
-            self.status_label = ctk.CTkLabel(
-                status_wrapper,
-                text="Prêt à générer",
-                font=self.fonts.get("small"),
-                text_color=self.palette.get("text_muted"),
-            )
-            self.status_label.pack(anchor="e", pady=(0, 4))
-
-            self.generate_btn = ctk.CTkButton(
-                parent,
-                text="Générer",
-                command=self.generate_listing,
-                width=160,
-                height=42,
-                corner_radius=18,
-                fg_color=self.palette.get("accent_gradient_start"),
-                hover_color=self.palette.get("accent_gradient_end"),
-                text_color="white",
-            )
-            self.generate_btn.pack(anchor="e", padx=10, pady=(0, 10))
-
-            logger.info("Bouton de génération positionné sous la zone de résultat.")
-        except Exception as exc:
-            logger.error(
-                "Erreur lors de l'initialisation du bouton de génération: %s", exc, exc_info=True
-            )
 
     def _build_top_bar(self) -> None:
         try:
@@ -588,18 +604,7 @@ class VintedAIApp(ctk.CTk):
             )
             top_bar.pack(fill="x", padx=12, pady=(10, 8))
 
-            settings_btn = ctk.CTkButton(
-                top_bar,
-                text="⚙️",
-                width=36,
-                height=36,
-                corner_radius=12,
-                fg_color=self.palette.get("accent_gradient_start"),
-                hover_color=self.palette.get("accent_gradient_end"),
-                text_color="white",
-                command=self.open_settings_menu,
-            )
-            settings_btn.pack(side="left", padx=(5, 10), pady=5)
+
 
             self.title_label = ctk.CTkLabel(
                 top_bar,
