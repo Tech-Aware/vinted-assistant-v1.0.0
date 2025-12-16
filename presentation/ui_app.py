@@ -1210,7 +1210,11 @@ class VintedAIApp(ctk.CTk):
                     logger.error(
                         "Erreur provider IA: %s", exc_generation, exc_info=True
                     )
-                    self.after(0, lambda: self._handle_generation_failure(exc_generation))
+                    # Binding explicite pour éviter une closure invalide dans Tkinter
+                    self.after(
+                        0,
+                        lambda exc=exc_generation: self._handle_generation_failure(exc),
+                    )
 
             try:
                 thread = threading.Thread(
