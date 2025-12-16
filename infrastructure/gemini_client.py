@@ -44,7 +44,7 @@ class GeminiListingClient(AIListingProvider):
             raise GeminiClientError("GEMINI_API_KEY absente.")
 
         genai.configure(api_key=settings.gemini_api_key)
-        self._model_name = settings.gemini_model
+        self._model_name = self._normalize_model_name(settings.gemini_model)
 
         logger.info("GeminiListingClient initialisé (model=%s).", self._model_name)
 
@@ -117,6 +117,32 @@ class GeminiListingClient(AIListingProvider):
     # ------------------------------------------------------------------
     # Construction des contenus pour Gemini (texte + multi-images)
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_model_name(model_name: str) -> str:
+        """
+        Normalise le nom du modèle Gemini pour éviter les erreurs 400
+        "unexpected model name format".
+
+        - Gemini attend le préfixe "models/". Si l'utilisateur saisit
+          uniquement le nom court (ex: "gemini-2.5-flash"), on le préfixe
+          automatiquement.
+        - On valide également que la chaîne n'est pas vide.
+        """
+
+        cleaned = (model_name or "").strip()
+        if not cleaned:
+            raise GeminiClientError("Nom de modèle Gemini manquant ou vide.")
+
+        if not cleaned.startswith("models/"):
+            logger.warning(
+                "Nom de modèle Gemini sans préfixe 'models/': %s. Préfixage automatique...",
+                cleaned,
+            )
+            cleaned = f"models/{cleaned}"
+
+        return cleaned
+
 
     def _build_parts(
         self,
