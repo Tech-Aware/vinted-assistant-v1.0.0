@@ -171,6 +171,14 @@ Présente uniquement dans la description.
 
 ### Installation
 
+Pour un Chromebook (Crostini), exécute d'abord le script dédié qui installe les dépendances système (Tkinter, bibliothèques GUI) et prépare l'environnement Python :
+
+```bash
+./scripts/setup_crostini.sh
+```
+
+Sur un environnement classique :
+
 ```bash
 git clone <repo>
 cd AssistantVinted
@@ -179,7 +187,13 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Créer un fichier `.env` :
+Configurer les clés via l'assistant interactif (recommandé pour les nouvelles machines) :
+
+```bash
+./scripts/configure_api_keys.py
+```
+
+L'assistant te demandera le provider par défaut (Gemini recommandé pour de meilleurs résultats que ChatGPT dans l'application), la clé correspondante et le modèle à utiliser. Un fichier `.env` est généré avec tes choix. Tu peux également créer ou éditer manuellement un fichier `.env` :
 
 ```
 GEMINI_API_KEY=...

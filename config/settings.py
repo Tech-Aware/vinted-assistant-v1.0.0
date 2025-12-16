@@ -5,9 +5,55 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _load_dotenv_if_present(env_file: str | Path = ".env") -> None:
+    """
+    Charge un fichier `.env` local si présent et injecte les variables
+    manquantes dans l'environnement process.
+
+    Le chargement est volontairement minimaliste (pas de dépendance
+    externe) et robuste :
+    - ignore les lignes vides ou commentées
+    - ne surcharge jamais une variable déjà définie dans l'environnement
+    - journalise chaque variable ajoutée pour faciliter le diagnostic
+    """
+    env_path = Path(env_file)
+    logger.debug("Recherche d'un fichier .env local à charger: %s", env_path)
+
+    if not env_path.exists():
+        logger.info("Aucun fichier .env trouvé à %s, passage en mode variables système.", env_path)
+        return
+
+    try:
+        for line_no, raw_line in enumerate(env_path.read_text(encoding="utf-8").splitlines(), start=1):
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                logger.debug("Ligne %d ignorée dans .env (vide ou commentaire).", line_no)
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+
+            if not key:
+                logger.warning("Ligne %d du .env ignorée (clé vide).", line_no)
+                continue
+
+            if os.getenv(key) is None:
+                os.environ[key] = value
+                logger.debug("Variable %s chargée depuis .env.", key)
+            else:
+                logger.debug("Variable %s déjà définie dans l'environnement, .env laissé intact.", key)
+
+        logger.info("Chargement du fichier .env terminé.")
+    except Exception as exc:  # pragma: no cover - robustesse
+        logger.exception("Echec du chargement du fichier .env: %s", exc)
+        raise RuntimeError(f"Erreur lors du chargement du fichier .env: {exc}") from exc
 
 
 @dataclass
@@ -41,6 +87,15 @@ def load_settings() -> Settings:
     et loggue en détail l’erreur.
     """
     logger.debug("Chargement des Settings depuis les variables d'environnement.")
+
+    # ------------------------------------------------------------------
+    # Chargement optionnel d'un fichier .env local
+    # ------------------------------------------------------------------
+    try:
+        _load_dotenv_if_present()
+    except Exception as env_exc:
+        logger.error("Impossible de précharger le fichier .env: %s", env_exc, exc_info=True)
+        raise
 
     try:
         # GEMINI
