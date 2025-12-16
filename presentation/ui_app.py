@@ -50,6 +50,9 @@ class VintedAIApp(ctk.CTk):
         self.palette: Dict[str, str] = {}
         self.fonts: Dict[str, ctk.CTkFont] = {}
 
+        self._main_mousewheel_bind_ids: dict[str, str] = {}
+        self._main_mousewheel_target: Optional[ctk.CTkBaseClass] = None
+
         self.providers = providers
         self.provider_var = ctk.StringVar(value="")
         self.provider_var.trace_add("write", self._on_provider_change)
@@ -129,6 +132,94 @@ class VintedAIApp(ctk.CTk):
             logger.info("Thème moderne initialisé avec palette verte/bleu.")
         except Exception as exc:
             logger.error("Erreur lors de l'initialisation du thème: %s", exc, exc_info=True)
+
+    def _on_main_scroll_enter(self, _event: object) -> None:
+        self._bind_main_mousewheel()
+
+    def _on_main_scroll_leave(self, event: object) -> None:
+        # évite d'unbind si on “sort” vers un enfant interne
+        x_root = getattr(event, "x_root", None)
+        y_root = getattr(event, "y_root", None)
+        if x_root is not None and y_root is not None:
+            widget = self.winfo_containing(x_root, y_root)
+            if widget is not None and self._is_descendant(widget, self.main_content_frame):
+                return
+        self._unbind_main_mousewheel()
+
+    def _bind_main_mousewheel(self) -> None:
+        if self._main_mousewheel_bind_ids:
+            return
+        target = self.winfo_toplevel()
+        bindings = {
+            "<MouseWheel>": target.bind("<MouseWheel>", self._on_main_mousewheel_windows, add="+"),
+            "<Button-4>": target.bind("<Button-4>", self._on_main_mousewheel_linux, add="+"),
+            "<Button-5>": target.bind("<Button-5>", self._on_main_mousewheel_linux, add="+"),
+        }
+        self._main_mousewheel_bind_ids = {seq: fid for seq, fid in bindings.items() if fid}
+        self._main_mousewheel_target = target if self._main_mousewheel_bind_ids else None
+
+    def _unbind_main_mousewheel(self) -> None:
+        if not self._main_mousewheel_bind_ids:
+            return
+        target = self._main_mousewheel_target or self.winfo_toplevel()
+        for sequence, funcid in self._main_mousewheel_bind_ids.items():
+            try:
+                target.unbind(sequence, funcid)
+            except Exception:
+                continue
+        self._main_mousewheel_bind_ids.clear()
+        self._main_mousewheel_target = None
+
+    def _on_main_mousewheel_windows(self, event: object) -> None:
+        # optionnel: laisser les CTkTextbox scroller eux-mêmes
+        if self._event_targets_text_widget(event):
+            return
+
+        delta = getattr(event, "delta", 0)
+        if delta == 0:
+            return
+        steps = int(-delta / 120) or (-1 if delta > 0 else 1)
+        self._main_scroll_by(steps)
+
+    def _on_main_mousewheel_linux(self, event: object) -> None:
+        if self._event_targets_text_widget(event):
+            return
+
+        num = getattr(event, "num", None)
+        if num == 4:
+            self._main_scroll_by(-1)
+        elif num == 5:
+            self._main_scroll_by(1)
+
+    def _main_scroll_by(self, units: int) -> None:
+        if units == 0 or not self.main_content_frame:
+            return
+        canvas = getattr(self.main_content_frame, "_parent_canvas", None) \
+                 or getattr(self.main_content_frame, "_canvas", None)
+        if canvas is None:
+            return
+        canvas.yview_scroll(units, "units")
+
+    def _event_targets_text_widget(self, event: object) -> bool:
+        x_root = getattr(event, "x_root", None)
+        y_root = getattr(event, "y_root", None)
+        if x_root is None or y_root is None:
+            return False
+        widget = self.winfo_containing(x_root, y_root)
+        if widget is None:
+            return False
+
+        # CustomTkinter textbox encapsule un tk.Text interne; on laisse l'input scroller
+        cls_name = widget.winfo_class()
+        return cls_name in ("Text",) or "CTkTextbox" in widget.__class__.__name__
+
+    def _is_descendant(self, widget: object, ancestor: object) -> bool:
+        current = widget
+        while current is not None:
+            if current is ancestor:
+                return True
+            current = getattr(current, "master", None)
+        return False
 
     def _build_background(self) -> None:
         try:
@@ -327,6 +418,9 @@ class VintedAIApp(ctk.CTk):
                 fg_color=self.palette.get("bg_end"),
             )
             self.main_content_frame.pack(expand=True, fill="both", padx=10, pady=10)
+            self.main_content_frame.bind("<Enter>", self._on_main_scroll_enter, add="+")
+            self.main_content_frame.bind("<Leave>", self._on_main_scroll_leave, add="+")
+            self.bind("<Destroy>", lambda e: self._unbind_main_mousewheel(), add="+")
 
             left_frame = ctk.CTkFrame(self.main_content_frame, width=220, fg_color=self.palette.get("bg_end"))
             left_frame.pack(side="left", fill="y", padx=(0, 10))
