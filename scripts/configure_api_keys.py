@@ -15,9 +15,10 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Iterable
 
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+DEFAULT_SHELL_RC = Path.home() / ".bashrc"
 
 PROVIDERS: Dict[str, Dict[str, str]] = {
     "gemini": {
@@ -106,8 +107,9 @@ def _prompt_model(provider: str) -> str:
     ).strip()
     if not model:
         model = default_model
-    logging.info("Modèle retenu pour %s: %s", provider, model)
-    return model
+    cleaned = _normalize_model_name(model)
+    logging.info("Modèle retenu pour %s: %s", provider, cleaned)
+    return cleaned
 
 
 def _maybe_store_secondary(provider_selected: str, env_data: Dict[str, str]) -> None:
@@ -122,6 +124,49 @@ def _maybe_store_secondary(provider_selected: str, env_data: Dict[str, str]) -> 
     model = _prompt_model(secondary)
     env_data[PROVIDERS[secondary]["api_key_env"]] = key
     env_data[PROVIDERS[secondary]["model_env"]] = model
+
+
+def _normalize_model_name(model_name: str) -> str:
+    """Assure un format compatible (ex: "models/gemini-2.5-flash")."""
+
+    cleaned = (model_name or "").strip().strip("\"' ")
+    if not cleaned:
+        logging.error("Nom de modèle vide ou invalide.")
+        raise SystemExit(1)
+
+    if not cleaned.startswith("models/"):
+        logging.warning(
+            "Nom de modèle sans préfixe 'models/': %s. Préfixage automatique...",
+            cleaned,
+        )
+        cleaned = f"models/{cleaned}"
+
+    return cleaned
+
+
+def _append_shell_exports(env_data: Dict[str, str], targets: Iterable[Path]) -> None:
+    lines = ["# Variables Vinted Assistant (Gemini/OpenAI)"]
+
+    for key, value in env_data.items():
+        if "API_KEY" in key:
+            lines.append(f"export {key}=\"{value}\"")
+
+    block = "\n" + "\n".join(lines) + "\n"
+
+    for target in targets:
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            content = ""
+            if target.exists():
+                content = target.read_text(encoding="utf-8")
+                if "Variables Vinted Assistant" in content:
+                    logging.info("Bloc d'export déjà présent dans %s, aucune modification.", target)
+                    continue
+
+            target.write_text(content + block, encoding="utf-8")
+            logging.info("Exports shell ajoutés dans %s", target)
+        except Exception as exc:  # pragma: no cover - robustesse
+            logging.exception("Impossible d'ajouter les exports dans %s: %s", target, exc)
 
 
 def _write_env(env_path: Path, env_data: Dict[str, str]) -> None:
@@ -147,6 +192,14 @@ def main() -> None:
 
     _maybe_store_secondary(provider, env_data)
     _write_env(ENV_PATH, env_data)
+
+    answer = _safe_input(
+        "Ajouter aussi les exports GEMINI/OPENAI dans ton shell (~/.bashrc) ? (o/N) : "
+    ).strip().lower()
+    if answer.startswith("o"):
+        _append_shell_exports(env_data, targets=[DEFAULT_SHELL_RC])
+    else:
+        logging.info("Exports shell non ajoutés (réponse: %s).", answer or "entrée vide")
 
     logging.info("Configuration terminée. Les prochaines exécutions utiliseront %s par défaut.", provider)
 

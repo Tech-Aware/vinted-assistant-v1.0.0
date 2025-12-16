@@ -11,7 +11,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-def _load_dotenv_if_present(env_file: str | Path = ".env") -> None:
+def _load_dotenv_if_present(env_file: str | Path | None = None) -> None:
     """
     Charge un fichier `.env` local si présent et injecte les variables
     manquantes dans l'environnement process.
@@ -22,7 +22,11 @@ def _load_dotenv_if_present(env_file: str | Path = ".env") -> None:
     - ne surcharge jamais une variable déjà définie dans l'environnement
     - journalise chaque variable ajoutée pour faciliter le diagnostic
     """
-    env_path = Path(env_file)
+    if env_file is None:
+        env_path = Path(__file__).resolve().parent.parent / ".env"
+    else:
+        env_path = Path(env_file)
+
     logger.debug("Recherche d'un fichier .env local à charger: %s", env_path)
 
     if not env_path.exists():
