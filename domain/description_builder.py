@@ -789,3 +789,101 @@ def build_pull_tommy_description(
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("build_pull_tommy_description: fallback description IA (%s)", exc)
         return _strip_footer_lines(_safe_clean(ai_description))
+
+
+def _describe_lining(lining: str) -> str:
+    try:
+        lining_clean = lining.strip()
+        if not lining_clean:
+            return ""
+        return f"Intérieur : {lining_clean}."
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_describe_lining: description de doublure impossible (%s)", exc)
+        return ""
+
+
+def _describe_patch_material(patch_material: str) -> str:
+    try:
+        material_clean = patch_material.strip()
+        if not material_clean:
+            return ""
+        return f"Écusson {material_clean}."
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_describe_patch_material: description écusson impossible (%s)", exc)
+        return ""
+
+
+def build_jacket_carhart_description(
+    features: Dict[str, Any],
+    ai_description: Optional[str] = None,
+    ai_defects: Optional[str] = None,
+) -> str:
+    """Produit une description détaillée pour une veste Carhartt."""
+
+    try:
+        logger.info("build_jacket_carhart_description: features reçus = %s", features)
+
+        brand = _safe_clean(features.get("brand")) or "Carhartt"
+        brand = brand.capitalize()
+        model = _safe_clean(features.get("model"))
+        size = _safe_clean(features.get("size")) or "NC"
+        color = _safe_clean(features.get("color"))
+        gender = _safe_clean(features.get("gender")) or "homme"
+        has_hood = features.get("has_hood")
+        pattern = _safe_clean(features.get("pattern"))
+        lining = _safe_clean(features.get("lining"))
+        closure = _safe_clean(features.get("closure"))
+        patch_material = _safe_clean(features.get("patch_material"))
+        is_realtree = bool(features.get("is_realtree"))
+        is_new_york = bool(features.get("is_new_york"))
+
+        intro_parts = ["Jacket Carhartt"]
+        if model:
+            model_segment = f"modèle {model}"
+            if is_new_york or "new york" in model.lower():
+                model_segment += " (NY)"
+            intro_parts.append(model_segment)
+        intro_parts.append(f"taille {size}")
+        if color:
+            intro_parts.append(f"couleur {color}")
+        if gender:
+            intro_parts.append(gender)
+        intro_sentence = " ".join(intro_parts).strip().rstrip(".") + "."
+
+        details: List[str] = []
+
+        if has_hood:
+            details.append("Version à capuche (voir photos).")
+
+        if pattern:
+            motif = "camouflage Realtree" if is_realtree else pattern
+            details.append(f"Motif : {motif}.")
+
+        lining_sentence = _describe_lining(lining)
+        if lining_sentence:
+            details.append(lining_sentence)
+
+        if closure:
+            details.append(f"Fermeture : {closure}.")
+
+        patch_sentence = _describe_patch_material(patch_material)
+        if patch_sentence:
+            details.append(patch_sentence)
+
+        defects = _safe_clean(features.get("defects") or ai_defects)
+        if defects:
+            details.append(f"Défauts visibles : {defects}.")
+
+        if ai_description:
+            details.append(_safe_clean(ai_description))
+
+        description = "\n".join([intro_sentence, *details]).strip()
+        logger.debug(
+            "build_jacket_carhart_description: description générée = %s", description
+        )
+        return description
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception(
+            "build_jacket_carhart_description: fallback description IA (%s)", exc
+        )
+        return _safe_clean(ai_description)

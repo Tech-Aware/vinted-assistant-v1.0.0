@@ -635,3 +635,55 @@ def build_pull_tommy_title(features: Dict[str, Any]) -> str:
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("build_pull_tommy_title: échec de construction (%s)", exc)
         return _safe_join(["Pull Tommy Hilfiger"])
+
+
+def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
+    """Construit un titre pour une veste Carhartt conformément aux règles métier."""
+    try:
+        brand = _normalize_str(features.get("brand")) or "Carhartt"
+        model = _normalize_str(features.get("model"))
+        size = _normalize_str(features.get("size"))
+        color = _normalize_str(features.get("color"))
+        gender = _normalize_str(features.get("gender")) or "homme"
+        has_hood = features.get("has_hood")
+        is_camouflage = features.get("is_camouflage")
+        is_realtree = features.get("is_realtree")
+        is_new_york = features.get("is_new_york")
+        pattern = _normalize_str(features.get("pattern"))
+
+        prefix = "Veste à capuche Carhartt" if has_hood else "Veste Carhartt"
+        parts: List[str] = [prefix]
+
+        if brand and brand.lower() != "carhartt":
+            parts.append(brand)
+
+        if model:
+            model_segment = f"{model} Jacket"
+            if is_new_york or "new york" in model.lower() or model.lower().endswith(" ny"):
+                model_segment = model_segment.rstrip() + " NY"
+            parts.append(model_segment)
+        elif is_new_york:
+            parts.append("modèle NY")
+
+        parts.append(f"taille {size}" if size else "taille NC")
+
+        if color:
+            parts.append(f"couleur {color}")
+
+        if is_camouflage:
+            if is_realtree:
+                parts.append("Realtree")
+            else:
+                parts.append("camouflage")
+        elif pattern and pattern.lower() == "camouflage":
+            parts.append("camouflage")
+
+        if gender:
+            parts.append(gender)
+
+        title = _safe_join(parts)
+        logger.debug("build_jacket_carhart_title: titre construit depuis %s -> '%s'", features, title)
+        return title
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("build_jacket_carhart_title: échec de construction (%s)", exc)
+        return _safe_join(["Veste Carhartt jacket"])
