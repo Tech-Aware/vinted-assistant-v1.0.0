@@ -7,13 +7,18 @@ from typing import Dict, Any, Optional
 import logging
 
 from domain.description_builder import (
+    build_jacket_carhart_description,
     build_jean_levis_description,
     build_pull_tommy_description,
     _build_hashtags,
     _strip_footer_lines,
 )
 from domain.templates import AnalysisProfileName
-from domain.title_builder import build_jean_levis_title, build_pull_tommy_title
+from domain.title_builder import (
+    build_jacket_carhart_title,
+    build_jean_levis_title,
+    build_pull_tommy_title,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +205,167 @@ def _extract_color_from_text(text: str) -> Optional[str]:
     return None
 
 
+def _extract_carhartt_model_from_text(text: str) -> Optional[str]:
+    """Détecte quelques modèles Carhartt courants à partir du texte libre."""
+    try:
+        if not text:
+            return None
+
+        low = text.lower()
+        known_models = (
+            "detroit",
+            "active",
+            "arctic",
+            "michigan",
+            "nimbus",
+            "og",
+            "new york",
+            "ny",
+            "trapper",
+            "chore",
+        )
+        for model in known_models:
+            if model in low:
+                logger.info(
+                    "_extract_carhartt_model_from_text: modèle détecté dans le texte (%s)", model
+                )
+                return model.title()
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "_extract_carhartt_model_from_text: détection impossible (%s)", exc
+        )
+        return None
+
+
+def _detect_flag_from_text(text: str, keywords: tuple[str, ...]) -> Optional[bool]:
+    try:
+        if not text:
+            return None
+        low = text.lower()
+        return any(keyword in low for keyword in keywords)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_detect_flag_from_text: analyse impossible (%s)", exc)
+        return None
+
+
+def _extract_lining_from_text(text: str) -> Optional[str]:
+    try:
+        if not text:
+            return None
+        low = text.lower()
+        if "sherpa" in low:
+            return "doublure sherpa"
+        if "matelass" in low:
+            return "doublure matelassée"
+        if "polar" in low:
+            return "doublure polaire"
+        if "doubl" in low:
+            return "doublure textile"
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_lining_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _extract_closure_from_text(text: str) -> Optional[str]:
+    try:
+        if not text:
+            return None
+        low = text.lower()
+        if "double zip" in low or "double zipper" in low:
+            return "double zip"
+        if "zip" in low:
+            return "zip"
+        if "pression" in low:
+            return "boutons pression"
+        if "bouton" in low:
+            return "boutons"
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_closure_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _extract_patch_material_from_text(text: str) -> Optional[str]:
+    try:
+        if not text:
+            return None
+        low = text.lower()
+        if "patch cuir" in low or "écusson cuir" in low:
+            return "cuir"
+        if "patch tissu" in low or "écusson tissu" in low:
+            return "tissu"
+        if "patch" in low or "écusson" in low:
+            return "écusson visible"
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_patch_material_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _extract_collar_material_from_text(text: str) -> Optional[str]:
+    try:
+        if not text:
+            return None
+        low = text.lower()
+        if "velours" in low:
+            return "col en velours"
+        if "corduroy" in low:
+            return "col corduroy"
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_collar_material_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _extract_zipper_material_from_text(text: str) -> Optional[str]:
+    try:
+        if not text:
+            return None
+        low = text.lower()
+        if "laiton" in low or "brass" in low:
+            return "zip en laiton"
+        if "metal" in low or "métal" in low:
+            return "zip métal"
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_zipper_material_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _extract_origin_country_from_text(text: str) -> Optional[str]:
+    try:
+        if not text:
+            return None
+        low = text.lower()
+        if "made in usa" in low or "made in the usa" in low:
+            return "USA"
+        if "made in" in low:
+            match = re.search(r"made in\s+([a-zA-Z\s]+)", low)
+            if match:
+                return match.group(1).strip().upper()
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_origin_country_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _detect_chest_pocket_from_text(text: str) -> Optional[bool]:
+    try:
+        if not text:
+            return None
+        low = text.lower()
+        if "poche poitrine" in low or "chest pocket" in low:
+            return True
+        if "poche" in low and "poitrine" in low:
+            return True
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_detect_chest_pocket_from_text: détection impossible (%s)", exc)
+        return None
+
+
 MANDATORY_RAW_FOOTER = (
     "📏 Mesures détaillées visibles en photo pour plus de précisions.\n"
     "📦 Envoi rapide et soigné.\n"
@@ -295,6 +461,31 @@ def _build_dynamic_footer(
             footer = (footer_core + "\n\n" + tokens).strip()
             logger.info(
                 "_build_dynamic_footer: footer pull Tommy généré avec taille=%s", size_token
+            )
+            return footer
+
+        if profile_name == AnalysisProfileName.JACKET_CARHART:
+            size_value = context.get("size") or context.get("size_fr") or "NC"
+            color_value = context.get("color") or ""
+            size_token = str(size_value).strip() or "NC"
+            size_tag = size_token.lower().replace(" ", "")
+            color_tag = f"#{str(color_value).strip().lower()}" if color_value else ""
+            durin_tag = f"#durin31jk{size_tag}"
+
+            footer_lines = [
+                "📏 Mesures détaillées visibles en photo pour plus de précisions.",
+                "📦 Envoi rapide et soigné.",
+                f"✨ Retrouvez toutes mes vestes Carhartt ici 👉 {durin_tag}",
+                "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
+            ]
+
+            hashtag_core = "#carhartt #jacket #workwear #durin31"
+            hashtags = " ".join(token for token in [hashtag_core, durin_tag, color_tag] if token).strip()
+            footer = ("\n".join(footer_lines) + "\n\n" + hashtags).strip()
+            logger.info(
+                "_build_dynamic_footer: footer veste Carhartt généré (taille=%s, couleur=%s)",
+                size_token,
+                color_value,
             )
             return footer
 
@@ -825,6 +1016,113 @@ def build_features_for_pull_tommy(
         return {}
 
 
+def build_features_for_jacket_carhart(
+    ai_data: Dict[str, Any], ui_data: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Construit les features nécessaires au titre/description Carhartt."""
+
+    try:
+        ui_data = ui_data or {}
+        raw_features = ai_data.get("features") or {}
+
+        title = ai_data.get("title") or ""
+        description = ai_data.get("description") or ""
+        full_text = f"{title} {description}".strip()
+
+        brand = raw_features.get("brand") or ai_data.get("brand") or "Carhartt"
+        model = raw_features.get("model") or ai_data.get("model")
+        if not model:
+            model = _extract_carhartt_model_from_text(full_text)
+
+        size = (
+            ui_data.get("size_fr")
+            or ui_data.get("size")
+            or raw_features.get("size")
+            or ai_data.get("size")
+        )
+
+        color = raw_features.get("color") or ai_data.get("color")
+        if not color:
+            color = _extract_color_from_text(full_text)
+
+        gender = ui_data.get("gender") or raw_features.get("gender") or ai_data.get("gender")
+
+        has_hood = raw_features.get("has_hood")
+        if has_hood is None:
+            has_hood = _detect_flag_from_text(full_text, ("capuche", "hood"))
+
+        pattern = raw_features.get("pattern") or ai_data.get("pattern")
+        lining = raw_features.get("lining") or ai_data.get("lining")
+        if lining is None:
+            lining = _extract_lining_from_text(full_text)
+
+        closure = raw_features.get("closure") or ai_data.get("closure")
+        if closure is None:
+            closure = _extract_closure_from_text(full_text)
+
+        patch_material = raw_features.get("patch_material") or ai_data.get("patch_material")
+        if patch_material is None:
+            patch_material = _extract_patch_material_from_text(full_text)
+
+        collar_material = raw_features.get("collar_material") or ai_data.get("collar_material")
+        if collar_material is None:
+            collar_material = _extract_collar_material_from_text(full_text)
+
+        zipper_material = raw_features.get("zipper_material") or ai_data.get("zipper_material")
+        if zipper_material is None and closure:
+            zipper_material = _extract_zipper_material_from_text(full_text)
+
+        origin_country = raw_features.get("origin_country") or ai_data.get("origin_country")
+        if origin_country is None:
+            origin_country = _extract_origin_country_from_text(full_text)
+
+        has_chest_pocket = raw_features.get("has_chest_pocket")
+        if has_chest_pocket is None:
+            has_chest_pocket = _detect_chest_pocket_from_text(full_text)
+
+        is_camouflage = raw_features.get("is_camouflage")
+        if is_camouflage is None and pattern:
+            is_camouflage = pattern.lower() == "camouflage"
+        if is_camouflage is None:
+            is_camouflage = _detect_flag_from_text(full_text, ("camouflage",))
+
+        is_realtree = raw_features.get("is_realtree")
+        if is_realtree is None:
+            is_realtree = _detect_flag_from_text(full_text, ("realtree",))
+
+        is_new_york = raw_features.get("is_new_york")
+        if is_new_york is None:
+            is_new_york = _detect_flag_from_text(full_text, ("new york", " ny"))
+
+        features: Dict[str, Any] = {
+            "brand": brand,
+            "model": model,
+            "size": size,
+            "color": color,
+            "gender": gender or "homme",
+            "has_hood": has_hood,
+            "pattern": pattern,
+            "lining": lining,
+            "closure": closure,
+            "patch_material": patch_material,
+            "collar_material": collar_material,
+            "zipper_material": zipper_material,
+            "origin_country": origin_country,
+            "has_chest_pocket": has_chest_pocket,
+            "is_camouflage": is_camouflage,
+            "is_realtree": is_realtree,
+            "is_new_york": is_new_york,
+        }
+
+        logger.debug("build_features_for_jacket_carhart: features=%s", features)
+        return features
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception(
+            "build_features_for_jacket_carhart: échec -> features vides (%s)", exc
+        )
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # Normalisation + post-process complet (point d'entrée)
 # ---------------------------------------------------------------------------
@@ -857,6 +1155,9 @@ def normalize_and_postprocess(
     elif profile_name == AnalysisProfileName.PULL_TOMMY:
         features = build_features_for_pull_tommy(ai_data, ui_data)
         title = build_pull_tommy_title(features)
+    elif profile_name == AnalysisProfileName.JACKET_CARHART:
+        features = build_features_for_jacket_carhart(ai_data, ui_data)
+        title = build_jacket_carhart_title(features)
     else:
         # Pour les autres profils (à développer plus tard)
         features = {}
@@ -903,6 +1204,12 @@ def normalize_and_postprocess(
                 description = re.sub(r"\bcoton\b", "pima coton", description, flags=re.IGNORECASE)
                 logger.info(
                     "normalize_and_postprocess: 'coton' remplacé par 'pima coton' dans la description finale (PULL_TOMMY)")
+        elif profile_name == AnalysisProfileName.JACKET_CARHART:
+            description = build_jacket_carhart_description(
+                {**features, "defects": ai_data.get("defects")},
+                ai_description=ai_data.get("description"),
+                ai_defects=ai_data.get("defects"),
+            )
         else:
             description = ai_data.get("description")
     except Exception as exc:  # pragma: no cover - defensive

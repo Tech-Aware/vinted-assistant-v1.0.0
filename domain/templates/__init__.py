@@ -7,6 +7,7 @@ from typing import Dict
 
 from .base import AnalysisProfile, AnalysisProfileName, BASE_LISTING_SCHEMA
 from .jeans import JEANS_PROFILES
+from .jackets import JACKETS_PROFILES
 from .polaires import POLAIRES_PROFILES
 from .pulls import PULLS_PROFILES
 
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 # Dictionnaire global de tous les profils disponibles
 ALL_PROFILES: Dict[AnalysisProfileName, AnalysisProfile] = {
     **JEANS_PROFILES,
+    **JACKETS_PROFILES,
     **POLAIRES_PROFILES,
     **PULLS_PROFILES,
 }
