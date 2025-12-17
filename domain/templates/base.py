@@ -18,6 +18,7 @@ class AnalysisProfileName(Enum):
     JEAN_LEVIS = "jean_levis"
     POLAIRE_OUTDOOR = "polaire_outdoor"
     PULL_TOMMY = "pull_tommy"
+    JACKET_CARHART = "jacket_carhart"
 
 
 @dataclass

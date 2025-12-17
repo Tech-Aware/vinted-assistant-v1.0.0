@@ -255,9 +255,55 @@ Rules:
 - For SKU: only set sku_status="ok" when a printed label is clearly visible in the foreground (held by a hand or stuck on the product) showing letters followed by digits (e.g. "PTF127"); otherwise leave sku null and set sku_status="missing".
 - Use the exact words printed on the composition tag for "material". Do NOT guess percentages.
 - If colors are not clear, keep main_colors as null instead of guessing.
-- measurement_mode (provided by the UI):
-  - If "etiquette": only use a size visible on a label; do not estimate from measurements.
-  - If "mesures": no label is readable; read flat measurements and estimate a size, filling size_estimated and size_source="estimated". If measurements are unusable, leave size_estimated null.
-  - Never include raw measurements in the JSON.
-- Do NOT translate JSON keys; they must remain in English exactly as written above.
+  - measurement_mode (provided by the UI):
+    - If "etiquette": only use a size visible on a label; do not estimate from measurements.
+    - If "mesures": no label is readable; read flat measurements and estimate a size, filling size_estimated and size_source="estimated". If measurements are unusable, leave size_estimated null.
+    - Never include raw measurements in the JSON.
+  - Do NOT translate JSON keys; they must remain in English exactly as written above.
+
+==============================================================
+ EXTENDED OUTPUT FOR PROFILE "jacket_carhart"
+==============================================================
+
+If the selected analysis profile is named "jacket_carhart":
+
+You must include the base JSON keys (title, description, brand, style, pattern, neckline, season, defects)
+AND an additional nested object called "features" describing the Carhartt jacket.
+
+Required JSON structure:
+{
+  "title": string,
+  "description": string,
+  "brand": string | null,
+  "style": string | null,
+  "pattern": string | null,
+  "neckline": string | null,
+  "season": string | null,
+  "defects": string | null,
+
+  "features": {
+    "brand": string | null,
+    "model": string | null,
+    "size": string | null,
+    "color": string | null,
+    "gender": string | null,
+    "has_hood": boolean | null,
+    "pattern": string | null,
+    "lining": string | null,
+    "closure": string | null,
+    "patch_material": string | null,
+    "is_camouflage": boolean | null,
+    "is_realtree": boolean | null,
+    "is_new_york": boolean | null
+  }
+}
+
+RULES (NO INVENTION):
+- Always mention the word "jacket" in the title.
+- If the jacket has a hood: clearly flag it in features.has_hood=true and mention it in the French description.
+- If the pattern is camouflage: set pattern="camouflage" and set is_camouflage=true; if you see the Realtree brand, set is_realtree=true.
+- If the model references New York: set is_new_york=true.
+- Only use values that are clearly visible on tags or photos. Otherwise set the field to null.
+- The French description must mention lining/interior, hood, closure type (zip, press studs, double zip), and whether the Carhartt badge/patch is fabric or leather when visible.
+- Respond ONLY with the JSON object.
 """
