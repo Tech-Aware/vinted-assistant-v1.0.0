@@ -511,7 +511,8 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
 
     # Marque
     if brand:
-        parts.append(brand)
+        brand_formatted = " ".join(word.capitalize() for word in brand.lower().split())
+        parts.append(brand_formatted)
 
     # Modèle
     if model:
@@ -561,6 +562,7 @@ def build_pull_tommy_title(features: Dict[str, Any]) -> str:
     """Construit un titre pour les pulls/gilets Tommy Hilfiger."""
     try:
         brand = _normalize_str(features.get("brand"))
+
         garment_type = _normalize_garment_type(features.get("garment_type")) or "Pull"
         raw_gender = _normalize_gender(_normalize_str(features.get("gender")))
         gender = "femme"
@@ -590,7 +592,8 @@ def build_pull_tommy_title(features: Dict[str, Any]) -> str:
         parts: List[str] = [garment_type]
 
         if brand:
-            parts.append(brand)
+            brand_formatted = " ".join(word.capitalize() for word in brand.lower().split())
+            parts.append(brand_formatted)
 
         if gender:
             parts.append(gender)

@@ -805,8 +805,17 @@ def build_features_for_pull_tommy(
             "sku_status": sku_status,
         }
 
-        logger.debug("build_features_for_pull_tommy: features=%s", features)
+        # Détection du coton Pima dans la description IA ou l'étiquette
+        description_text = (ai_data.get("description") or "").lower()
+        material_text = (raw_features.get("material") or "").lower()
+        pima_detected = ("pima coton" in description_text or "pima cotton" in description_text
+                         or "pima coton" in material_text or "pima cotton" in material_text)
+        features["is_pima"] = pima_detected
+
+        if pima_detected:
+            logger.info("build_features_for_pull_tommy: mention 'Pima cotton' détectée dans les données IA")
         return features
+
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("build_features_for_pull_tommy: échec -> features vides (%s)", exc)
         return {}
