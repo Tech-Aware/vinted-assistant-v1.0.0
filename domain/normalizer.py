@@ -766,7 +766,8 @@ def build_features_for_pull_tommy(
             )
         else:
             if sku_from_ai and sku_status == "ok" and _is_label_sku(sku_from_ai):
-                sku = sku_from_ai
+                sku = re.sub(r"\s+", "", sku_from_ai)  # Enlever tous les espaces du SKU
+                logger.info("SKU détecté sur étiquette accepté (%s)", sku)
                 logger.info(
                     "build_features_for_pull_tommy: SKU détecté sur étiquette au premier plan accepté (%s)",
                     sku,
