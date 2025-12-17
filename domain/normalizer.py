@@ -304,6 +304,114 @@ def _extract_patch_material_from_text(text: str) -> Optional[str]:
         return None
 
 
+def _extract_collar_from_text(text: str) -> Optional[str]:
+    """Déduit le type de col à partir du texte libre."""
+
+    try:
+        if not text:
+            return None
+
+        low = text.lower()
+        collar_map = {
+            "col montant": "col montant",
+            "col teddy": "col teddy",
+            "col officier": "col officier",
+            "col chemise": "col chemise",
+            "col rabattu": "col rabattu",
+            "col bord": "col bord-côte",
+        }
+
+        for marker, label in collar_map.items():
+            if marker in low:
+                logger.debug("_extract_collar_from_text: col détecté (%s)", label)
+                return label
+
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_collar_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _extract_zip_material_from_text(text: str) -> Optional[str]:
+    """Identifie la matière dominante du zip (métal/plastique)."""
+
+    try:
+        if not text:
+            return None
+
+        low = text.lower()
+        if "zip métal" in low or "zip metal" in low or "fermeture métal" in low:
+            logger.debug("_extract_zip_material_from_text: zip métal détecté")
+            return "métal"
+        if "zip plastique" in low or "fermeture plastique" in low:
+            logger.debug("_extract_zip_material_from_text: zip plastique détecté")
+            return "plastique"
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_zip_material_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _extract_origin_country_from_text(text: str) -> Optional[str]:
+    """Repère le pays d'origine (Made in ...) dans le texte."""
+
+    try:
+        if not text:
+            return None
+
+        low = text.lower()
+        match = re.search(r"made in\s+([a-z\s]+)", low)
+        if match:
+            country_raw = match.group(1).strip()
+            country_map = {
+                "usa": "USA",
+                "united states": "USA",
+                "états-unis": "USA",
+                "mexico": "Mexique",
+                "mexique": "Mexique",
+                "china": "Chine",
+                "chine": "Chine",
+                "bangladesh": "Bangladesh",
+                "india": "Inde",
+                "inde": "Inde",
+            }
+
+            for marker, label in country_map.items():
+                if marker in country_raw:
+                    logger.debug("_extract_origin_country_from_text: origine détectée (%s)", label)
+                    return label
+
+            normalized_country = country_raw.title()
+            logger.debug(
+                "_extract_origin_country_from_text: origine détectée sans mapping (%s)",
+                normalized_country,
+            )
+            return normalized_country
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_origin_country_from_text: extraction impossible (%s)", exc)
+        return None
+
+
+def _detect_chest_pocket_from_text(text: str) -> Optional[bool]:
+    """Détecte la présence d'une poche poitrine dans le texte libre."""
+
+    try:
+        if not text:
+            return None
+
+        low = text.lower()
+        markers = ("poche poitrine", "poche sur la poitrine", "poche avant")
+        detected = any(marker in low for marker in markers)
+        if detected:
+            logger.debug("_detect_chest_pocket_from_text: poche poitrine détectée")
+            return True
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_detect_chest_pocket_from_text: détection impossible (%s)", exc)
+        return None
+
+
 MANDATORY_RAW_FOOTER = (
     "📏 Mesures détaillées visibles en photo pour plus de précisions.\n"
     "📦 Envoi rapide et soigné.\n"
@@ -1002,6 +1110,22 @@ def build_features_for_jacket_carhart(
         if patch_material is None:
             patch_material = _extract_patch_material_from_text(full_text)
 
+        collar = raw_features.get("collar") or ai_data.get("collar")
+        if collar is None:
+            collar = _extract_collar_from_text(full_text)
+
+        zip_material = raw_features.get("zip_material") or ai_data.get("zip_material")
+        if zip_material is None:
+            zip_material = _extract_zip_material_from_text(full_text)
+
+        origin_country = raw_features.get("origin_country") or ai_data.get("origin_country")
+        if origin_country is None:
+            origin_country = _extract_origin_country_from_text(full_text)
+
+        has_chest_pocket = raw_features.get("has_chest_pocket")
+        if has_chest_pocket is None:
+            has_chest_pocket = _detect_chest_pocket_from_text(full_text)
+
         is_camouflage = raw_features.get("is_camouflage")
         if is_camouflage is None and pattern:
             is_camouflage = pattern.lower() == "camouflage"
@@ -1027,6 +1151,10 @@ def build_features_for_jacket_carhart(
             "lining": lining,
             "closure": closure,
             "patch_material": patch_material,
+            "collar": collar,
+            "zip_material": zip_material,
+            "origin_country": origin_country,
+            "has_chest_pocket": has_chest_pocket,
             "is_camouflage": is_camouflage,
             "is_realtree": is_realtree,
             "is_new_york": is_new_york,
