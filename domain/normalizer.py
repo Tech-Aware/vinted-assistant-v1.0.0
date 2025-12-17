@@ -893,6 +893,12 @@ def normalize_and_postprocess(
                     "normalize_and_postprocess: nettoyage complémentaire ignoré (%s)",
                     nested_exc,
                 )
+            # AJOUT : si coton Pima détecté, remplacer "coton" par "pima coton" dans la description finale
+            if features.get("is_pima"):
+                # Remplacement en évitant les hashtags (ex: "#pullcoton")
+                description = re.sub(r"\bcoton\b", "pima coton", description, flags=re.IGNORECASE)
+                logger.info(
+                    "normalize_and_postprocess: 'coton' remplacé par 'pima coton' dans la description finale (PULL_TOMMY)")
         else:
             description = ai_data.get("description")
     except Exception as exc:  # pragma: no cover - defensive

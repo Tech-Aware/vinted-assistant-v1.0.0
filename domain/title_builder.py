@@ -594,6 +594,10 @@ def build_pull_tommy_title(features: Dict[str, Any]) -> str:
         if brand:
             brand_formatted = " ".join(word.capitalize() for word in brand.lower().split())
             parts.append(brand_formatted)
+            # AJOUT : si "Pima" détecté sur ce pull Tommy, ajouter "Premium" après la marque
+            if features.get("is_pima") and brand.lower() == "tommy hilfiger":
+                parts.append("Premium")
+                logger.info("build_pull_tommy_title: ajout de 'Premium' au titre (Pima cotton détecté)")
 
         if gender:
             parts.append(gender)

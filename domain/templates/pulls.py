@@ -58,6 +58,7 @@ FOCUS ON:
      - coton, laine, merino, cachemire, acrylique, mélanges, etc.
    - Mention composition in the French description.
    - Do NOT invent composition if the label is not readable.
+   - If the label mentions "Pima cotton", highlight it in the description (coton Pima = coton de qualité supérieure).
 
 6) SEASON:
    - Based on thickness and knit:
