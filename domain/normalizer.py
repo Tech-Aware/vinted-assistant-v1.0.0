@@ -745,11 +745,14 @@ def build_features_for_pull_tommy(
             lettres (au moins 2) suivies de chiffres (ex : PTF127).
             """
             try:
-                return bool(re.match(r"^[a-zA-Z]{2,}[0-9]+$", value.strip()))
+                # 1. Supprimer tous les espaces de la chaîne fournie
+                cleaned_value = re.sub(r"\s+", "", value)
+                # 2. Vérifier que cleaned_value correspond à 2+ lettres puis à 1+ chiffres (espace toléré initialement)
+                return bool(re.match(r'^[A-Za-z]{2,}\s*[0-9]+$', cleaned_value))
             except Exception:
                 logger.debug(
                     "build_features_for_pull_tommy: validation SKU impossible pour '%s'",
-                    value,
+                    value
                 )
                 return False
 
