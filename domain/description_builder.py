@@ -357,6 +357,9 @@ def _build_pull_tommy_composition(
                     "rabbit": "angora",
                     "lapin": "angora",
                     "lapin angora": "angora",
+                    "mohair" : "mohair",
+                    "lana de cabra" : "mohair",
+                    "lambswool": "laine d'agneau",
                 }
                 cleaned = raw_label.strip(" .")
                 cleaned_lower = cleaned.lower()
@@ -470,6 +473,7 @@ def _normalize_fit_display(raw_fit: Optional[str], model_hint: Optional[str] = N
             "evase",
             "curve",
             "curvy",
+            "demi curve",
         )
         if any(marker in low for marker in boot_markers) or any(
             marker in secondary_low for marker in boot_markers
@@ -617,6 +621,7 @@ def build_pull_tommy_description(
         logger.info("build_pull_tommy_description: features reçus = %s", features)
 
         brand = _safe_clean(features.get("brand")) or "Tommy Hilfiger"
+        brand.capitalize()
         garment_type = _safe_clean(features.get("garment_type")) or "pull"
         gender = _safe_clean(features.get("gender")) or "femme"
         neckline = _safe_clean(features.get("neckline"))
