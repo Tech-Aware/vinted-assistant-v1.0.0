@@ -652,13 +652,13 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
         pattern = _normalize_str(features.get("pattern"))
 
         prefix = "Veste à capuche Carhartt" if has_hood else "Veste Carhartt"
-        parts: List[str] = [prefix, "jacket"]
+        parts: List[str] = [prefix]
 
         if brand and brand.lower() != "carhartt":
             parts.append(brand)
 
         if model:
-            model_segment = f"modèle {model}"
+            model_segment = f"{model} Jacket"
             if is_new_york or "new york" in model.lower() or model.lower().endswith(" ny"):
                 model_segment = model_segment.rstrip() + " NY"
             parts.append(model_segment)

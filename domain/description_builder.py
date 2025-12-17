@@ -819,6 +819,7 @@ def build_jacket_carhart_description(
         logger.info("build_jacket_carhart_description: features reçus = %s", features)
 
         brand = _safe_clean(features.get("brand")) or "Carhartt"
+        brand = brand.capitalize()
         model = _safe_clean(features.get("model"))
         size = _safe_clean(features.get("size")) or "NC"
         color = _safe_clean(features.get("color"))
@@ -831,7 +832,7 @@ def build_jacket_carhart_description(
         is_realtree = bool(features.get("is_realtree"))
         is_new_york = bool(features.get("is_new_york"))
 
-        intro_parts = ["Veste Carhartt jacket"]
+        intro_parts = ["Jacket Carhartt"]
         if model:
             model_segment = f"modèle {model}"
             if is_new_york or "new york" in model.lower():
@@ -847,7 +848,7 @@ def build_jacket_carhart_description(
         details: List[str] = []
 
         if has_hood:
-            details.append("Version à capuche (voir photos pour le système de serrage).")
+            details.append("Version à capuche (voir photos).")
 
         if pattern:
             motif = "camouflage Realtree" if is_realtree else pattern
