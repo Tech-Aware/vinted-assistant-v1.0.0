@@ -834,6 +834,10 @@ def build_jacket_carhart_description(
         lining = _safe_clean(features.get("lining"))
         closure = _safe_clean(features.get("closure"))
         patch_material = _safe_clean(features.get("patch_material"))
+        collar = _safe_clean(features.get("collar"))
+        zip_material = _safe_clean(features.get("zip_material"))
+        origin_country = _safe_clean(features.get("origin_country"))
+        has_chest_pocket = features.get("has_chest_pocket")
         is_realtree = bool(features.get("is_realtree"))
         is_new_york = bool(features.get("is_new_york"))
 
@@ -869,6 +873,18 @@ def build_jacket_carhart_description(
         patch_sentence = _describe_patch_material(patch_material)
         if patch_sentence:
             details.append(patch_sentence)
+
+        if collar:
+            details.append(f"Col : {collar} (visible sur les photos).")
+
+        if zip_material:
+            details.append(f"Zip principal : {zip_material}.")
+
+        if has_chest_pocket:
+            details.append("Poche poitrine présente (voir photos).")
+
+        if origin_country:
+            details.append(f"Fabrication : {origin_country}.")
 
         defects = _safe_clean(features.get("defects") or ai_defects)
         if defects:

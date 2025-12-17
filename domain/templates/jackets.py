@@ -28,6 +28,10 @@ JACKET_LISTING_SCHEMA["properties"].update(
                 "lining": {"type": ["string", "null"]},
                 "closure": {"type": ["string", "null"]},
                 "patch_material": {"type": ["string", "null"]},
+                "collar": {"type": ["string", "null"]},
+                "zip_material": {"type": ["string", "null"]},
+                "origin_country": {"type": ["string", "null"]},
+                "has_chest_pocket": {"type": ["boolean", "null"]},
                 "is_camouflage": {"type": ["boolean", "null"]},
                 "is_realtree": {"type": ["boolean", "null"]},
                 "is_new_york": {"type": ["boolean", "null"]},
@@ -61,6 +65,7 @@ DESCRIPTION (FRANÇAIS) :
 - Décrire l'intérieur (doublure, sherpa, matelassé, etc.).
 - Préciser la capuche (amovible ou non), la fermeture (zip, boutons pression, double zip),
   la présence d'un écusson et sa matière (tissu ou cuir).
+- Mentionner le type de col, la matière du zip, le pays d'origine et la présence d'une poche poitrine si visible.
 - Rester factuel : ne rien inventer si l'information n'est pas visible.
 
 SORTIE JSON OBLIGATOIRE :
@@ -77,6 +82,10 @@ SORTIE JSON OBLIGATOIRE :
     "lining": string | null,
     "closure": string | null,
     "patch_material": string | null,
+    "collar": string | null,
+    "zip_material": string | null,
+    "origin_country": string | null,
+    "has_chest_pocket": boolean | null,
     "is_camouflage": boolean | null,
     "is_realtree": boolean | null,
     "is_new_york": boolean | null
