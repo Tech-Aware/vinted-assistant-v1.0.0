@@ -247,6 +247,44 @@ def _soften_defect_terms(defects: str) -> str:
         return defects or ""
 
 
+def _normalize_percentage_spacing(text: str) -> str:
+    try:
+        normalized = re.sub(r"(\d)\s*%\s*", r"\1 % ", text)
+        normalized = re.sub(r"\s{2,}", " ", normalized)
+        return normalized.strip()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_normalize_percentage_spacing: normalisation impossible (%s)", exc)
+        return text
+
+
+def _clean_carhartt_material_segment(value: Optional[Any]) -> str:
+    """Nettoie un segment décrivant une matière pour l'affichage Carhartt."""
+
+    try:
+        base = _safe_clean(value)
+        if not base:
+            return ""
+
+        cleaned = re.sub(
+            r"la composition indiquée[^:]*:", "", base, flags=re.IGNORECASE
+        )
+        cleaned = re.sub(
+            r"^(composition|matiere|material)[:\-]?\s*", "", cleaned, flags=re.IGNORECASE
+        )
+        cleaned = cleaned.strip(" .;:-")
+        cleaned = _normalize_percentage_spacing(cleaned)
+        if cleaned:
+            logger.info(
+                "_clean_carhartt_material_segment: segment nettoyé='%s' (source=%s)",
+                cleaned,
+                value,
+            )
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_clean_carhartt_material_segment: nettoyage impossible (%s)", exc)
+        return _safe_clean(value)
+
+
 def _normalize_pull_size(size: Optional[str]) -> str:
     try:
         raw = _safe_clean(size).upper()
@@ -261,6 +299,55 @@ def _normalize_pull_size(size: Optional[str]) -> str:
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("_normalize_pull_size: normalisation taille échouée (%s)", exc)
         return _safe_clean(size)
+
+
+def _normalize_carhartt_size(size: Optional[str]) -> tuple[str, str, str]:
+    """Renvoie (taille courte, taille affichée, token hashtag) avec journalisation."""
+
+    try:
+        raw = _safe_clean(size)
+        if not raw:
+            return "NC", "NC", "nc"
+
+        low = raw.lower()
+        base = raw.upper()
+
+        size_map = {
+            "xs": "XS",
+            "extra small": "XS",
+            "x-small": "XS",
+            "small": "S",
+            "s": "S",
+            "medium": "M",
+            "m": "M",
+            "large": "L",
+            "l": "L",
+            "x-large": "XL",
+            "xl": "XL",
+            "xxl": "XXL",
+            "2xl": "XXL",
+            "xxxl": "XXXL",
+            "3xl": "XXXL",
+        }
+
+        for marker, normalized in size_map.items():
+            if marker in low:
+                base = normalized
+                break
+
+        display = base if base == raw.strip().upper() else f"{base} ({raw})"
+        token = base.lower().replace(" ", "") or "nc"
+        logger.info(
+            "_normalize_carhartt_size: taille brute '%s' -> base=%s, display=%s, token=%s",
+            raw,
+            base,
+            display,
+            token,
+        )
+        return base, display, token
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("_normalize_carhartt_size: échec normalisation (%s)", exc)
+        return "NC", "NC", "nc"
 
 
 def _strip_footer_lines(description: str) -> str:
@@ -793,10 +880,10 @@ def build_pull_tommy_description(
 
 def _describe_lining(lining: str) -> str:
     try:
-        lining_clean = lining.strip()
+        lining_clean = _clean_carhartt_material_segment(lining)
         if not lining_clean:
             return ""
-        return f"Intérieur : {lining_clean}."
+        return f"Intérieur : {lining_clean}"
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("_describe_lining: description de doublure impossible (%s)", exc)
         return ""
@@ -813,6 +900,26 @@ def _describe_patch_material(patch_material: str) -> str:
         return ""
 
 
+def _strip_percentage_tokens(text: str) -> str:
+    """Supprime les pourcentages pour construire un texte descriptif (sans composition).
+
+    Cette fonction est utilisée pour générer un paragraphe rédigé sans chiffres, puis la
+    composition détaillée (avec pourcentages) est présentée dans un bloc dédié.
+    """
+
+    try:
+        if not text:
+            return ""
+
+        no_parentheses = re.sub(r"\((?:[^)(]+|\([^)(]*\))*\)", "", text)
+        no_percent = re.sub(r"\b\d+\s*%\s*", "", no_parentheses)
+        normalized_spaces = re.sub(r"\s{2,}", " ", no_percent)
+        return normalized_spaces.strip()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_strip_percentage_tokens: nettoyage impossible (%s)", exc)
+        return text or ""
+
+
 def build_jacket_carhart_description(
     features: Dict[str, Any],
     ai_description: Optional[str] = None,
@@ -826,7 +933,8 @@ def build_jacket_carhart_description(
         brand = _safe_clean(features.get("brand")) or "Carhartt"
         brand = brand.capitalize()
         model = _safe_clean(features.get("model"))
-        size = _safe_clean(features.get("size")) or "NC"
+        raw_size = _safe_clean(features.get("size")) or "NC"
+        size_short, size_display, size_token = _normalize_carhartt_size(raw_size)
         color = _safe_clean(features.get("color"))
         gender = _safe_clean(features.get("gender")) or "homme"
         has_hood = features.get("has_hood")
@@ -841,59 +949,190 @@ def build_jacket_carhart_description(
         is_realtree = bool(features.get("is_realtree"))
         is_new_york = bool(features.get("is_new_york"))
 
-        intro_parts = ["Jacket Carhartt"]
+        product_sentence_parts: List[str] = [
+            f"Veste {brand}"
+        ]
         if model:
-            model_segment = f"modèle {model}"
-            if is_new_york or "new york" in model.lower():
-                model_segment += " (NY)"
-            intro_parts.append(model_segment)
-        intro_parts.append(f"taille {size}")
-        if color:
-            intro_parts.append(f"couleur {color}")
+            product_sentence_parts.append(model)
         if gender:
-            intro_parts.append(gender)
-        intro_sentence = " ".join(intro_parts).strip().rstrip(".") + "."
-
-        details: List[str] = []
-
-        if has_hood:
-            details.append("Version à capuche (voir photos).")
-
-        if pattern:
-            motif = "camouflage Realtree" if is_realtree else pattern
-            details.append(f"Motif : {motif}.")
-
-        lining_sentence = _describe_lining(lining)
-        if lining_sentence:
-            details.append(lining_sentence)
-
-        if closure:
-            details.append(f"Fermeture : {closure}.")
-
-        patch_sentence = _describe_patch_material(patch_material)
-        if patch_sentence:
-            details.append(patch_sentence)
-
-        if collar:
-            details.append(f"Col : {collar} (visible sur les photos).")
-
-        if zip_material:
-            details.append(f"Zip principal : {zip_material}.")
-
-        if has_chest_pocket:
-            details.append("Poche poitrine présente (voir photos).")
-
+            product_sentence_parts.append(f"pour {gender}")
+        product_sentence_parts.append(f"taille {size_display}")
+        if color:
+            product_sentence_parts.append(f"coloris {color}")
         if origin_country:
-            details.append(f"Fabrication : {origin_country}.")
+            product_sentence_parts.append(f"Made in {origin_country}")
+
+        product_sentence = (
+            " ".join(token for token in product_sentence_parts if token).strip().rstrip(".")
+            + "."
+        )
+
+        patch_label = patch_material or "simili-cuir"
+        patch_label = patch_label.lower() if patch_label else "simili-cuir"
+        color_intro = (
+            f"Le coloris {color.lower()} sobre s’associe facilement avec toutes les tenues."
+            if color
+            else "Coloris à confirmer sur les photos."
+        )
+        style_sentence = (
+            "Modèle iconique du workwear Carhartt, coupe droite intemporelle, "
+            f"écusson Carhartt en {patch_label}, facile à porter au quotidien. "
+            f"{color_intro}"
+        )
+
+        pattern_label = "camouflage Realtree" if is_realtree else (pattern or "unie")
+
+        exterior_raw = _safe_clean(features.get("exterior"))
+        exterior_desc = _clean_carhartt_material_segment(exterior_raw)
+        exterior_sentence = _strip_percentage_tokens(exterior_desc)
+
+        collar_clean = ""
+        if collar:
+            collar_clean = re.sub(r"^(col\s+)+", "", collar, flags=re.IGNORECASE).strip()
+
+        lining_clean = _describe_lining(lining)
+        lining_sentence = _strip_percentage_tokens(
+            lining_clean.replace("Intérieur :", "", 1)
+        ).strip()
+
+        sleeve_lining_clean = _clean_carhartt_material_segment(
+            _safe_clean(features.get("sleeve_lining"))
+        )
+        sleeve_lining_sentence = _strip_percentage_tokens(sleeve_lining_clean)
+
+        lateral_pockets = features.get("lateral_pockets")
+        lateral_label = ""
+        if isinstance(lateral_pockets, bool) and lateral_pockets:
+            lateral_label = "Deux poches latérales"
+        else:
+            lateral_label = _safe_clean(lateral_pockets) or ""
+
+        details_paragraph_parts: List[str] = []
+        base_sentence = (
+            f"Veste Carhartt {pattern_label}, simple et robuste"
+            if pattern_label
+            else "Veste Carhartt simple et robuste"
+        )
+        if exterior_sentence:
+            base_sentence += f", avec un extérieur en {exterior_sentence}"
+        details_paragraph_parts.append(base_sentence.rstrip(".") + ".")
+
+        pocket_sentence_parts: List[str] = []
+        if has_chest_pocket:
+            pocket_sentence_parts.append(
+                f"poche poitrine zippée avec écusson Carhartt type {patch_label}"
+            )
+        if lateral_label:
+            pocket_sentence_parts.append(lateral_label.lower())
+        if pocket_sentence_parts:
+            details_paragraph_parts.append(
+                "Elle dispose d’une "
+                + " et d’une ".join(pocket_sentence_parts).rstrip(".")
+                + "."
+            )
+
+        warmth_sentence_parts: List[str] = []
+        if lining_sentence:
+            warmth_sentence_parts.append(lining_sentence)
+        if sleeve_lining_sentence:
+            warmth_sentence_parts.append(f"doublure des manches {sleeve_lining_sentence}")
+        if collar_clean:
+            warmth_sentence_parts.append(f"col chemise en {collar_clean}")
+        if warmth_sentence_parts:
+            details_paragraph_parts.append(
+                "La doublure apporte une bonne chaleur" +
+                ", " + ", ".join(warmth_sentence_parts) + "."
+            )
+
+        if zip_material and origin_country:
+            details_paragraph_parts.append(
+                f"Fermeture zippée en {zip_material}, fabriquée en {origin_country}."
+            )
+        elif zip_material:
+            details_paragraph_parts.append(
+                f"Fermeture zippée en {zip_material}."
+            )
+        elif origin_country:
+            details_paragraph_parts.append(
+                f"Fabriquée en {origin_country}."
+            )
+
+        details_paragraph_parts = [part.strip() for part in details_paragraph_parts if part]
+        details_sentence = "Détails : " + " ".join(details_paragraph_parts) if details_paragraph_parts else ""
+
+        composition_lines: List[str] = []
+        if exterior_desc:
+            composition_lines.append(f"Extérieur : {exterior_desc}")
+        if lining_clean:
+            composition_lines.append(lining_clean)
+        if sleeve_lining_clean:
+            composition_lines.append(f"Doublure des manches : {sleeve_lining_clean}")
+        if collar_clean:
+            composition_lines.append(f"Col : {collar_clean}")
+        if patch_material:
+            composition_lines.append(f"Écusson : {patch_label}")
+        if zip_material:
+            composition_lines.append(f"Zip : {zip_material}")
+        if origin_country:
+            composition_lines.append(f"Fabrication : {origin_country}")
+
+        composition_block = ""
+        if composition_lines:
+            composition_block = "Composition :\n" + "\n".join(composition_lines)
 
         defects = _safe_clean(features.get("defects") or ai_defects)
-        if defects:
-            details.append(f"Défauts visibles : {defects}.")
+        normalized_defects = _normalize_defects(defects)
+        state_sentence = (
+            "Très bon état, aucun défaut majeur visible. Veste propre et bien conservée (voir photos)."
+            if not normalized_defects
+            else f"Très bon état, {normalized_defects}. Veste propre et bien conservée (voir photos)."
+        )
 
-        if ai_description:
-            details.append(_safe_clean(ai_description))
+        general_tag = "#durin31jc"
+        size_tag = f"{general_tag}{size_token}" if size_token else "#durin31jcnc"
+        color_tag = f"#{color.lower().replace(' ', '')}" if color else ""
 
-        description = "\n".join([intro_sentence, *details]).strip()
+        logistics_sentence = "📏 Mesures détaillées visibles en photo pour plus de précisions."
+        shipping_sentence = "📦 Envoi rapide et soigné."
+        cta_sentence = (
+            f"✨ Retrouvez toutes mes vestes Carhartt ici 👉 {general_tag} et à votre taille 👉 {size_tag}"
+        )
+        bundle_sentence = (
+            "💡 Pensez à faire un lot pour bénéficier d’une réduction et économiser sur les frais d’envoi."
+        )
+
+        hashtags = " ".join(
+            token
+            for token in [
+                "#carhartt",
+                "#jacket",
+                "#workwear",
+                "#vintage",
+                "#detroitjacket",
+                "#detroit",
+                f"#madein{origin_country.lower()}" if origin_country else "",
+                general_tag,
+                "#durin31",
+                size_tag,
+                color_tag,
+            ]
+            if token
+        ).strip()
+
+        paragraphs = [
+            product_sentence,
+            style_sentence,
+            details_sentence,
+            composition_block,
+            state_sentence,
+            logistics_sentence,
+            shipping_sentence,
+            cta_sentence,
+            bundle_sentence,
+            hashtags,
+        ]
+
+        description = "\n\n".join(part for part in paragraphs if part).strip()
         logger.debug(
             "build_jacket_carhart_description: description générée = %s", description
         )
@@ -902,4 +1141,4 @@ def build_jacket_carhart_description(
         logger.exception(
             "build_jacket_carhart_description: fallback description IA (%s)", exc
         )
-        return _safe_clean(ai_description)
+        return _strip_footer_lines(_safe_clean(ai_description))

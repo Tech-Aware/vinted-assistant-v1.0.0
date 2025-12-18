@@ -238,6 +238,59 @@ def _extract_carhartt_model_from_text(text: str) -> Optional[str]:
         return None
 
 
+def _looks_like_carhartt_sku(token: str) -> bool:
+    """Repère un code produit (EJ001, BLK, etc.) pour l'ignorer du modèle."""
+
+    try:
+        if not token:
+            return False
+
+        cleaned = token.strip()
+        if len(cleaned) < 3:
+            return False
+
+        has_digit = any(char.isdigit() for char in cleaned)
+        has_upper = any(char.isupper() for char in cleaned)
+        if has_digit and has_upper and re.fullmatch(r"[A-Za-z0-9]+", cleaned):
+            logger.debug("_looks_like_carhartt_sku: token '%s' considéré comme SKU", cleaned)
+            return True
+
+        if cleaned.isupper() and has_digit:
+            return True
+
+        return False
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_looks_like_carhartt_sku: détection impossible (%s)", exc)
+        return False
+
+
+def _normalize_carhartt_model(raw_model: Optional[str], fallback_text: str) -> Optional[str]:
+    """Nettoie le modèle Carhartt pour éviter l'affichage de codes produits."""
+
+    try:
+        if not raw_model:
+            return _extract_carhartt_model_from_text(fallback_text)
+
+        tokens = re.split(r"[\s\-_/]+", raw_model.strip())
+        filtered_tokens = [token for token in tokens if not _looks_like_carhartt_sku(token)]
+
+        if not filtered_tokens:
+            logger.info(
+                "_normalize_carhartt_model: modèle brut '%s' ignoré (SKU détecté)", raw_model
+            )
+            return _extract_carhartt_model_from_text(fallback_text)
+
+        candidate = " ".join(filtered_tokens).strip()
+        if not candidate:
+            return _extract_carhartt_model_from_text(fallback_text)
+
+        logger.debug("_normalize_carhartt_model: modèle retenu '%s'", candidate)
+        return candidate.title()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_normalize_carhartt_model: normalisation impossible (%s)", exc)
+        return _extract_carhartt_model_from_text(fallback_text)
+
+
 def _detect_flag_from_text(text: str, keywords: tuple[str, ...]) -> Optional[bool]:
     try:
         if not text:
@@ -266,6 +319,148 @@ def _extract_lining_from_text(text: str) -> Optional[str]:
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("_extract_lining_from_text: extraction impossible (%s)", exc)
         return None
+
+
+def _extract_body_lining_composition(text: str) -> Optional[str]:
+    try:
+        segment = _extract_segment_with_composition(
+            text, ("doublure", "interieur", "intérieur")
+        )
+        if not segment:
+            return None
+        cleaned = _strip_leading_keyword(
+            segment, ("doublure", "interieur", "intérieur", "intérieur du corps")
+        )
+        logger.info("_extract_body_lining_composition: segment détecté = %s", cleaned)
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_body_lining_composition: échec (%s)", exc)
+        return None
+
+
+def _extract_segment_with_composition(text: str, keywords: tuple[str, ...]) -> Optional[str]:
+    """Extrait un segment contenant des compositions (100 %) associé à un mot-clé."""
+
+    try:
+        if not text:
+            return None
+
+        lowered = text.lower()
+        if not any(keyword in lowered for keyword in keywords):
+            return None
+
+        candidates = re.split(r"[\n\.?!]", text)
+        for segment in candidates:
+            if not segment:
+                continue
+            if any(keyword in segment.lower() for keyword in keywords):
+                cleaned = segment.strip(" ,;:\n")
+                if cleaned:
+                    return cleaned
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug(
+            "_extract_segment_with_composition: extraction échouée (%s)", exc
+        )
+        return None
+
+
+def _strip_leading_keyword(segment: str, keywords: tuple[str, ...]) -> str:
+    try:
+        if not segment:
+            return ""
+        result = segment
+        for keyword in keywords:
+            pattern = rf"^\s*{keyword}\s*[:\-–]?\s*"
+            result = re.sub(pattern, "", result, flags=re.IGNORECASE)
+        return result.strip()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_strip_leading_keyword: nettoyage impossible (%s)", exc)
+        return segment
+
+
+def _extract_exterior_from_text(text: str) -> Optional[str]:
+    try:
+        segment = _extract_segment_with_composition(
+            text, ("exterieur", "extérieur", "exterior")
+        )
+        if not segment:
+            return None
+        cleaned = _strip_leading_keyword(
+            segment, ("exterieur", "extérieur", "exterior")
+        )
+        logger.info("_extract_exterior_from_text: segment détecté = %s", cleaned)
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_exterior_from_text: échec (%s)", exc)
+        return None
+
+
+def _extract_sleeve_lining_from_text(text: str) -> Optional[str]:
+    try:
+        segment = _extract_segment_with_composition(
+            text, ("doublure des manches", "manches doubl", "sleeve lining")
+        )
+        if not segment:
+            return None
+        cleaned = _strip_leading_keyword(
+            segment, ("doublure des manches", "manches doubl", "sleeve lining")
+        )
+        logger.info("_extract_sleeve_lining_from_text: segment détecté = %s", cleaned)
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_sleeve_lining_from_text: échec (%s)", exc)
+        return None
+
+
+def _split_carhartt_composition_blocks(text: Optional[str]) -> Dict[str, str]:
+    """Décompose un bloc de composition en segments ext/intérieur/manches."""
+
+    try:
+        if not text:
+            return {}
+
+        cleaned = str(text).strip()
+        if not cleaned:
+            return {}
+
+        parts = re.split(r"[;,\n]", cleaned)
+        blocks: Dict[str, str] = {}
+
+        def assign_if_absent(key: str, value: str, keywords: tuple[str, ...]) -> None:
+            nonlocal blocks
+            if key in blocks:
+                return
+            lowered = value.lower()
+            if any(marker in lowered for marker in keywords):
+                stripped = _strip_leading_keyword(value, keywords)
+                stripped = stripped.strip(" .-:")
+                if stripped:
+                    blocks[key] = stripped
+                    logger.info(
+                        "_split_carhartt_composition_blocks: segment '%s' affecté à %s",
+                        stripped,
+                        key,
+                    )
+
+        for part in parts:
+            fragment = part.strip()
+            if not fragment:
+                continue
+            assign_if_absent("exterior", fragment, ("exterieur", "extérieur", "exterior"))
+            assign_if_absent(
+                "sleeve_lining", fragment, ("doublure des manches", "manches", "sleeve")
+            )
+            assign_if_absent(
+                "lining",
+                fragment,
+                ("doublure", "interieur", "intérieur", "doublure corps"),
+            )
+
+        return blocks
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_split_carhartt_composition_blocks: découpe impossible (%s)", exc)
+        return {}
 
 
 def _extract_closure_from_text(text: str) -> Optional[str]:
@@ -1077,6 +1272,7 @@ def build_features_for_jacket_carhart(
 
         brand = raw_features.get("brand") or ai_data.get("brand") or "Carhartt"
         model = raw_features.get("model") or ai_data.get("model")
+        model = _normalize_carhartt_model(model, full_text)
         if not model:
             model = _extract_carhartt_model_from_text(full_text)
 
@@ -1101,6 +1297,10 @@ def build_features_for_jacket_carhart(
         lining = raw_features.get("lining") or ai_data.get("lining")
         if lining is None:
             lining = _extract_lining_from_text(full_text)
+        if lining is None or "%" not in str(lining):
+            lining_composition = _extract_body_lining_composition(full_text)
+            if lining_composition:
+                lining = lining_composition
 
         closure = raw_features.get("closure") or ai_data.get("closure")
         if closure is None:
@@ -1121,6 +1321,25 @@ def build_features_for_jacket_carhart(
         origin_country = raw_features.get("origin_country") or ai_data.get("origin_country")
         if origin_country is None:
             origin_country = _extract_origin_country_from_text(full_text)
+
+        exterior = raw_features.get("exterior") or ai_data.get("exterior")
+        if exterior is None:
+            exterior = _extract_exterior_from_text(full_text)
+
+        sleeve_lining = raw_features.get("sleeve_lining") or ai_data.get("sleeve_lining")
+        if sleeve_lining is None:
+            sleeve_lining = _extract_sleeve_lining_from_text(full_text)
+
+        split_blocks: Dict[str, str] = {}
+        for candidate in (exterior, sleeve_lining, lining, full_text):
+            split_blocks.update({k: v for k, v in _split_carhartt_composition_blocks(candidate).items() if v})
+
+        if split_blocks.get("exterior"):
+            exterior = split_blocks["exterior"]
+        if split_blocks.get("lining"):
+            lining = split_blocks["lining"]
+        if split_blocks.get("sleeve_lining"):
+            sleeve_lining = split_blocks["sleeve_lining"]
 
         has_chest_pocket = raw_features.get("has_chest_pocket")
         if has_chest_pocket is None:
@@ -1154,6 +1373,8 @@ def build_features_for_jacket_carhart(
             "collar": collar,
             "zip_material": zip_material,
             "origin_country": origin_country,
+            "exterior": exterior,
+            "sleeve_lining": sleeve_lining,
             "has_chest_pocket": has_chest_pocket,
             "is_camouflage": is_camouflage,
             "is_realtree": is_realtree,

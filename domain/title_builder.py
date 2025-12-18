@@ -365,6 +365,53 @@ def _normalize_pull_size(value: Optional[str]) -> Optional[str]:
         return None
 
 
+def _normalize_carhartt_size(value: Optional[str]) -> tuple[str, str]:
+    """Normalise la taille Carhartt (base + token hashtag)."""
+
+    try:
+        raw = _normalize_str(value)
+        if not raw:
+            return "NC", "nc"
+
+        low = raw.lower()
+        base = raw.upper()
+
+        size_map = {
+            "xs": "XS",
+            "extra small": "XS",
+            "x-small": "XS",
+            "small": "S",
+            "s": "S",
+            "medium": "M",
+            "m": "M",
+            "large": "L",
+            "l": "L",
+            "x-large": "XL",
+            "xl": "XL",
+            "xxl": "XXL",
+            "2xl": "XXL",
+            "xxxl": "XXXL",
+            "3xl": "XXXL",
+        }
+
+        for marker, normalized in size_map.items():
+            if marker in low:
+                base = normalized
+                break
+
+        token = base.lower().replace(" ", "") or "nc"
+        logger.info(
+            "_normalize_carhartt_size: taille brute '%s' -> base=%s, token=%s",
+            raw,
+            base,
+            token,
+        )
+        return base, token
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("_normalize_carhartt_size: normalisation impossible (%s)", exc)
+        return "NC", "nc"
+
+
 def _classify_rise_from_cm(rise_cm: Optional[float]) -> Optional[str]:
     """
     Classe la taille (rise) à partir de la distance entre entrejambe
@@ -642,7 +689,8 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
     try:
         brand = _normalize_str(features.get("brand")) or "Carhartt"
         model = _normalize_str(features.get("model"))
-        size = _normalize_str(features.get("size"))
+        raw_size = _normalize_str(features.get("size"))
+        size, size_token = _normalize_carhartt_size(raw_size)
         color = _normalize_str(features.get("color"))
         gender = _normalize_str(features.get("gender")) or "homme"
         has_hood = features.get("has_hood")
@@ -658,9 +706,16 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
             parts.append(brand)
 
         if model:
-            model_segment = f"{model} Jacket"
-            if is_new_york or "new york" in model.lower() or model.lower().endswith(" ny"):
+            model_clean = model.strip()
+            model_lower = model_clean.lower()
+            if "jacket" in model_lower:
+                model_segment = model_clean
+            else:
+                model_segment = f"{model_clean} Jacket"
+
+            if is_new_york or "new york" in model_lower or model_lower.endswith(" ny"):
                 model_segment = model_segment.rstrip() + " NY"
+
             parts.append(model_segment)
         elif is_new_york:
             parts.append("modèle NY")
