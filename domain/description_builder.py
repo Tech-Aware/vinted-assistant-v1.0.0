@@ -263,6 +263,55 @@ def _normalize_pull_size(size: Optional[str]) -> str:
         return _safe_clean(size)
 
 
+def _normalize_carhartt_size(size: Optional[str]) -> tuple[str, str, str]:
+    """Renvoie (taille courte, taille affichée, token hashtag) avec journalisation."""
+
+    try:
+        raw = _safe_clean(size)
+        if not raw:
+            return "NC", "NC", "nc"
+
+        low = raw.lower()
+        base = raw.upper()
+
+        size_map = {
+            "xs": "XS",
+            "extra small": "XS",
+            "x-small": "XS",
+            "small": "S",
+            "s": "S",
+            "medium": "M",
+            "m": "M",
+            "large": "L",
+            "l": "L",
+            "x-large": "XL",
+            "xl": "XL",
+            "xxl": "XXL",
+            "2xl": "XXL",
+            "xxxl": "XXXL",
+            "3xl": "XXXL",
+        }
+
+        for marker, normalized in size_map.items():
+            if marker in low:
+                base = normalized
+                break
+
+        display = base if base == raw.strip().upper() else f"{base} ({raw})"
+        token = base.lower().replace(" ", "") or "nc"
+        logger.info(
+            "_normalize_carhartt_size: taille brute '%s' -> base=%s, display=%s, token=%s",
+            raw,
+            base,
+            display,
+            token,
+        )
+        return base, display, token
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("_normalize_carhartt_size: échec normalisation (%s)", exc)
+        return "NC", "NC", "nc"
+
+
 def _strip_footer_lines(description: str) -> str:
     try:
         if not description:
@@ -826,7 +875,8 @@ def build_jacket_carhart_description(
         brand = _safe_clean(features.get("brand")) or "Carhartt"
         brand = brand.capitalize()
         model = _safe_clean(features.get("model"))
-        size = _safe_clean(features.get("size")) or "NC"
+        raw_size = _safe_clean(features.get("size")) or "NC"
+        size_short, size_display, size_token = _normalize_carhartt_size(raw_size)
         color = _safe_clean(features.get("color"))
         gender = _safe_clean(features.get("gender")) or "homme"
         has_hood = features.get("has_hood")
@@ -848,7 +898,7 @@ def build_jacket_carhart_description(
             product_sentence_parts.append(model)
         if gender:
             product_sentence_parts.append(f"pour {gender}")
-        product_sentence_parts.append(f"taille {size}")
+        product_sentence_parts.append(f"taille {size_display}")
         if color:
             product_sentence_parts.append(f"coloris {color}")
         if origin_country:
@@ -896,7 +946,10 @@ def build_jacket_carhart_description(
             details_items.append(f"Fermeture : {closure}")
 
         if collar:
-            details_items.append(f"Col {collar}")
+            collar_clean = collar
+            if collar_clean.lower().startswith("col "):
+                collar_clean = collar_clean.split(" ", 1)[1].strip()
+            details_items.append(f"Col {collar_clean}")
 
         if zip_material:
             details_items.append(f"Fermeture zippée en {zip_material}")
@@ -932,7 +985,6 @@ def build_jacket_carhart_description(
             else f"Très bon état, {normalized_defects}. Veste propre et bien conservée (voir photos)."
         )
 
-        size_token = size.lower() if size else "nc"
         general_tag = "#durin31jc"
         size_tag = f"{general_tag}{size_token}" if size_token else "#durin31jcnc"
         color_tag = f"#{color.lower().replace(' ', '')}" if color else ""

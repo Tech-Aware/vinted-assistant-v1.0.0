@@ -268,6 +268,98 @@ def _extract_lining_from_text(text: str) -> Optional[str]:
         return None
 
 
+def _extract_body_lining_composition(text: str) -> Optional[str]:
+    try:
+        segment = _extract_segment_with_composition(
+            text, ("doublure", "interieur", "intérieur")
+        )
+        if not segment:
+            return None
+        cleaned = _strip_leading_keyword(
+            segment, ("doublure", "interieur", "intérieur", "intérieur du corps")
+        )
+        logger.info("_extract_body_lining_composition: segment détecté = %s", cleaned)
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_body_lining_composition: échec (%s)", exc)
+        return None
+
+
+def _extract_segment_with_composition(text: str, keywords: tuple[str, ...]) -> Optional[str]:
+    """Extrait un segment contenant des compositions (100 %) associé à un mot-clé."""
+
+    try:
+        if not text:
+            return None
+
+        lowered = text.lower()
+        if not any(keyword in lowered for keyword in keywords):
+            return None
+
+        candidates = re.split(r"[\n\.?!]", text)
+        for segment in candidates:
+            if not segment:
+                continue
+            if any(keyword in segment.lower() for keyword in keywords):
+                cleaned = segment.strip(" ,;:\n")
+                if cleaned:
+                    return cleaned
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug(
+            "_extract_segment_with_composition: extraction échouée (%s)", exc
+        )
+        return None
+
+
+def _strip_leading_keyword(segment: str, keywords: tuple[str, ...]) -> str:
+    try:
+        if not segment:
+            return ""
+        result = segment
+        for keyword in keywords:
+            pattern = rf"^\s*{keyword}\s*[:\-–]?\s*"
+            result = re.sub(pattern, "", result, flags=re.IGNORECASE)
+        return result.strip()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_strip_leading_keyword: nettoyage impossible (%s)", exc)
+        return segment
+
+
+def _extract_exterior_from_text(text: str) -> Optional[str]:
+    try:
+        segment = _extract_segment_with_composition(
+            text, ("exterieur", "extérieur", "exterior")
+        )
+        if not segment:
+            return None
+        cleaned = _strip_leading_keyword(
+            segment, ("exterieur", "extérieur", "exterior")
+        )
+        logger.info("_extract_exterior_from_text: segment détecté = %s", cleaned)
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_exterior_from_text: échec (%s)", exc)
+        return None
+
+
+def _extract_sleeve_lining_from_text(text: str) -> Optional[str]:
+    try:
+        segment = _extract_segment_with_composition(
+            text, ("doublure des manches", "manches doubl", "sleeve lining")
+        )
+        if not segment:
+            return None
+        cleaned = _strip_leading_keyword(
+            segment, ("doublure des manches", "manches doubl", "sleeve lining")
+        )
+        logger.info("_extract_sleeve_lining_from_text: segment détecté = %s", cleaned)
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_sleeve_lining_from_text: échec (%s)", exc)
+        return None
+
+
 def _extract_closure_from_text(text: str) -> Optional[str]:
     try:
         if not text:
@@ -1101,6 +1193,10 @@ def build_features_for_jacket_carhart(
         lining = raw_features.get("lining") or ai_data.get("lining")
         if lining is None:
             lining = _extract_lining_from_text(full_text)
+        if lining is None or "%" not in str(lining):
+            lining_composition = _extract_body_lining_composition(full_text)
+            if lining_composition:
+                lining = lining_composition
 
         closure = raw_features.get("closure") or ai_data.get("closure")
         if closure is None:
@@ -1123,7 +1219,12 @@ def build_features_for_jacket_carhart(
             origin_country = _extract_origin_country_from_text(full_text)
 
         exterior = raw_features.get("exterior") or ai_data.get("exterior")
+        if exterior is None:
+            exterior = _extract_exterior_from_text(full_text)
+
         sleeve_lining = raw_features.get("sleeve_lining") or ai_data.get("sleeve_lining")
+        if sleeve_lining is None:
+            sleeve_lining = _extract_sleeve_lining_from_text(full_text)
 
         has_chest_pocket = raw_features.get("has_chest_pocket")
         if has_chest_pocket is None:
