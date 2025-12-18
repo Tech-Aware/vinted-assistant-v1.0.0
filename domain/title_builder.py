@@ -658,9 +658,16 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
             parts.append(brand)
 
         if model:
-            model_segment = f"{model} Jacket"
-            if is_new_york or "new york" in model.lower() or model.lower().endswith(" ny"):
+            model_clean = model.strip()
+            model_lower = model_clean.lower()
+            if "jacket" in model_lower:
+                model_segment = model_clean
+            else:
+                model_segment = f"{model_clean} Jacket"
+
+            if is_new_york or "new york" in model_lower or model_lower.endswith(" ny"):
                 model_segment = model_segment.rstrip() + " NY"
+
             parts.append(model_segment)
         elif is_new_york:
             parts.append("modèle NY")

@@ -841,19 +841,6 @@ def build_jacket_carhart_description(
         is_realtree = bool(features.get("is_realtree"))
         is_new_york = bool(features.get("is_new_york"))
 
-        intro_parts = ["Jacket Carhartt"]
-        if model:
-            model_segment = f"modèle {model}"
-            if is_new_york or "new york" in model.lower():
-                model_segment += " (NY)"
-            intro_parts.append(model_segment)
-        intro_parts.append(f"taille {size}")
-        if color:
-            intro_parts.append(f"couleur {color}")
-        if gender:
-            intro_parts.append(gender)
-        intro_sentence = " ".join(intro_parts).strip().rstrip(".") + "."
-
         product_sentence_parts: List[str] = [
             f"Veste {brand}"
         ]
@@ -969,6 +956,7 @@ def build_jacket_carhart_description(
                 "#detroitjacket",
                 "#detroit",
                 f"#madein{origin_country.lower()}" if origin_country else "",
+                general_tag,
                 "#durin31",
                 size_tag,
                 color_tag,
@@ -977,7 +965,6 @@ def build_jacket_carhart_description(
         ).strip()
 
         paragraphs = [
-            intro_sentence,
             product_sentence,
             style_sentence,
             details_sentence,

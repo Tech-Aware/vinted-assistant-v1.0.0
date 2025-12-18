@@ -1122,6 +1122,9 @@ def build_features_for_jacket_carhart(
         if origin_country is None:
             origin_country = _extract_origin_country_from_text(full_text)
 
+        exterior = raw_features.get("exterior") or ai_data.get("exterior")
+        sleeve_lining = raw_features.get("sleeve_lining") or ai_data.get("sleeve_lining")
+
         has_chest_pocket = raw_features.get("has_chest_pocket")
         if has_chest_pocket is None:
             has_chest_pocket = _detect_chest_pocket_from_text(full_text)
@@ -1154,6 +1157,8 @@ def build_features_for_jacket_carhart(
             "collar": collar,
             "zip_material": zip_material,
             "origin_country": origin_country,
+            "exterior": exterior,
+            "sleeve_lining": sleeve_lining,
             "has_chest_pocket": has_chest_pocket,
             "is_camouflage": is_camouflage,
             "is_realtree": is_realtree,
