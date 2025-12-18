@@ -262,6 +262,44 @@ def _looks_like_carhartt_sku(token: str) -> bool:
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("_looks_like_carhartt_sku: détection impossible (%s)", exc)
         return False
+def _normalize_jcr_sku(raw: Optional[Any]) -> Optional[str]:
+    """Normalise un SKU Carhartt interne de type JCR + digits.
+    Exemples: "JCR 1" -> "JCR1", "jcr01" -> "JCR1".
+    """
+    try:
+        if raw is None:
+            return None
+        txt = str(raw).strip()
+        if not txt:
+            return None
+
+        m = re.search(r"\bJCR\s*0*(\d+)\b", txt, flags=re.IGNORECASE)
+        if not m:
+            return None
+
+        num = m.group(1)
+        # Normalisation: JCR + int (évite JCR0001)
+        try:
+            num_int = int(num)
+            if num_int <= 0:
+                return None
+            return f"JCR{num_int}"
+        except ValueError:
+            return f"JCR{num}"
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_normalize_jcr_sku: normalisation impossible (%s)", exc)
+        return None
+
+
+"""def _extract_jcr_sku_from_text(text: str) -> Optional[str]:
+    Extrait un SKU JCR depuis un texte (titre/description).
+    try:
+        if not text:
+            return None
+        return _normalize_jcr_sku(text)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_extract_jcr_sku_from_text: extraction impossible (%s)", exc)
+        return None"""
 
 
 def _normalize_carhartt_model(raw_model: Optional[str], fallback_text: str) -> Optional[str]:
@@ -1268,7 +1306,12 @@ def build_features_for_jacket_carhart(
 
         title = ai_data.get("title") or ""
         description = ai_data.get("description") or ""
+
+        # full_text reste utile pour des flags (capuche, realtree, NY, etc.)
         full_text = f"{title} {description}".strip()
+
+        # texte “source composition” = description IA uniquement
+        composition_text = (ai_data.get("description") or "").strip()
 
         brand = raw_features.get("brand") or ai_data.get("brand") or "Carhartt"
         model = raw_features.get("model") or ai_data.get("model")
@@ -1294,11 +1337,14 @@ def build_features_for_jacket_carhart(
             has_hood = _detect_flag_from_text(full_text, ("capuche", "hood"))
 
         pattern = raw_features.get("pattern") or ai_data.get("pattern")
+
+        # LINING
         lining = raw_features.get("lining") or ai_data.get("lining")
         if lining is None:
             lining = _extract_lining_from_text(full_text)
+        # bloc “composition doublure” doit venir de composition_text
         if lining is None or "%" not in str(lining):
-            lining_composition = _extract_body_lining_composition(full_text)
+            lining_composition = _extract_body_lining_composition(composition_text)
             if lining_composition:
                 lining = lining_composition
 
@@ -1322,17 +1368,21 @@ def build_features_for_jacket_carhart(
         if origin_country is None:
             origin_country = _extract_origin_country_from_text(full_text)
 
+        # EXTERIOR
         exterior = raw_features.get("exterior") or ai_data.get("exterior")
         if exterior is None:
-            exterior = _extract_exterior_from_text(full_text)
+            exterior = _extract_exterior_from_text(composition_text)
 
+        # SLEEVE LINING
         sleeve_lining = raw_features.get("sleeve_lining") or ai_data.get("sleeve_lining")
         if sleeve_lining is None:
-            sleeve_lining = _extract_sleeve_lining_from_text(full_text)
+            sleeve_lining = _extract_sleeve_lining_from_text(composition_text)
 
         split_blocks: Dict[str, str] = {}
-        for candidate in (exterior, sleeve_lining, lining, full_text):
-            split_blocks.update({k: v for k, v in _split_carhartt_composition_blocks(candidate).items() if v})
+        for candidate in (exterior, sleeve_lining, lining, composition_text):
+            split_blocks.update(
+                {k: v for k, v in _split_carhartt_composition_blocks(candidate).items() if v}
+            )
 
         if split_blocks.get("exterior"):
             exterior = split_blocks["exterior"]
@@ -1359,6 +1409,49 @@ def build_features_for_jacket_carhart(
         if is_new_york is None:
             is_new_york = _detect_flag_from_text(full_text, ("new york", " ny"))
 
+        # --- SKU (Carhartt JCR) --------------------------------------------
+        # Priorité: UI > IA (features). PAS de fallback depuis texte libre.
+        sku_from_ui = ui_data.get("sku")
+        sku_from_ai = raw_features.get("sku") or ai_data.get("sku")
+        sku_status_raw = raw_features.get("sku_status") or ai_data.get("sku_status")
+
+        sku_status = (
+            str(sku_status_raw).strip().lower()
+            if sku_status_raw is not None
+            else None
+        )
+
+        sku = None
+
+        if sku_from_ui:
+            sku = _normalize_jcr_sku(sku_from_ui)
+            if sku:
+                sku_status = "ok"
+                logger.info("build_features_for_jacket_carhart: SKU pris depuis UI (%s)", sku)
+            else:
+                sku = None
+                sku_status = "low_confidence"
+                logger.warning(
+                    "build_features_for_jacket_carhart: SKU UI non conforme JCR (%r)",
+                    sku_from_ui,
+                )
+        else:
+            normalized_ai_sku = _normalize_jcr_sku(sku_from_ai)
+            if normalized_ai_sku:
+                sku = normalized_ai_sku
+                sku_status = "ok"
+                logger.info("build_features_for_jacket_carhart: SKU IA validé (%s)", sku)
+            else:
+                if sku_status == "low_confidence":
+                    sku = None
+                    logger.info(
+                        "build_features_for_jacket_carhart: SKU low_confidence côté IA (aucune valeur retenue)"
+                    )
+                else:
+                    sku = None
+                    sku_status = "missing"
+                    logger.debug("build_features_for_jacket_carhart: SKU absent (missing)")
+
         features: Dict[str, Any] = {
             "brand": brand,
             "model": model,
@@ -1379,10 +1472,13 @@ def build_features_for_jacket_carhart(
             "is_camouflage": is_camouflage,
             "is_realtree": is_realtree,
             "is_new_york": is_new_york,
+            "sku": sku,
+            "sku_status": sku_status,
         }
 
         logger.debug("build_features_for_jacket_carhart: features=%s", features)
         return features
+
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception(
             "build_features_for_jacket_carhart: échec -> features vides (%s)", exc

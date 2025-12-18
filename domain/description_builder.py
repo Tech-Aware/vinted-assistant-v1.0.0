@@ -926,32 +926,27 @@ def build_jacket_carhart_description(
     ai_defects: Optional[str] = None,
 ) -> str:
     """Produit une description détaillée pour une veste Carhartt."""
-
     try:
         logger.info("build_jacket_carhart_description: features reçus = %s", features)
 
         brand = _safe_clean(features.get("brand")) or "Carhartt"
         brand = brand.capitalize()
         model = _safe_clean(features.get("model"))
+
         raw_size = _safe_clean(features.get("size")) or "NC"
         size_short, size_display, size_token = _normalize_carhartt_size(raw_size)
+
         color = _safe_clean(features.get("color"))
         gender = _safe_clean(features.get("gender")) or "homme"
-        has_hood = features.get("has_hood")
-        pattern = _safe_clean(features.get("pattern"))
+
         lining = _safe_clean(features.get("lining"))
-        closure = _safe_clean(features.get("closure"))
         patch_material = _safe_clean(features.get("patch_material"))
         collar = _safe_clean(features.get("collar"))
         zip_material = _safe_clean(features.get("zip_material"))
         origin_country = _safe_clean(features.get("origin_country"))
-        has_chest_pocket = features.get("has_chest_pocket")
-        is_realtree = bool(features.get("is_realtree"))
-        is_new_york = bool(features.get("is_new_york"))
 
-        product_sentence_parts: List[str] = [
-            f"Veste {brand}"
-        ]
+        # --- 1) Phrase produit -------------------------------------------------
+        product_sentence_parts: List[str] = [f"Veste {brand}"]
         if model:
             product_sentence_parts.append(model)
         if gender:
@@ -967,8 +962,8 @@ def build_jacket_carhart_description(
             + "."
         )
 
-        patch_label = patch_material or "simili-cuir"
-        patch_label = patch_label.lower() if patch_label else "simili-cuir"
+        # --- 2) Phrase style ---------------------------------------------------
+        patch_label = (patch_material or "simili-cuir").lower()
         color_intro = (
             f"Le coloris {color.lower()} sobre s’associe facilement avec toutes les tenues."
             if color
@@ -980,106 +975,127 @@ def build_jacket_carhart_description(
             f"{color_intro}"
         )
 
-        pattern_label = "camouflage Realtree" if is_realtree else (pattern or "unie")
-
+        # --- 3) Champs utiles à la composition -------------------------------
         exterior_raw = _safe_clean(features.get("exterior"))
-        exterior_desc = _clean_carhartt_material_segment(exterior_raw)
-        exterior_sentence = _strip_percentage_tokens(exterior_desc)
-
-        collar_clean = ""
-        if collar:
-            collar_clean = re.sub(r"^(col\s+)+", "", collar, flags=re.IGNORECASE).strip()
-
-        lining_clean = _describe_lining(lining)
-        lining_sentence = _strip_percentage_tokens(
-            lining_clean.replace("Intérieur :", "", 1)
-        ).strip()
-
         sleeve_lining_clean = _clean_carhartt_material_segment(
             _safe_clean(features.get("sleeve_lining"))
         )
-        sleeve_lining_sentence = _strip_percentage_tokens(sleeve_lining_clean)
 
-        lateral_pockets = features.get("lateral_pockets")
-        lateral_label = ""
-        if isinstance(lateral_pockets, bool) and lateral_pockets:
-            lateral_label = "Deux poches latérales"
-        else:
-            lateral_label = _safe_clean(lateral_pockets) or ""
+        # --- 4) Col : extraction type + matière -------------------------------
+        collar_type = ""
+        collar_material = ""
+        try:
+            collar_raw = (collar or "").strip()
+            collar_low = collar_raw.lower()
 
-        details_paragraph_parts: List[str] = []
-        base_sentence = (
-            f"Veste Carhartt {pattern_label}, simple et robuste"
-            if pattern_label
-            else "Veste Carhartt simple et robuste"
-        )
-        if exterior_sentence:
-            base_sentence += f", avec un extérieur en {exterior_sentence}"
-        details_paragraph_parts.append(base_sentence.rstrip(".") + ".")
+            if "chemise" in collar_low:
+                collar_type = "chemise"
+            elif "montant" in collar_low:
+                collar_type = "montant"
+            elif "teddy" in collar_low:
+                collar_type = "teddy"
+            elif "officier" in collar_low:
+                collar_type = "officier"
 
-        pocket_sentence_parts: List[str] = []
-        if has_chest_pocket:
-            pocket_sentence_parts.append(
-                f"poche poitrine zippée avec écusson Carhartt type {patch_label}"
+            if any(k in collar_low for k in ("velours", "côtel", "cotele", "corduroy")):
+                collar_material = "velours côtelé"
+
+            logger.debug(
+                "build_jacket_carhart_description: col détecté type=%s matière=%s (raw=%s)",
+                collar_type,
+                collar_material,
+                collar_raw,
             )
-        if lateral_label:
-            pocket_sentence_parts.append(lateral_label.lower())
-        if pocket_sentence_parts:
-            details_paragraph_parts.append(
-                "Elle dispose d’une "
-                + " et d’une ".join(pocket_sentence_parts).rstrip(".")
-                + "."
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("build_jacket_carhart_description: parsing col échoué (%s)", exc)
+            collar_type = ""
+            collar_material = ""
+
+        # --- 5) Helpers composition ------------------------------------------
+        def _pick_percent_line(text: str) -> str:
+            """
+            Récupère une composition courte du type '100 % coton' si présente,
+            sinon renvoie un nettoyage minimal.
+            """
+            try:
+                cleaned = _clean_carhartt_material_segment(text)
+                if not cleaned:
+                    return ""
+                matches = re.findall(r"\d+\s*%\s*[A-Za-zÀ-ÿ'’\- ]+", cleaned)
+                if matches:
+                    return ", ".join(m.strip() for m in matches)
+                return cleaned
+            except Exception as exc:  # pragma: no cover
+                logger.warning("_pick_percent_line: erreur (%s)", exc)
+                return _clean_carhartt_material_segment(text) or ""
+
+        # --- 6) Paragraphe doublure / col (court) -----------------------------
+        lining_label = ""
+        try:
+            low = (lining or "").lower()
+            if "matelass" in low:
+                lining_label = "doublure matelassée"
+            elif "sherpa" in low:
+                lining_label = "doublure sherpa"
+            elif lining:
+                lining_label = _strip_percentage_tokens(_clean_carhartt_material_segment(lining))
+        except Exception as exc:  # pragma: no cover
+            logger.debug("lining_label: fallback (%s)", exc)
+
+        warmth_parts: List[str] = []
+        if lining_label:
+            warmth_parts.append(
+                f"La {lining_label} apporte une bonne chaleur, idéale pour la mi-saison comme pour l’hiver"
             )
 
-        warmth_sentence_parts: List[str] = []
-        if lining_sentence:
-            warmth_sentence_parts.append(lining_sentence)
-        if sleeve_lining_sentence:
-            warmth_sentence_parts.append(f"doublure des manches {sleeve_lining_sentence}")
-        if collar_clean:
-            warmth_sentence_parts.append(f"col chemise en {collar_clean}")
-        if warmth_sentence_parts:
-            details_paragraph_parts.append(
-                "La doublure apporte une bonne chaleur" +
-                ", " + ", ".join(warmth_sentence_parts) + "."
-            )
+        # Col (priorité à la matière si détectée)
+        if collar_material:
+            if collar_type == "chemise":
+                warmth_parts.append(f"avec un col chemise en {collar_material}")
+            elif collar_type:
+                warmth_parts.append(f"avec un col {collar_type} en {collar_material}")
+            else:
+                warmth_parts.append(f"avec un col en {collar_material}")
+        elif collar_type:
+            warmth_parts.append(f"avec un col {collar_type}")
 
-        if zip_material and origin_country:
-            details_paragraph_parts.append(
-                f"Fermeture zippée en {zip_material}, fabriquée en {origin_country}."
-            )
-        elif zip_material:
-            details_paragraph_parts.append(
-                f"Fermeture zippée en {zip_material}."
-            )
-        elif origin_country:
-            details_paragraph_parts.append(
-                f"Fabriquée en {origin_country}."
-            )
+        warmth_sentence = ""
+        if warmth_parts:
+            warmth_sentence = ", ".join(warmth_parts).strip().rstrip(".") + "."
 
-        details_paragraph_parts = [part.strip() for part in details_paragraph_parts if part]
-        details_sentence = "Détails : " + " ".join(details_paragraph_parts) if details_paragraph_parts else ""
-
-        composition_lines: List[str] = []
-        if exterior_desc:
-            composition_lines.append(f"Extérieur : {exterior_desc}")
-        if lining_clean:
-            composition_lines.append(lining_clean)
-        if sleeve_lining_clean:
-            composition_lines.append(f"Doublure des manches : {sleeve_lining_clean}")
-        if collar_clean:
-            composition_lines.append(f"Col : {collar_clean}")
-        if patch_material:
-            composition_lines.append(f"Écusson : {patch_label}")
+        # --- 7) Paragraphe zip (court) ---------------------------------------
+        zip_sentence = ""
         if zip_material:
-            composition_lines.append(f"Zip : {zip_material}")
-        if origin_country:
-            composition_lines.append(f"Fabrication : {origin_country}")
+            zip_sentence = f"Fermeture zippée intégrale en {zip_material}."
+
+        # --- 8) Composition (lignes courtes) ---------------------------------
+        composition_lines: List[str] = []
+
+        ext_line = _pick_percent_line(exterior_raw or "")
+        if ext_line:
+            composition_lines.append(f"Extérieur : {ext_line}")
+
+        lining_line = _pick_percent_line(lining or "")
+        if lining_line:
+            if "matelass" in (lining or "").lower() and ("(" in (lining or "") or "," in (lining or "")):
+                composition_lines.append(f"Doublure : matelassée ({lining_line})")
+            else:
+                composition_lines.append(f"Doublure : {lining_line}")
+
+        sleeve_line = _pick_percent_line(sleeve_lining_clean or "")
+        if sleeve_line:
+            composition_lines.append(f"Doublure des manches : {sleeve_line}")
+
+        if collar_material:
+            composition_lines.append(f"Col : {collar_material}")
+        elif collar_type:
+            composition_lines.append(f"Col : {collar_type}")
 
         composition_block = ""
         if composition_lines:
             composition_block = "Composition :\n" + "\n".join(composition_lines)
 
+        # --- 9) État ----------------------------------------------------------
         defects = _safe_clean(features.get("defects") or ai_defects)
         normalized_defects = _normalize_defects(defects)
         state_sentence = (
@@ -1088,6 +1104,7 @@ def build_jacket_carhart_description(
             else f"Très bon état, {normalized_defects}. Veste propre et bien conservée (voir photos)."
         )
 
+        # --- 10) Footer / tags ----------------------------------------------
         general_tag = "#durin31jc"
         size_tag = f"{general_tag}{size_token}" if size_token else "#durin31jcnc"
         color_tag = f"#{color.lower().replace(' ', '')}" if color else ""
@@ -1119,10 +1136,12 @@ def build_jacket_carhart_description(
             if token
         ).strip()
 
+        # --- 11) Assemblage final -------------------------------------------
         paragraphs = [
             product_sentence,
             style_sentence,
-            details_sentence,
+            warmth_sentence,
+            zip_sentence,
             composition_block,
             state_sentence,
             logistics_sentence,
@@ -1133,12 +1152,9 @@ def build_jacket_carhart_description(
         ]
 
         description = "\n\n".join(part for part in paragraphs if part).strip()
-        logger.debug(
-            "build_jacket_carhart_description: description générée = %s", description
-        )
+        logger.debug("build_jacket_carhart_description: description générée = %s", description)
         return description
+
     except Exception as exc:  # pragma: no cover - defensive
-        logger.exception(
-            "build_jacket_carhart_description: fallback description IA (%s)", exc
-        )
+        logger.exception("build_jacket_carhart_description: fallback description IA (%s)", exc)
         return _strip_footer_lines(_safe_clean(ai_description))

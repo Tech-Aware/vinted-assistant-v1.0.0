@@ -699,6 +699,10 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
         is_new_york = features.get("is_new_york")
         pattern = _normalize_str(features.get("pattern"))
 
+        # --- SKU (Carhartt) -------------------------------------------------
+        sku = _normalize_str(features.get("sku"))
+        sku_status = _normalize_str(features.get("sku_status"))
+
         prefix = "Veste à capuche Carhartt" if has_hood else "Veste Carhartt"
         parts: List[str] = [prefix]
 
@@ -736,8 +740,26 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
         if gender:
             parts.append(gender)
 
+        # SKU (préfixé d'un tiret) uniquement si statut OK
+        if sku and sku_status and sku_status.lower() == "ok":
+            parts.append(f"{SKU_PREFIX}{sku}")
+        elif sku:
+            logger.debug(
+                "build_jacket_carhart_title: SKU ignoré car statut non 'ok' (%s)",
+                sku_status,
+            )
+        else:
+            logger.debug(
+                "build_jacket_carhart_title: SKU absent ou illisible (statut=%s)",
+                sku_status,
+            )
+
         title = _safe_join(parts)
-        logger.debug("build_jacket_carhart_title: titre construit depuis %s -> '%s'", features, title)
+        logger.debug(
+            "build_jacket_carhart_title: titre construit depuis %s -> '%s'",
+            features,
+            title,
+        )
         return title
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("build_jacket_carhart_title: échec de construction (%s)", exc)

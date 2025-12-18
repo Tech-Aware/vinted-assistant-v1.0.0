@@ -281,7 +281,7 @@ Required JSON structure:
   "season": string | null,
   "defects": string | null,
 
-  "features": {
+    "features": {
     "brand": string | null,
     "model": string | null,
     "size": string | null,
@@ -294,7 +294,10 @@ Required JSON structure:
     "patch_material": string | null,
     "is_camouflage": boolean | null,
     "is_realtree": boolean | null,
-    "is_new_york": boolean | null
+    "is_new_york": boolean | null,
+
+    "sku": string | null,
+    "sku_status": "ok" | "missing" | "low_confidence"
   }
 }
 
@@ -305,5 +308,16 @@ RULES (NO INVENTION):
 - If the model references New York: set is_new_york=true.
 - Only use values that are clearly visible on tags or photos. Otherwise set the field to null.
 - The French description must mention lining/interior, hood, closure type (zip, press studs, double zip), and whether the Carhartt badge/patch is fabric or leather when visible.
+- SKU (Carhartt Jackets):
+  - The SKU is a short internal code written on a tag/paper, typically like "JCR 1", "JCR1", "JCR 12", etc.
+  - If you clearly see a SKU starting with letters followed by digits, set:
+    - features.sku = the normalized SKU with NO spaces (e.g. "JCR 12" -> "JCR12")
+    - features.sku_status = "ok"
+  - If there is a SKU tag but it is partially unreadable, set:
+    - features.sku = null
+    - features.sku_status = "low_confidence"
+  - If no SKU is visible on any image, set:
+    - features.sku = null
+    - features.sku_status = "missing"
 - Respond ONLY with the JSON object.
 """

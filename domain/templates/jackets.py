@@ -35,6 +35,8 @@ JACKET_LISTING_SCHEMA["properties"].update(
                 "is_camouflage": {"type": ["boolean", "null"]},
                 "is_realtree": {"type": ["boolean", "null"]},
                 "is_new_york": {"type": ["boolean", "null"]},
+                "sku": {"type": ["string", "null"]},
+                "sku_status": {"type": ["string", "null"]},
             },
         }
     }
