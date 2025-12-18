@@ -854,10 +854,14 @@ def build_jacket_carhart_description(
             intro_parts.append(gender)
         intro_sentence = " ".join(intro_parts).strip().rstrip(".") + "."
 
+        color_sentence = (
+            f"Coloris {color}, facile à associer au quotidien." if color else "Coloris non précisé, se référer aux photos."
+        )
+
         details: List[str] = []
 
         if has_hood:
-            details.append("Version à capuche (voir photos).")
+            details.append("Capuche présente (voir photos).")
 
         if pattern:
             motif = "camouflage Realtree" if is_realtree else pattern
@@ -887,13 +891,42 @@ def build_jacket_carhart_description(
             details.append(f"Fabrication : {origin_country}.")
 
         defects = _safe_clean(features.get("defects") or ai_defects)
-        if defects:
-            details.append(f"Défauts visibles : {defects}.")
+        state_sentence = _build_state_sentence(defects)
 
-        if ai_description:
-            details.append(_safe_clean(ai_description))
+        technical_block = " ".join(detail for detail in details if detail).strip()
 
-        description = "\n".join([intro_sentence, *details]).strip()
+        durin_tag = f"#durin31jk{size.lower()}" if size else "#durin31jkNC"
+        color_tag = f"#{color.lower().replace(' ', '')}" if color else ""
+        hashtags = " ".join(
+            token
+            for token in ["#carhartt", "#jacket", "#workwear", "#durin31", durin_tag, color_tag]
+            if token
+        ).strip()
+
+        logistics_sentence = "📏 Mesures détaillées visibles en photo pour plus de précisions."
+        shipping_sentence = "📦 Envoi rapide et soigné."
+        cta_sentence = f"✨ Retrouvez toutes mes vestes Carhartt ici 👉 {durin_tag}"
+        bundle_sentence = (
+            "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !"
+        )
+
+        ai_extra = _safe_clean(ai_description)
+        ai_block = f"Détails supplémentaires : {ai_extra}" if ai_extra else ""
+
+        paragraphs = [
+            intro_sentence,
+            color_sentence,
+            technical_block,
+            state_sentence,
+            logistics_sentence,
+            shipping_sentence,
+            cta_sentence,
+            bundle_sentence,
+            ai_block,
+            hashtags,
+        ]
+
+        description = "\n\n".join(part for part in paragraphs if part).strip()
         logger.debug(
             "build_jacket_carhart_description: description générée = %s", description
         )
@@ -902,4 +935,4 @@ def build_jacket_carhart_description(
         logger.exception(
             "build_jacket_carhart_description: fallback description IA (%s)", exc
         )
-        return _safe_clean(ai_description)
+        return _strip_footer_lines(_safe_clean(ai_description))
