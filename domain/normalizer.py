@@ -238,6 +238,59 @@ def _extract_carhartt_model_from_text(text: str) -> Optional[str]:
         return None
 
 
+def _looks_like_carhartt_sku(token: str) -> bool:
+    """Repère un code produit (EJ001, BLK, etc.) pour l'ignorer du modèle."""
+
+    try:
+        if not token:
+            return False
+
+        cleaned = token.strip()
+        if len(cleaned) < 3:
+            return False
+
+        has_digit = any(char.isdigit() for char in cleaned)
+        has_upper = any(char.isupper() for char in cleaned)
+        if has_digit and has_upper and re.fullmatch(r"[A-Za-z0-9]+", cleaned):
+            logger.debug("_looks_like_carhartt_sku: token '%s' considéré comme SKU", cleaned)
+            return True
+
+        if cleaned.isupper() and has_digit:
+            return True
+
+        return False
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_looks_like_carhartt_sku: détection impossible (%s)", exc)
+        return False
+
+
+def _normalize_carhartt_model(raw_model: Optional[str], fallback_text: str) -> Optional[str]:
+    """Nettoie le modèle Carhartt pour éviter l'affichage de codes produits."""
+
+    try:
+        if not raw_model:
+            return _extract_carhartt_model_from_text(fallback_text)
+
+        tokens = re.split(r"[\s\-_/]+", raw_model.strip())
+        filtered_tokens = [token for token in tokens if not _looks_like_carhartt_sku(token)]
+
+        if not filtered_tokens:
+            logger.info(
+                "_normalize_carhartt_model: modèle brut '%s' ignoré (SKU détecté)", raw_model
+            )
+            return _extract_carhartt_model_from_text(fallback_text)
+
+        candidate = " ".join(filtered_tokens).strip()
+        if not candidate:
+            return _extract_carhartt_model_from_text(fallback_text)
+
+        logger.debug("_normalize_carhartt_model: modèle retenu '%s'", candidate)
+        return candidate.title()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_normalize_carhartt_model: normalisation impossible (%s)", exc)
+        return _extract_carhartt_model_from_text(fallback_text)
+
+
 def _detect_flag_from_text(text: str, keywords: tuple[str, ...]) -> Optional[bool]:
     try:
         if not text:
@@ -358,6 +411,56 @@ def _extract_sleeve_lining_from_text(text: str) -> Optional[str]:
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("_extract_sleeve_lining_from_text: échec (%s)", exc)
         return None
+
+
+def _split_carhartt_composition_blocks(text: Optional[str]) -> Dict[str, str]:
+    """Décompose un bloc de composition en segments ext/intérieur/manches."""
+
+    try:
+        if not text:
+            return {}
+
+        cleaned = str(text).strip()
+        if not cleaned:
+            return {}
+
+        parts = re.split(r"[;,\n]", cleaned)
+        blocks: Dict[str, str] = {}
+
+        def assign_if_absent(key: str, value: str, keywords: tuple[str, ...]) -> None:
+            nonlocal blocks
+            if key in blocks:
+                return
+            lowered = value.lower()
+            if any(marker in lowered for marker in keywords):
+                stripped = _strip_leading_keyword(value, keywords)
+                stripped = stripped.strip(" .-:")
+                if stripped:
+                    blocks[key] = stripped
+                    logger.info(
+                        "_split_carhartt_composition_blocks: segment '%s' affecté à %s",
+                        stripped,
+                        key,
+                    )
+
+        for part in parts:
+            fragment = part.strip()
+            if not fragment:
+                continue
+            assign_if_absent("exterior", fragment, ("exterieur", "extérieur", "exterior"))
+            assign_if_absent(
+                "sleeve_lining", fragment, ("doublure des manches", "manches", "sleeve")
+            )
+            assign_if_absent(
+                "lining",
+                fragment,
+                ("doublure", "interieur", "intérieur", "doublure corps"),
+            )
+
+        return blocks
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_split_carhartt_composition_blocks: découpe impossible (%s)", exc)
+        return {}
 
 
 def _extract_closure_from_text(text: str) -> Optional[str]:
@@ -1169,6 +1272,7 @@ def build_features_for_jacket_carhart(
 
         brand = raw_features.get("brand") or ai_data.get("brand") or "Carhartt"
         model = raw_features.get("model") or ai_data.get("model")
+        model = _normalize_carhartt_model(model, full_text)
         if not model:
             model = _extract_carhartt_model_from_text(full_text)
 
@@ -1225,6 +1329,17 @@ def build_features_for_jacket_carhart(
         sleeve_lining = raw_features.get("sleeve_lining") or ai_data.get("sleeve_lining")
         if sleeve_lining is None:
             sleeve_lining = _extract_sleeve_lining_from_text(full_text)
+
+        split_blocks: Dict[str, str] = {}
+        for candidate in (exterior, sleeve_lining, lining, full_text):
+            split_blocks.update({k: v for k, v in _split_carhartt_composition_blocks(candidate).items() if v})
+
+        if split_blocks.get("exterior"):
+            exterior = split_blocks["exterior"]
+        if split_blocks.get("lining"):
+            lining = split_blocks["lining"]
+        if split_blocks.get("sleeve_lining"):
+            sleeve_lining = split_blocks["sleeve_lining"]
 
         has_chest_pocket = raw_features.get("has_chest_pocket")
         if has_chest_pocket is None:

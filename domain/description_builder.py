@@ -247,6 +247,44 @@ def _soften_defect_terms(defects: str) -> str:
         return defects or ""
 
 
+def _normalize_percentage_spacing(text: str) -> str:
+    try:
+        normalized = re.sub(r"(\d)\s*%\s*", r"\1 % ", text)
+        normalized = re.sub(r"\s{2,}", " ", normalized)
+        return normalized.strip()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("_normalize_percentage_spacing: normalisation impossible (%s)", exc)
+        return text
+
+
+def _clean_carhartt_material_segment(value: Optional[Any]) -> str:
+    """Nettoie un segment décrivant une matière pour l'affichage Carhartt."""
+
+    try:
+        base = _safe_clean(value)
+        if not base:
+            return ""
+
+        cleaned = re.sub(
+            r"la composition indiquée[^:]*:", "", base, flags=re.IGNORECASE
+        )
+        cleaned = re.sub(
+            r"^(composition|matiere|material)[:\-]?\s*", "", cleaned, flags=re.IGNORECASE
+        )
+        cleaned = cleaned.strip(" .;:-")
+        cleaned = _normalize_percentage_spacing(cleaned)
+        if cleaned:
+            logger.info(
+                "_clean_carhartt_material_segment: segment nettoyé='%s' (source=%s)",
+                cleaned,
+                value,
+            )
+        return cleaned
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_clean_carhartt_material_segment: nettoyage impossible (%s)", exc)
+        return _safe_clean(value)
+
+
 def _normalize_pull_size(size: Optional[str]) -> str:
     try:
         raw = _safe_clean(size).upper()
@@ -842,10 +880,10 @@ def build_pull_tommy_description(
 
 def _describe_lining(lining: str) -> str:
     try:
-        lining_clean = lining.strip()
+        lining_clean = _clean_carhartt_material_segment(lining)
         if not lining_clean:
             return ""
-        return f"Intérieur : {lining_clean}."
+        return f"Intérieur : {lining_clean}"
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("_describe_lining: description de doublure impossible (%s)", exc)
         return ""
@@ -931,14 +969,17 @@ def build_jacket_carhart_description(
             details_items.append("Capuche présente")
 
         exterior_desc = _safe_clean(features.get("exterior"))
+        exterior_desc = _clean_carhartt_material_segment(exterior_desc)
         if exterior_desc:
             details_items.append(f"Extérieur : {exterior_desc}")
 
         lining_sentence = _describe_lining(lining)
         if lining_sentence:
-            details_items.append(lining_sentence.rstrip("."))
+            details_items.append(lining_sentence)
 
-        sleeve_lining = _safe_clean(features.get("sleeve_lining"))
+        sleeve_lining = _clean_carhartt_material_segment(
+            _safe_clean(features.get("sleeve_lining"))
+        )
         if sleeve_lining:
             details_items.append(f"Doublure des manches : {sleeve_lining}")
 
@@ -946,9 +987,7 @@ def build_jacket_carhart_description(
             details_items.append(f"Fermeture : {closure}")
 
         if collar:
-            collar_clean = collar
-            if collar_clean.lower().startswith("col "):
-                collar_clean = collar_clean.split(" ", 1)[1].strip()
+            collar_clean = re.sub(r"^(col\s+)+", "", collar, flags=re.IGNORECASE).strip()
             details_items.append(f"Col {collar_clean}")
 
         if zip_material:
