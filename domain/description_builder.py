@@ -854,75 +854,138 @@ def build_jacket_carhart_description(
             intro_parts.append(gender)
         intro_sentence = " ".join(intro_parts).strip().rstrip(".") + "."
 
-        color_sentence = (
-            f"Coloris {color}, facile à associer au quotidien." if color else "Coloris non précisé, se référer aux photos."
+        product_sentence_parts: List[str] = [
+            f"Veste {brand}"
+        ]
+        if model:
+            product_sentence_parts.append(model)
+        if gender:
+            product_sentence_parts.append(f"pour {gender}")
+        product_sentence_parts.append(f"taille {size}")
+        if color:
+            product_sentence_parts.append(f"coloris {color}")
+        if origin_country:
+            product_sentence_parts.append(f"Made in {origin_country}")
+
+        product_sentence = (
+            " ".join(token for token in product_sentence_parts if token).strip().rstrip(".")
+            + "."
         )
 
-        details: List[str] = []
+        patch_label = patch_material or "simili-cuir"
+        patch_label = patch_label.lower() if patch_label else "simili-cuir"
+        color_intro = (
+            f"Le coloris {color.lower()} sobre s’associe facilement avec toutes les tenues."
+            if color
+            else "Coloris à confirmer sur les photos."
+        )
+        style_sentence = (
+            "Modèle iconique du workwear Carhartt, coupe droite intemporelle, "
+            f"écusson Carhartt en {patch_label}, facile à porter au quotidien. "
+            f"{color_intro}"
+        )
 
-        if has_hood:
-            details.append("Capuche présente (voir photos).")
-
+        details_items: List[str] = []
         if pattern:
             motif = "camouflage Realtree" if is_realtree else pattern
-            details.append(f"Motif : {motif}.")
+            details_items.append(f"Motif : {motif}")
+
+        if has_hood:
+            details_items.append("Capuche présente")
+
+        exterior_desc = _safe_clean(features.get("exterior"))
+        if exterior_desc:
+            details_items.append(f"Extérieur : {exterior_desc}")
 
         lining_sentence = _describe_lining(lining)
         if lining_sentence:
-            details.append(lining_sentence)
+            details_items.append(lining_sentence.rstrip("."))
+
+        sleeve_lining = _safe_clean(features.get("sleeve_lining"))
+        if sleeve_lining:
+            details_items.append(f"Doublure des manches : {sleeve_lining}")
 
         if closure:
-            details.append(f"Fermeture : {closure}.")
-
-        patch_sentence = _describe_patch_material(patch_material)
-        if patch_sentence:
-            details.append(patch_sentence)
+            details_items.append(f"Fermeture : {closure}")
 
         if collar:
-            details.append(f"Col : {collar} (visible sur les photos).")
+            details_items.append(f"Col {collar}")
 
         if zip_material:
-            details.append(f"Zip principal : {zip_material}.")
+            details_items.append(f"Fermeture zippée en {zip_material}")
 
         if has_chest_pocket:
-            details.append("Poche poitrine présente (voir photos).")
+            details_items.append(
+                "Poche poitrine zippée avec écusson Carhartt en "
+                f"{patch_label}"
+            )
+
+        lateral_pockets = features.get("lateral_pockets")
+        if isinstance(lateral_pockets, bool) and lateral_pockets:
+            details_items.append("Deux poches latérales")
+        else:
+            lateral_label = _safe_clean(lateral_pockets)
+            if lateral_label:
+                details_items.append(lateral_label)
 
         if origin_country:
-            details.append(f"Fabrication : {origin_country}.")
+            details_items.append(f"Fabrication : {origin_country}")
+
+        details_items = [item for item in details_items if item]
+        details_sentence = ""
+        if details_items:
+            normalized_items = [item.strip().rstrip(".") for item in details_items]
+            details_sentence = "Détails : " + " – ".join(normalized_items)
 
         defects = _safe_clean(features.get("defects") or ai_defects)
-        state_sentence = _build_state_sentence(defects)
+        normalized_defects = _normalize_defects(defects)
+        state_sentence = (
+            "Très bon état, aucun défaut majeur visible. Veste propre et bien conservée (voir photos)."
+            if not normalized_defects
+            else f"Très bon état, {normalized_defects}. Veste propre et bien conservée (voir photos)."
+        )
 
-        technical_block = " ".join(detail for detail in details if detail).strip()
-
-        durin_tag = f"#durin31jk{size.lower()}" if size else "#durin31jkNC"
+        size_token = size.lower() if size else "nc"
+        general_tag = "#durin31jc"
+        size_tag = f"{general_tag}{size_token}" if size_token else "#durin31jcnc"
         color_tag = f"#{color.lower().replace(' ', '')}" if color else ""
-        hashtags = " ".join(
-            token
-            for token in ["#carhartt", "#jacket", "#workwear", "#durin31", durin_tag, color_tag]
-            if token
-        ).strip()
 
         logistics_sentence = "📏 Mesures détaillées visibles en photo pour plus de précisions."
         shipping_sentence = "📦 Envoi rapide et soigné."
-        cta_sentence = f"✨ Retrouvez toutes mes vestes Carhartt ici 👉 {durin_tag}"
+        cta_sentence = (
+            f"✨ Retrouvez toutes mes vestes Carhartt ici 👉 {general_tag} et à votre taille 👉 {size_tag}"
+        )
         bundle_sentence = (
-            "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !"
+            "💡 Pensez à faire un lot pour bénéficier d’une réduction et économiser sur les frais d’envoi."
         )
 
-        ai_extra = _safe_clean(ai_description)
-        ai_block = f"Détails supplémentaires : {ai_extra}" if ai_extra else ""
+        hashtags = " ".join(
+            token
+            for token in [
+                "#carhartt",
+                "#jacket",
+                "#workwear",
+                "#vintage",
+                "#detroitjacket",
+                "#detroit",
+                f"#madein{origin_country.lower()}" if origin_country else "",
+                "#durin31",
+                size_tag,
+                color_tag,
+            ]
+            if token
+        ).strip()
 
         paragraphs = [
             intro_sentence,
-            color_sentence,
-            technical_block,
+            product_sentence,
+            style_sentence,
+            details_sentence,
             state_sentence,
             logistics_sentence,
             shipping_sentence,
             cta_sentence,
             bundle_sentence,
-            ai_block,
             hashtags,
         ]
 
