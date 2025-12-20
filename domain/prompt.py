@@ -270,7 +270,7 @@ If the selected analysis profile is named "jacket_carhart":
 You must include the base JSON keys (title, description, brand, style, pattern, neckline, season, defects)
 AND an additional nested object called "features" describing the Carhartt jacket.
 
-Required JSON structure:
+REQUIRED JSON (exactly this shape, no extra keys):
 {
   "title": string,
   "description": string,
@@ -305,7 +305,7 @@ Required JSON structure:
     "sku_status": "ok" | "missing" | "low_confidence"
   },
 
-  "title_blocks"?: [
+  "title_blocks": [
     {"kind": "category", "value": "Jacket" | "Jacket à capuche"},
     {"kind": "brand", "value": "..."},
     {"kind": "style", "value": "..."},
@@ -317,13 +317,66 @@ Required JSON structure:
     {"kind": "sku", "value": "...", "status": "..."} // only if sku_status is ok
   ],
 
-  "description_blocks"?: {
+  "description_blocks": {
     "title_line": string,
     "commercial_paragraph": string,
     "composition_line": string,
     "state_logistics_lines": [string, ...],
     "footer_lines": [string, ...],
     "hashtags_line": string
+  }
+}
+
+EXAMPLE (guideline):
+{
+  "title": "Jacket Carhartt Detroit taille M col chemise doublure sherpa zip 100% coton marron homme",
+  "description": "Jacket Carhartt Detroit pour homme. ... (le texte complet en français)...",
+  "brand": "Carhartt",
+  "style": "Detroit",
+  "pattern": "camouflage" | null,
+  "neckline": null,
+  "season": null,
+  "defects": "Micro trace sur la manche" | null,
+  "features": {
+    "brand": "Carhartt",
+    "model": "Detroit Jacket",
+    "size": "M",
+    "color": "marron",
+    "gender": "homme",
+    "has_hood": false,
+    "pattern": null,
+    "lining": "doublure sherpa",
+    "sleeve_lining": "doublure manches matelassée",
+    "closure": "zip",
+    "collar": "col chemise",
+    "zip_material": null,
+    "patch_material": "écusson tissu",
+    "origin_country": "USA",
+    "exterior": "100% coton",
+    "is_camouflage": false,
+    "is_realtree": false,
+    "is_new_york": false,
+    "sku": "JCR12",
+    "sku_status": "ok"
+  },
+  "title_blocks": [
+    {"kind": "category", "value": "Jacket"},
+    {"kind": "brand", "value": "Carhartt"},
+    {"kind": "style", "value": "Detroit"},
+    {"kind": "size", "value": "taille M"},
+    {"kind": "specificities", "value": "col chemise doublure sherpa zip"},
+    {"kind": "material", "value": "100% coton"},
+    {"kind": "color_primary", "value": "marron"},
+    {"kind": "gender", "value": "homme"},
+    {"kind": "sku", "value": "- JCR12", "status": "ok"}
+  ],
+  "description_blocks": {
+    "title_line": "Jacket Carhartt Detroit pour homme taille M.",
+    "commercial_paragraph": "Coupe workwear avec col chemise, doublure sherpa chaude, fermeture zip.",
+    "composition_line": "Composition : extérieur 100% coton. Doublure : sherpa.",
+    "state_logistics_lines": ["Très bon état.", "📏 Mesures détaillées visibles en photo.", "📦 Envoi rapide et soigné."],
+    "footer_lines": ["✨ Retrouvez toutes mes vestes Carhartt ici 👉 #durin31jc", "💡 Pensez à faire un lot pour économiser les frais d’envoi."],
+    "hashtags_line": "#carhartt #jacket #workwear #durin31jc"
   }
 }
 
@@ -335,8 +388,8 @@ RULES (NO INVENTION):
 - Only use values that are clearly visible on tags or photos. Otherwise set the field to null.
 - The French description must mention lining/interior, hood, closure type (zip, press studs, double zip), and whether the Carhartt badge/patch is fabric or leather when visible.
 - Try to populate gender, exterior, lining, collar, sleeve_lining, closure and main material if visible; leave null otherwise.
-- Try to keep one dominant color (color_primary) and an optional secondary color only if clearly visible.
-- If you can, also propose the structured title_blocks and description_blocks above (they stay optional) to match the expected order.
+- Keep one dominant color (color_primary) and at most one secondary color if clearly visible.
+- Provide the structured title_blocks and description_blocks exactly in the required JSON above.
 - SKU (Carhartt Jackets):
   - The SKU is a short internal code written on a tag/paper, typically like "JCR 1", "JCR1", "JCR 12", etc.
   - If you clearly see a SKU starting with letters followed by digits, set:
