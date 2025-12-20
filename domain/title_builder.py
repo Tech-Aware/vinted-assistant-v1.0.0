@@ -422,6 +422,25 @@ def _normalize_carhartt_size(value: Optional[str]) -> tuple[str, str]:
         return "NC", "nc"
 
 
+def _sanitize_carhartt_size_for_title(raw_size: Optional[str]) -> Optional[str]:
+    """Retire les fragments de SKU (JCR) qui polluent la taille affichée."""
+    try:
+        cleaned = _normalize_str(raw_size)
+        if not cleaned:
+            return None
+        sanitized = re.sub(r"\bjcr\s*\d+\b", "", cleaned, flags=re.IGNORECASE)
+        sanitized = re.sub(r"\s{2,}", " ", sanitized).strip(" ,-/")
+        logger.debug(
+            "_sanitize_carhartt_size_for_title: taille brute '%s' -> '%s'",
+            raw_size,
+            sanitized,
+        )
+        return sanitized or None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_sanitize_carhartt_size_for_title: nettoyage taille impossible (%s)", exc)
+        return _normalize_str(raw_size)
+
+
 def _classify_rise_from_cm(rise_cm: Optional[float]) -> Optional[str]:
     """
     Classe la taille (rise) à partir de la distance entre entrejambe
@@ -752,7 +771,7 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
     try:
         brand = _normalize_str(features.get("brand")) or "Carhartt"
         model = _normalize_str(features.get("model"))
-        raw_size = _normalize_str(features.get("size"))
+        raw_size = _sanitize_carhartt_size_for_title(features.get("size"))
         size, size_token = _normalize_carhartt_size(raw_size)
         color = _normalize_str(features.get("color"))
         gender = _normalize_str(features.get("gender")) or "homme"
@@ -771,23 +790,24 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
             TitleBlock(kind="category", value=category_value, critical=True, capitalize=False)
         ]
 
-        if brand and brand.lower() != "carhartt":
-            blocks.append(
-                TitleBlock(
-                    kind="brand",
-                    value=brand,
-                    critical=True,
-                    capitalize=False,
-                )
+        brand_value = brand if brand and brand.lower() != "carhartt" else "Carhartt"
+        blocks.append(
+            TitleBlock(
+                kind="brand",
+                value=brand_value,
+                critical=True,
+                capitalize=False,
             )
-        else:
-            blocks.append(TitleBlock(kind="brand", value="Carhartt", critical=True, capitalize=False))
+        )
 
         style_value = None
         if model:
             model_clean = model.strip()
-            model_lower = model_clean.lower().replace("jacket", "").strip()
-            style_value = model_lower or model_clean
+            model_lower = model_clean.lower()
+            normalized_style = model_lower.replace("jacket", "").replace("veste", "").strip()
+            if normalized_style in {"detroit", "détroit"}:
+                normalized_style = "Detroit"
+            style_value = normalized_style or model_clean
             if is_new_york or "new york" in model_lower or model_lower.endswith(" ny"):
                 style_value = f"{style_value} NY".strip()
         elif is_new_york:
@@ -832,10 +852,21 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
             specificities.append("camouflage")
 
         if specificities:
+            ordered_specificities = []
+            for label in specificities:
+                low = label.lower()
+                if "col" in low:
+                    ordered_specificities.insert(0, label)
+                elif "doublure" in low or "lining" in low:
+                    ordered_specificities.append(label)
+                elif "zip" in low or "fermeture" in low:
+                    ordered_specificities.append(label)
+                else:
+                    ordered_specificities.append(label)
             blocks.append(
                 TitleBlock(
                     kind="specificities",
-                    value=" ".join(specificities),
+                    value=" ".join(ordered_specificities),
                     trim_priority=2,
                 )
             )
@@ -847,10 +878,11 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
             material_block.trim_priority = 1
             blocks.append(material_block)
 
-        if color:
-            blocks.append(
-                TitleBlock(kind="color_primary", value=color, trim_priority=1)
-            )
+        color_values = _normalize_colors(color)
+        if color_values:
+            blocks.append(TitleBlock(kind="color_primary", value=color_values[0], trim_priority=1))
+        if len(color_values) > 1:
+            blocks.append(TitleBlock(kind="color_secondary", value=color_values[1], trim_priority=3))
 
         if gender:
             blocks.append(TitleBlock(kind="gender", value=gender, trim_priority=1))

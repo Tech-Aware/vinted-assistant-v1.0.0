@@ -81,6 +81,33 @@ class TitleBuilderIntegrationTestCase(unittest.TestCase):
         self.assertEqual(title.count("Jacket"), 1)
         self.assertNotIn("Veste", title)
 
+    def test_build_jacket_carhart_title_sanitizes_size_and_keeps_gender_material(self) -> None:
+        features = {
+            "brand": "Carhartt",
+            "model": "Active Jacket",
+            "size": "M JCR1",
+            "color": "noir, gris",
+            "gender": "homme",
+            "has_hood": True,
+            "is_camouflage": False,
+            "is_realtree": False,
+            "pattern": "",
+            "collar": "",
+            "lining": "doublure matelassée",
+            "closure": "zip",
+            "exterior": "100% coton",
+            "sku": "JCR001",
+            "sku_status": "ok",
+        }
+
+        title = build_jacket_carhart_title(features)
+
+        self.assertIn("Jacket à capuche Carhartt Active taille M", title)
+        self.assertIn("100% coton", title)
+        self.assertIn("homme", title)
+        self.assertIn("- JCR001", title)
+        self.assertNotIn("JCR1", title.split("taille")[1].split("-")[0])
+
 
 if __name__ == "__main__":
     unittest.main()
