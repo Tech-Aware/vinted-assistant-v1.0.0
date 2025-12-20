@@ -281,7 +281,7 @@ Required JSON structure:
   "season": string | null,
   "defects": string | null,
 
-    "features": {
+  "features": {
     "brand": string | null,
     "model": string | null,
     "size": string | null,
@@ -290,24 +290,53 @@ Required JSON structure:
     "has_hood": boolean | null,
     "pattern": string | null,
     "lining": string | null,
+    "sleeve_lining": string | null,
     "closure": string | null,
+    "collar": string | null,
+    "zip_material": string | null,
     "patch_material": string | null,
+    "origin_country": string | null,
+    "exterior": string | null,
     "is_camouflage": boolean | null,
     "is_realtree": boolean | null,
     "is_new_york": boolean | null,
 
     "sku": string | null,
     "sku_status": "ok" | "missing" | "low_confidence"
+  },
+
+  "title_blocks"?: [
+    {"kind": "category", "value": "Jacket" | "Jacket à capuche"},
+    {"kind": "brand", "value": "..."},
+    {"kind": "style", "value": "..."},
+    {"kind": "size", "value": "..."},
+    {"kind": "specificities", "value": "..."},
+    {"kind": "material", "value": "..."},
+    {"kind": "color_primary", "value": "..."},
+    {"kind": "gender", "value": "..."},
+    {"kind": "sku", "value": "...", "status": "..."} // only if sku_status is ok
+  ],
+
+  "description_blocks"?: {
+    "title_line": string,
+    "commercial_paragraph": string,
+    "composition_line": string,
+    "state_logistics_lines": [string, ...],
+    "footer_lines": [string, ...],
+    "hashtags_line": string
   }
 }
 
 RULES (NO INVENTION):
-- Always mention the word "jacket" in the title.
+- Always mention the word "Jacket" in the title (never "Veste").
 - If the jacket has a hood: clearly flag it in features.has_hood=true and mention it in the French description.
 - If the pattern is camouflage: set pattern="camouflage" and set is_camouflage=true; if you see the Realtree brand, set is_realtree=true.
 - If the model references New York: set is_new_york=true.
 - Only use values that are clearly visible on tags or photos. Otherwise set the field to null.
 - The French description must mention lining/interior, hood, closure type (zip, press studs, double zip), and whether the Carhartt badge/patch is fabric or leather when visible.
+- Try to populate gender, exterior, lining, collar, sleeve_lining, closure and main material if visible; leave null otherwise.
+- Try to keep one dominant color (color_primary) and an optional secondary color only if clearly visible.
+- If you can, also propose the structured title_blocks and description_blocks above (they stay optional) to match the expected order.
 - SKU (Carhartt Jackets):
   - The SKU is a short internal code written on a tag/paper, typically like "JCR 1", "JCR1", "JCR 12", etc.
   - If you clearly see a SKU starting with letters followed by digits, set:
