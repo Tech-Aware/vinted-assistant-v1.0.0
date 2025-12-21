@@ -7,18 +7,12 @@ from typing import Dict, Any, Optional
 import logging
 
 from domain.description_builder import (
-    build_jacket_carhart_description,
-    build_jean_levis_description,
-    build_pull_tommy_description,
     _build_hashtags,
     _strip_footer_lines,
 )
+from domain.description_engine import build_description
 from domain.templates import AnalysisProfileName
-from domain.title_builder import (
-    build_jacket_carhart_title,
-    build_jean_levis_title,
-    build_pull_tommy_title,
-)
+from domain.title_engine import build_title
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +48,60 @@ REQUIRED_KEYS = [
     "season",
     "defects",
 ]
+
+FEATURE_DEFAULTS: Dict[AnalysisProfileName, Dict[str, Any]] = {
+    AnalysisProfileName.JEAN_LEVIS: {
+        "brand": None,
+        "model": None,
+        "fit": None,
+        "color": None,
+        "size_fr": None,
+        "size_us": None,
+        "length": None,
+        "cotton_percent": None,
+        "elasthane_percent": None,
+        "rise_type": None,
+        "rise_cm": None,
+        "gender": None,
+        "sku": None,
+        "sku_status": None,
+    },
+    AnalysisProfileName.PULL_TOMMY: {
+        "brand": None,
+        "garment_type": None,
+        "neckline": None,
+        "pattern": None,
+        "main_colors": None,
+        "material": None,
+        "cotton_percent": None,
+        "wool_percent": None,
+        "gender": None,
+        "size": None,
+        "size_estimated": None,
+        "size_source": None,
+        "sku": None,
+        "sku_status": None,
+        "is_pima": None,
+        "colors": None,
+    },
+    AnalysisProfileName.JACKET_CARHART: {
+        "brand": None,
+        "model": None,
+        "size": None,
+        "color": None,
+        "gender": None,
+        "has_hood": None,
+        "pattern": None,
+        "lining": None,
+        "closure": None,
+        "patch_material": None,
+        "is_camouflage": None,
+        "is_realtree": None,
+        "is_new_york": None,
+        "sku": None,
+        "sku_status": None,
+    },
+}
 
 
 def normalize_listing(data: dict) -> dict:
@@ -102,6 +150,24 @@ def _coerce_profile_name(
                 return enum_val
 
     return None
+
+
+def _apply_feature_defaults(profile_name: AnalysisProfileName, features: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Garantit un dictionnaire de features stable pour chaque profil,
+    en pré-remplissant les clés attendues à None.
+    """
+    try:
+        defaults = FEATURE_DEFAULTS.get(profile_name)
+        if not defaults:
+            return features
+
+        merged = {**defaults}
+        merged.update(features or {})
+        return merged
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_apply_feature_defaults: impossible d'appliquer les defaults (%s)", exc)
+        return features
 
 
 def _extract_model_from_text(text: str) -> Optional[str]:
@@ -1514,17 +1580,23 @@ def normalize_and_postprocess(
         features = normalize_sizes(features)
 
         # Titre reconstruit de manière cohérente pour TOUS les providers
-        title = build_jean_levis_title(features)
     elif profile_name == AnalysisProfileName.PULL_TOMMY:
         features = build_features_for_pull_tommy(ai_data, ui_data)
-        title = build_pull_tommy_title(features)
     elif profile_name == AnalysisProfileName.JACKET_CARHART:
         features = build_features_for_jacket_carhart(ai_data, ui_data)
-        title = build_jacket_carhart_title(features)
     else:
         # Pour les autres profils (à développer plus tard)
         features = {}
-        title = ai_data.get("title") or ""
+
+    features = _apply_feature_defaults(profile_name, features)
+
+    title_context = dict(features)
+    try:
+        if ai_data.get("title"):
+            title_context["title"] = ai_data.get("title")
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("normalize_and_postprocess: impossibilité d'ajouter le titre brut (%s)", exc)
+    title = build_title(profile_name, title_context)
 
     logger.debug("normalize_and_postprocess: features construites: %s", features)
 
@@ -1542,18 +1614,13 @@ def normalize_and_postprocess(
 
     # --- 2) Description ----------------------------------------------------
     try:
-        if profile_name == AnalysisProfileName.JEAN_LEVIS:
-            description = build_jean_levis_description(
-                {**features, "defects": ai_data.get("defects")},
-                ai_description=ai_data.get("description"),
-                ai_defects=ai_data.get("defects"),
-            )
-        elif profile_name == AnalysisProfileName.PULL_TOMMY:
-            description = build_pull_tommy_description(
-                {**features, "defects": ai_data.get("defects")},
-                ai_description=ai_data.get("description"),
-                ai_defects=ai_data.get("defects"),
-            )
+        description = build_description(
+            profile_name=profile_name,
+            features={**features, "defects": ai_data.get("defects")},
+            ai_description=ai_data.get("description"),
+            ai_defects=ai_data.get("defects"),
+        )
+        if profile_name == AnalysisProfileName.PULL_TOMMY:
             try:
                 description = _strip_footer_lines(description)
             except Exception as nested_exc:  # pragma: no cover - defensive
@@ -1561,20 +1628,10 @@ def normalize_and_postprocess(
                     "normalize_and_postprocess: nettoyage complémentaire ignoré (%s)",
                     nested_exc,
                 )
-            # AJOUT : si coton Pima détecté, remplacer "coton" par "pima coton" dans la description finale
             if features.get("is_pima"):
-                # Remplacement en évitant les hashtags (ex: "#pullcoton")
                 description = re.sub(r"\bcoton\b", "pima coton", description, flags=re.IGNORECASE)
                 logger.info(
                     "normalize_and_postprocess: 'coton' remplacé par 'pima coton' dans la description finale (PULL_TOMMY)")
-        elif profile_name == AnalysisProfileName.JACKET_CARHART:
-            description = build_jacket_carhart_description(
-                {**features, "defects": ai_data.get("defects")},
-                ai_description=ai_data.get("description"),
-                ai_defects=ai_data.get("defects"),
-            )
-        else:
-            description = ai_data.get("description")
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception(
             "normalize_and_postprocess: erreur description -> fallback brut (%s)",

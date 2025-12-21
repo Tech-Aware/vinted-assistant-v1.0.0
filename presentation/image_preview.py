@@ -17,6 +17,7 @@ limitations under the License.
 import logging
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional
+import tkinter as tk
 
 import customtkinter as ctk
 from PIL import Image, UnidentifiedImageError
@@ -33,6 +34,7 @@ class ImagePreview(ctk.CTkFrame):
         width: int = 220,
         height: int = 320,
         on_remove: Optional[Callable[[Path], None]] = None,
+        get_ocr_var: Optional[Callable[[Path], Optional[tk.BooleanVar]]] = None,
     ) -> None:
         super().__init__(master)
         self._thumb_min_width = width
@@ -51,6 +53,8 @@ class ImagePreview(ctk.CTkFrame):
         self._mousewheel_target: Optional[ctk.CTkBaseClass] = None
         self._remove_buttons: List[ctk.CTkButton] = []
         self._removal_enabled = True
+        self._get_ocr_var = get_ocr_var
+        self._ocr_checkboxes: List[ctk.CTkCheckBox] = []
 
         self._scroll_frame = ctk.CTkScrollableFrame(
             self,
@@ -105,6 +109,7 @@ class ImagePreview(ctk.CTkFrame):
         self._preview_images.clear()
         self._pil_images.clear()
         self._remove_buttons.clear()
+        self._ocr_checkboxes.clear()
         self._image_paths = list(paths)
 
         for widget in self._gallery_container.winfo_children():
@@ -144,6 +149,7 @@ class ImagePreview(ctk.CTkFrame):
             widget.destroy()
         self._labels.clear()
         self._preview_images.clear()
+        self._ocr_checkboxes.clear()
 
         column_count = self._calculate_columns()
         for column in range(column_count):
@@ -191,6 +197,26 @@ class ImagePreview(ctk.CTkFrame):
                 state = "normal" if self._removal_enabled else "disabled"
                 remove_button.configure(state=state)
                 self._remove_buttons.append(remove_button)
+
+            if self._get_ocr_var is not None:
+                try:
+                    ocr_var = self._get_ocr_var(path)
+                except Exception as exc:
+                    logger.warning("Impossible de récupérer le flag OCR pour %s: %s", path, exc)
+                    ocr_var = None
+
+                if ocr_var is not None:
+                    checkbox = ctk.CTkCheckBox(
+                        card,
+                        text="OCR",
+                        variable=ocr_var,
+                        corner_radius=10,
+                        fg_color="#1b5cff",
+                        hover_color="#1cc59c",
+                        text_color="white",
+                    )
+                    checkbox.place(relx=1.0, rely=1.0, anchor="se", x=-6, y=-6)
+                    self._ocr_checkboxes.append(checkbox)
 
         self._gallery_container.update_idletasks()
 
@@ -311,12 +337,3 @@ class ImagePreview(ctk.CTkFrame):
             return
         logger.info("Suppression demandée pour %s", path)
         self._on_remove(path)
-
-    def set_removal_enabled(self, enabled: bool) -> None:
-        self._removal_enabled = enabled
-        state = "normal" if enabled else "disabled"
-        for button in self._remove_buttons:
-            try:
-                button.configure(state=state)
-            except Exception:
-                continue

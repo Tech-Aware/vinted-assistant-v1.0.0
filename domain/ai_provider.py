@@ -6,6 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, Optional, Sequence
 
 from domain.models import VintedListing
 from domain.templates import AnalysisProfile
@@ -40,9 +41,14 @@ class AIListingProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def generate_listing(self, image_path: Path, profile: AnalysisProfile) -> VintedListing:
+    def generate_listing(
+        self,
+        image_paths: Sequence[Path],
+        profile: AnalysisProfile,
+        ui_data: Optional[Dict[str, Any]] = None,
+    ) -> VintedListing:
         """
-        Analyse l'image en fonction du profil et renvoie une annonce Vinted.
+        Analyse une ou plusieurs images en fonction du profil et renvoie une annonce Vinted.
         Doit lever une exception métier propre (par ex. GeminiClientError)
         en cas de problème côté provider.
         """

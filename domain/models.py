@@ -43,6 +43,7 @@ class VintedListing:
     features: Dict[str, Any] = field(default_factory=dict)
     manual_composition_text: Optional[str] = None
     description_raw: Optional[str] = None
+    fallback_reason: Optional[str] = None
 
     # ------------------------------------------------------------------ #
     # Validation métier
@@ -144,6 +145,7 @@ class VintedListing:
             sku = data.get("sku")
             sku_status = data.get("sku_status")
             description_raw = data.get("description_raw")
+            fallback_reason = data.get("fallback_reason")
 
             raw_condition = data.get("condition")
             condition = cls._parse_condition(raw_condition)
@@ -176,6 +178,7 @@ class VintedListing:
                 features=features,
                 manual_composition_text=manual_composition_text,
                 description_raw=description_raw,
+                fallback_reason=fallback_reason,
             )
 
             listing.validate()
@@ -208,6 +211,7 @@ class VintedListing:
                 "sku_status": self.sku_status,
                 "features": dict(self.features),
                 "manual_composition_text": self.manual_composition_text,
+                "fallback_reason": self.fallback_reason,
             }
             logger.debug("Sérialisation VintedListing: %r", result)
             return result

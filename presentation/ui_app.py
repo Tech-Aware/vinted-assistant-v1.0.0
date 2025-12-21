@@ -71,6 +71,7 @@ class VintedAIApp(ctk.CTk):
 
         # Gestion des images
         self.selected_images: List[Path] = []
+        self.ocr_flags: Dict[Path, tk.BooleanVar] = {}
         self._image_directories: set[Path] = set()
         self.image_paths: Optional[List[Path]] = None  # compat avec le reste du code
         self.thumbnail_images: List[ctk.CTkImage] = []  # encore utilisé pour les aperçus plein écran
@@ -412,6 +413,7 @@ class VintedAIApp(ctk.CTk):
             self.preview_frame = ImagePreview(
                 gallery_wrapper,
                 on_remove=self._remove_image,
+                get_ocr_var=lambda p: self.ocr_flags.get(p),
             )
             self.preview_frame.configure(fg_color=self.palette.get("bg_end"))
             self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
@@ -914,6 +916,7 @@ class VintedAIApp(ctk.CTk):
                 if path_obj not in self.selected_images:
                     self.selected_images.append(path_obj)
                     self._image_directories.add(path_obj.parent)
+                    self.ocr_flags[path_obj] = tk.BooleanVar(value=False)
                     logger.info("Image ajoutée: %s", path_obj)
 
             # Garder image_paths cohérent pour le reste du code
@@ -935,6 +938,7 @@ class VintedAIApp(ctk.CTk):
         try:
             if image_path in self.selected_images:
                 self.selected_images.remove(image_path)
+                self.ocr_flags.pop(image_path, None)
             else:
                 logger.warning("Impossible de supprimer %s: image inconnue", image_path)
                 return
@@ -967,6 +971,7 @@ class VintedAIApp(ctk.CTk):
             self.selected_images.clear()
             self.image_paths = []
             self._image_directories.clear()
+            self.ocr_flags.clear()
 
             if self.preview_frame:
                 self.preview_frame.update_images([])
@@ -1315,6 +1320,23 @@ class VintedAIApp(ctk.CTk):
                     profile.name.value,
                 )
 
+            try:
+                ocr_image_paths = [
+                    str(path)
+                    for path, flag in self.ocr_flags.items()
+                    if flag.get()
+                ]
+                ui_data["ocr_image_paths"] = ocr_image_paths
+                logger.info(
+                    "Images marquées OCR: %s",
+                    ocr_image_paths,
+                )
+            except Exception as exc_flags:  # pragma: no cover - defensive
+                logger.warning(
+                    "Impossible de construire la liste des images OCR: %s",
+                    exc_flags,
+                )
+
             def _run_generation() -> None:
                 try:
                     listing: VintedListing = provider.generate_listing(
@@ -1362,11 +1384,33 @@ class VintedAIApp(ctk.CTk):
 
             self.current_listing = listing
 
-            if self.status_label:
-                self.status_label.configure(
-                    text="Fiche générée avec succès.",
-                    text_color=self.palette.get("accent_gradient_start", "#1cc59c"),
+            if listing.fallback_reason:
+                logger.warning(
+                    "Résultat de fallback reçu (raison=%s).", listing.fallback_reason
                 )
+                if self.status_label:
+                    self.status_label.configure(
+                        text="Résultat partiel (fallback) : vérifiez les photos/étiquettes.",
+                        text_color="#f5c542",
+                    )
+                try:
+                    messagebox.showwarning(
+                        "Résultat partiel",
+                        f"Le résultat provient d'un fallback : {listing.fallback_reason}\n"
+                        "Merci de vérifier manuellement le titre et la description.",
+                    )
+                except Exception as warn_exc:  # pragma: no cover - robustesse UI
+                    logger.error(
+                        "Impossible d'afficher le message de fallback: %s",
+                        warn_exc,
+                        exc_info=True,
+                    )
+            else:
+                if self.status_label:
+                    self.status_label.configure(
+                        text="Fiche générée avec succès.",
+                        text_color=self.palette.get("accent_gradient_start", "#1cc59c"),
+                    )
 
             self._prompt_composition_if_needed(listing)
 
@@ -1464,7 +1508,12 @@ class VintedAIApp(ctk.CTk):
             )
             gallery_frame.pack(expand=True, fill="both", padx=16, pady=(0, 10))
 
-            gallery = ImagePreview(gallery_frame, width=240, height=260)
+            gallery = ImagePreview(
+                gallery_frame,
+                width=240,
+                height=260,
+                get_ocr_var=lambda p: self.ocr_flags.get(p),
+            )
             gallery.set_removal_enabled(False)
             gallery.update_images(self.selected_images)
             gallery.pack(expand=True, fill="both", padx=6, pady=6)
