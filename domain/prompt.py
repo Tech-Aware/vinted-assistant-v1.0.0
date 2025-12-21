@@ -44,6 +44,7 @@ OCR INPUT (IF PROVIDED):
 - Never ignore OCR_TEXT when it is present, but do not invent information beyond it.
 - OCR_TEXT (aggregated from tag photos):
 {OCR_TEXT}
+- Use OCR_TEXT for size/composition/origin/codes. Do not invent if absent.
 
 EXTREME PRECISION & HONESTY (IMPORTANT):
 - You MUST be as precise and detailed as possible, but also STRICTLY honest.

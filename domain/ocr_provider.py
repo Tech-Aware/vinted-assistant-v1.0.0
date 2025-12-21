@@ -6,7 +6,9 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
+
+from domain.ocr_models import OCRStructured
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,7 @@ class OCRResult:
 
     full_text: str
     per_image_text: Dict[Path, str]
+    structured: Optional[OCRStructured] = None
 
 
 class OCRProvider(ABC):

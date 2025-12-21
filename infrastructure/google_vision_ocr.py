@@ -5,11 +5,13 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
 
 from google.cloud import vision
 
+from domain.ocr_models import OCRStructured
 from domain.ocr_provider import OCRProvider, OCRProviderError, OCRResult
+from domain.ocr_structurer import StructuredOCRExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -75,4 +77,25 @@ class GoogleVisionOCRProvider(OCRProvider):
             len(aggregated),
         )
 
-        return OCRResult(full_text=aggregated, per_image_text=per_image)
+        structured: Optional[OCRStructured] = None
+        try:
+            structurer = StructuredOCRExtractor()
+            structured = structurer.structure(aggregated)
+            logger.info(
+                "OCR structuré construit (%d ligne(s) retenues, %d élément(s) de composition).",
+                len(structured.debug_lines),
+                len(structured.composition_items),
+            )
+            logger.debug(
+                "OCR filtré (tronqué): %s",
+                structured.filtered_text[:1000],
+            )
+        except Exception as exc:  # pragma: no cover - robustesse
+            logger.warning(
+                "Extraction OCR structurée échouée (fallback brut utilisé): %s",
+                exc,
+                exc_info=True,
+            )
+            structured = None
+
+        return OCRResult(full_text=aggregated, per_image_text=per_image, structured=structured)

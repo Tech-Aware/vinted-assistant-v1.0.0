@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -124,6 +125,7 @@ class GeminiListingClient(AIListingProvider):
         Analyse UNE OU PLUSIEURS images (toutes du même article) + profil,
         renvoie un VintedListing.
         """
+        ui_data = dict(ui_data or {})
         paths: List[Path] = [Path(p) for p in image_paths]
 
         if not paths:
@@ -137,19 +139,37 @@ class GeminiListingClient(AIListingProvider):
 
         ocr_paths: List[Path] = []
         ocr_text: str = ""
-        ocr_paths_raw = (ui_data or {}).get("ocr_image_paths", [])
+        ocr_payload: str = ""
+        ocr_paths_raw = ui_data.get("ocr_image_paths", [])
         try:
             ocr_paths = [Path(p) for p in ocr_paths_raw]
             if ocr_paths:
                 logger.info("Extraction OCR demandée pour %d image(s).", len(ocr_paths))
                 ocr_result = self._ocr.extract_text(ocr_paths)
                 ocr_text = ocr_result.full_text or ""
-                logger.info(
-                    "Extraction OCR effectuée: %d caractère(s) agrégés.",
-                    len(ocr_text),
-                )
-                if ocr_text:
-                    logger.debug("Texte OCR (tronqué): %s", ocr_text[:600])
+                structured = getattr(ocr_result, "structured", None)
+                if structured:
+                    ocr_payload = structured.filtered_text
+                    try:
+                        ui_data["ocr_structured"] = structured.to_dict()
+                    except Exception as exc:  # pragma: no cover - defensive
+                        logger.warning(
+                            "Impossible de sérialiser l'OCR structuré: %s", exc, exc_info=True
+                        )
+                    logger.info(
+                        "Extraction OCR effectuée avec structuration: %d caractère(s) bruts, %d ligne(s) filtrées.",
+                        len(ocr_text),
+                        len(structured.debug_lines),
+                    )
+                    logger.debug("Texte OCR cadré (tronqué): %s", ocr_payload[:800])
+                else:
+                    ocr_payload = self._truncate_text(ocr_text)
+                    logger.info(
+                        "Extraction OCR effectuée: %d caractère(s) agrégés (sans structuration).",
+                        len(ocr_text),
+                    )
+                    if ocr_text:
+                        logger.debug("Texte OCR brut (tronqué): %s", ocr_payload[:800])
         except OCRProviderError as exc_ocr:
             logger.warning("OCR indisponible: %s", exc_ocr)
         except Exception as exc_ocr:  # pragma: no cover - robustesse
@@ -176,7 +196,7 @@ class GeminiListingClient(AIListingProvider):
                 gemini_paths,
                 profile,
                 ui_data=ui_data,
-                ocr_text=ocr_text,
+                ocr_text=ocr_payload,
             )
             logger.debug("Gemini brut: %s", raw_text[:400])
 
@@ -368,11 +388,19 @@ class GeminiListingClient(AIListingProvider):
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _truncate_text(text: str, max_len: int = 2000) -> str:
+        if not text:
+            return ""
+        if len(text) <= max_len:
+            return text
+        return text[:max_len] + "…"
+
+    @staticmethod
     def _build_noop_ocr() -> OCRProvider:
         class _NoOpOCR(OCRProvider):
             def extract_text(self, image_paths: Sequence[Path]) -> OCRResult:  # type: ignore[override]
                 logger.info("OCR noop utilisé, aucune extraction effectuée (%d image(s)).", len(image_paths))
-                return OCRResult(full_text="", per_image_text={})
+                return OCRResult(full_text="", per_image_text={}, structured=None)
 
         return _NoOpOCR()
 
