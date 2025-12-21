@@ -18,7 +18,7 @@ def main() -> None:
 
     - Initialise le logging
     - Charge la configuration (Settings)
-    - Construit les providers IA (Gemini / OpenAI)
+    - Construit le provider IA (Gemini)
     - Lance l'interface graphique
     """
     # ------------------------------------------------------------------
@@ -26,7 +26,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     setup_logging(logging.DEBUG)
     logger = logging.getLogger(__name__)
-    logger.info("Démarrage de l'application Vinted Assistant (multi-provider).")
+    logger.info("Démarrage de l'application Vinted Assistant (Gemini uniquement).")
 
     # ------------------------------------------------------------------
     # Chargement Settings
@@ -42,7 +42,7 @@ def main() -> None:
         sys.exit(1)
 
     # ------------------------------------------------------------------
-    # Initialisation des providers IA (Gemini / OpenAI)
+    # Initialisation du provider IA (Gemini)
     # ------------------------------------------------------------------
     try:
         providers = build_providers(settings)

@@ -48,6 +48,31 @@ class GeminiListingClient(AIListingProvider):
 
         logger.info("GeminiListingClient initialisé (model=%s).", self._model_name)
 
+    @property
+    def model_name(self) -> str:
+        """
+        Nom du modèle Gemini actuellement configuré.
+        """
+        return self._model_name
+
+    def update_model(self, model_name: str) -> None:
+        """
+        Met à jour dynamiquement le modèle Gemini utilisé pour les générations.
+
+        La normalisation applique automatiquement le préfixe 'models/' si absent.
+        """
+        try:
+            normalized = self._normalize_model_name(model_name)
+            if normalized == self._model_name:
+                logger.info("Modèle Gemini inchangé (%s).", self._model_name)
+                return
+
+            self._model_name = normalized
+            logger.info("Modèle Gemini mis à jour dynamiquement: %s", self._model_name)
+        except Exception as exc:  # pragma: no cover - robustesse
+            logger.error("Echec de mise à jour du modèle Gemini: %s", exc, exc_info=True)
+            raise GeminiClientError(f"Modèle Gemini invalide: {exc}") from exc
+
     # ------------------------------------------------------------------
     # Nom du provider
     # ------------------------------------------------------------------

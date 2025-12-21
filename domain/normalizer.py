@@ -1005,7 +1005,7 @@ def normalize_sizes(features: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Construction des features pour JEAN_LEVIS (Gemini + OpenAI)
+# Construction des features pour JEAN_LEVIS (Gemini)
 # ---------------------------------------------------------------------------
 
 
@@ -1015,7 +1015,7 @@ def build_features_for_jean_levis(
 ) -> Dict[str, Any]:
     """
     Construit le dict 'features' attendu par build_jean_levis_title à partir :
-      - ai_data : JSON renvoyé par l'IA (Gemini / OpenAI)
+      - ai_data : JSON renvoyé par l'IA (Gemini)
       - ui_data : données saisies dans l'UI (taille FR/US, corrections SKU/genre, etc.)
 
     Règles :

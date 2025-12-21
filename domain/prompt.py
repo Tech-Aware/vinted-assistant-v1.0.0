@@ -1,7 +1,7 @@
 # domain/prompt.py
 
 """
-Contrat de prompt commun pour tous les providers IA (Gemini, OpenAI, etc.)
+Contrat de prompt commun pour le provider IA (Gemini)
 
 Ce fichier définit un seul contrat fort, réutilisé par tous les clients :
 - analyse de PLUSIEURS images d’un même article

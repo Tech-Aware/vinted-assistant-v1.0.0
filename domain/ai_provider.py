@@ -18,15 +18,14 @@ class AIProviderName(Enum):
     Fournisseurs IA disponibles pour générer des annonces Vinted.
     """
     GEMINI = "gemini"
-    OPENAI = "openai"
-    # Plus tard : ANTHROPIC = "anthropic"
+    # Une seule implémentation conservée : Gemini
 
 
 class AIListingProvider(ABC):
     """
-    Interface commune à tous les fournisseurs d'IA.
+    Interface commune pour le fournisseur d'IA.
 
-    Chaque implémentation (Gemini, OpenAI, etc.) doit :
+    Chaque implémentation (Gemini) doit :
     - prendre une image locale (Path)
     - prendre un profil d'analyse (AnalysisProfile)
     - renvoyer un VintedListing
@@ -36,7 +35,7 @@ class AIListingProvider(ABC):
     @abstractmethod
     def name(self) -> AIProviderName:
         """
-        Nom logique du provider (GEMINI, OPENAI, ...).
+        Nom logique du provider (GEMINI).
         """
         raise NotImplementedError
 
@@ -44,7 +43,7 @@ class AIListingProvider(ABC):
     def generate_listing(self, image_path: Path, profile: AnalysisProfile) -> VintedListing:
         """
         Analyse l'image en fonction du profil et renvoie une annonce Vinted.
-        Doit lever une exception métier propre (par ex. GeminiClientError / OpenAIClientError)
+        Doit lever une exception métier propre (par ex. GeminiClientError)
         en cas de problème côté provider.
         """
         raise NotImplementedError

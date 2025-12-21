@@ -30,7 +30,7 @@ class VintedAIApp(ctk.CTk):
     UI principale de l'assistant Vinted.
 
     ÉTAPE 1 :
-    - choix provider IA
+    - choix modèle Gemini
     - choix profil d'analyse
     - sélection d'images
     - inputs manuels size_fr + size_us
@@ -43,7 +43,7 @@ class VintedAIApp(ctk.CTk):
     def __init__(self, providers: Dict[AIProviderName, AIListingProvider]) -> None:
         super().__init__()
 
-        self.title("Assistant Vinted - Analyse d'images multi-IA")
+        self.title("Assistant Vinted - Analyse d'images Gemini")
         self.geometry("900x600")
         self.minsize(520, 520)
 
@@ -54,11 +54,15 @@ class VintedAIApp(ctk.CTk):
         self._main_mousewheel_target: Optional[ctk.CTkBaseClass] = None
 
         self.providers = providers
-        self.provider_var = ctk.StringVar(value="")
-        self.provider_var.trace_add("write", self._on_provider_change)
+        self.gemini_provider: Optional[AIListingProvider] = providers.get(AIProviderName.GEMINI)
+        if not self.gemini_provider:
+            logger.critical("Provider Gemini introuvable : l'application ne peut pas démarrer.")
+            raise RuntimeError("Provider Gemini introuvable.")
+
+        self.gemini_model_var = ctk.StringVar(value=self._strip_models_prefix(self._get_provider_model()))
+        self.gemini_model_var.trace_add("write", self._on_model_change)
         self.profile_var = ctk.StringVar(value="")
 
-        self.openai_key_var = ctk.StringVar(value=os.environ.get("OPENAI_API_KEY", ""))
         self.gemini_key_var = ctk.StringVar(value=os.environ.get("GEMINI_API_KEY", ""))
 
         self.size_fr_var = ctk.StringVar(value="")
@@ -725,40 +729,72 @@ class VintedAIApp(ctk.CTk):
             )
             self.title_label.pack(side="left", pady=5)
 
-            provider_values = [p.value for p in self.providers.keys()]
-            if provider_values and not self.provider_var.get():
-                self.provider_var.set(provider_values[0])
-
             self._update_top_bar_title()
 
             logger.info("Barre supérieure initialisée avec bouton paramètres.")
         except Exception as exc:
             logger.error("Erreur lors de la construction de la barre supérieure: %s", exc, exc_info=True)
 
-    def _on_provider_change(self, *_args: object) -> None:
+    def _on_model_change(self, *_args: object) -> None:
         try:
-            logger.info("Provider IA sélectionné: %s", self.provider_var.get())
+            logger.info("Modèle Gemini sélectionné: %s", self.gemini_model_var.get())
+            self._apply_model_selection()
             self._update_top_bar_title()
         except Exception as exc:
-            logger.error("Erreur lors du changement de provider IA: %s", exc, exc_info=True)
+            logger.error("Erreur lors du changement de modèle Gemini: %s", exc, exc_info=True)
+
+    def _apply_model_selection(self) -> None:
+        try:
+            model_choice = self.gemini_model_var.get()
+            if not model_choice:
+                logger.warning("Aucun modèle Gemini sélectionné : conservation de la configuration actuelle.")
+                return
+
+            provider = self._get_selected_provider()
+            if not provider:
+                logger.error("Impossible d'appliquer le modèle : provider Gemini indisponible.")
+                return
+
+            if hasattr(provider, "update_model"):
+                provider.update_model(model_choice)
+            elif hasattr(provider, "_model_name"):
+                provider._model_name = model_choice  # type: ignore[attr-defined]
+                logger.warning(
+                    "Provider Gemini sans méthode update_model: assignation directe appliquée (%s).",
+                    model_choice,
+                )
+            else:
+                logger.error("Provider Gemini ne supporte pas la mise à jour du modèle.")
+        except Exception as exc:
+            logger.error("Erreur lors de l'application du modèle Gemini: %s", exc, exc_info=True)
+
+    @staticmethod
+    def _strip_models_prefix(model_name: str) -> str:
+        try:
+            cleaned = (model_name or "").strip()
+            if cleaned.startswith("models/"):
+                return cleaned.split("models/", 1)[1]
+            return cleaned
+        except Exception as exc:  # pragma: no cover - robustesse
+            logger.error("Erreur lors du nettoyage du nom de modèle: %s", exc, exc_info=True)
+            return model_name
+
+    def _get_provider_model(self) -> str:
+        try:
+            if hasattr(self.gemini_provider, "model_name"):
+                return str(getattr(self.gemini_provider, "model_name"))
+            if hasattr(self.gemini_provider, "_model_name"):
+                return str(getattr(self.gemini_provider, "_model_name"))
+            if hasattr(self.gemini_provider, "model"):
+                return str(getattr(self.gemini_provider, "model"))
+        except Exception as exc:  # pragma: no cover - robustesse
+            logger.error("Erreur lors de la récupération du modèle Gemini: %s", exc, exc_info=True)
+        return "modèle inconnu"
 
     def _get_active_model_label(self) -> str:
         try:
-            provider = self._get_selected_provider()
-            if not provider:
-                logger.warning("Aucun provider IA actif pour mettre à jour le titre.")
-                return "Modèle non sélectionné"
-
-            model_candidate = None
-            for attr_name in ("model", "_model_name"):
-                if hasattr(provider, attr_name):
-                    model_candidate = getattr(provider, attr_name)
-                    break
-
-            if not model_candidate:
-                model_candidate = provider.name.value
-
-            model_label = str(model_candidate)
+            model_candidate = self.gemini_model_var.get() or self._strip_models_prefix(self._get_provider_model())
+            model_label = self._strip_models_prefix(str(model_candidate))
             logger.info("Modèle IA actif détecté pour le titre: %s", model_label)
             return model_label
         except Exception as exc:
@@ -779,7 +815,7 @@ class VintedAIApp(ctk.CTk):
             logger.error("Erreur lors de la mise à jour du titre de l'application: %s", exc, exc_info=True)
 
     # ------------------------------------------------------------------
-    # Menu paramètres (provider + clés API)
+    # Menu paramètres (modèle + clé API)
     # ------------------------------------------------------------------
 
     def open_settings_menu(self) -> None:
@@ -793,24 +829,19 @@ class VintedAIApp(ctk.CTk):
             settings_window.focus_force()
             settings_window.attributes("-topmost", True)
 
-            provider_values = [p.value for p in self.providers.keys()]
+            model_values = ["gemini-3-pro-preview", "gemini-2.5-flash"]
 
-            provider_label = ctk.CTkLabel(settings_window, text="Modèle IA :")
+            provider_label = ctk.CTkLabel(settings_window, text="Modèle Gemini :")
             provider_label.pack(anchor="w", padx=20, pady=(15, 0))
 
             provider_combo = ctk.CTkComboBox(
                 settings_window,
-                values=provider_values,
-                variable=self.provider_var,
+                values=model_values,
+                variable=self.gemini_model_var,
                 state="readonly",
                 width=260,
             )
             provider_combo.pack(anchor="w", padx=20, pady=8)
-
-            openai_label = ctk.CTkLabel(settings_window, text="OPENAI_API_KEY :")
-            openai_label.pack(anchor="w", padx=20, pady=(20, 0))
-            openai_entry = ctk.CTkEntry(settings_window, textvariable=self.openai_key_var, width=360, show="*")
-            openai_entry.pack(anchor="w", padx=20, pady=5)
 
             gemini_label = ctk.CTkLabel(settings_window, text="GEMINI_API_KEY :")
             gemini_label.pack(anchor="w", padx=20, pady=(10, 0))
@@ -819,14 +850,14 @@ class VintedAIApp(ctk.CTk):
 
             def save_settings() -> None:
                 try:
-                    os.environ["OPENAI_API_KEY"] = self.openai_key_var.get()
                     os.environ["GEMINI_API_KEY"] = self.gemini_key_var.get()
+                    os.environ["GEMINI_MODEL"] = self.gemini_model_var.get()
                     logger.info(
-                        "Paramètres mis à jour (provider=%s, openai_key=%s, gemini_key=%s)",
-                        self.provider_var.get(),
-                        "***" if self.openai_key_var.get() else "(vide)",
+                        "Paramètres mis à jour (modèle=%s, gemini_key=%s)",
+                        self.gemini_model_var.get(),
                         "***" if self.gemini_key_var.get() else "(vide)",
                     )
+                    self._apply_model_selection()
                     messagebox.showinfo("Paramètres", "Préférences enregistrées.")
                     close_settings()
                 except Exception as exc_save:
@@ -1146,17 +1177,10 @@ class VintedAIApp(ctk.CTk):
             logger.error("Erreur lors du changement de profil: %s", exc, exc_info=True)
 
     def _get_selected_provider(self) -> Optional[AIListingProvider]:
-        provider_key = self.provider_var.get()
-        if not provider_key:
+        if not self.gemini_provider:
+            logger.error("Provider Gemini indisponible.")
             return None
-
-        try:
-            provider_name = AIProviderName(provider_key)
-        except ValueError:
-            logger.error("Provider IA inconnu: %s", provider_key)
-            return None
-
-        return self.providers.get(provider_name)
+        return self.gemini_provider
 
     def _get_selected_profile(self) -> Optional[AnalysisProfile]:
         profile_key = self.profile_var.get()
@@ -1186,12 +1210,12 @@ class VintedAIApp(ctk.CTk):
             provider = self._get_selected_provider()
             if not provider:
                 messagebox.showerror(
-                    "Provider IA manquant",
-                    "Provider IA inconnu ou non configuré.",
+                    "Provider Gemini manquant",
+                    "Le provider Gemini est introuvable ou non configuré.",
                 )
                 if self.status_label:
                     self.status_label.configure(
-                        text="Provider IA non configuré.",
+                        text="Provider Gemini non configuré.",
                         text_color="#f5c542",
                     )
                 return

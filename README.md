@@ -1,7 +1,7 @@
 
 # Assistant Vinted – Extraction Multimodale & Génération Automatique d’Annonces
 
-L’Assistant Vinted est une application desktop qui permet de **générer automatiquement des annonces Vinted complètes (titre + description + métadonnées)** à partir de **plusieurs photos d’un même vêtement**, en s’appuyant sur des modèles IA (Gemini 2.5 Flash + GPT-4o-mini).
+L’Assistant Vinted est une application desktop qui permet de **générer automatiquement des annonces Vinted complètes (titre + description + métadonnées)** à partir de **plusieurs photos d’un même vêtement**, en s’appuyant exclusivement sur **Google Gemini** (modèle par défaut : gemini-3-pro-preview, option gemini-2.5-flash).
 
 L’objectif est de **supprimer les tâches répétitives** (rédaction, titres, analyse des photos, extraction des infos, cohérence) et d’obtenir un **cadre de qualité constant**, avec une **approche orientée business** (règles métier Levi’s, nommage optimisé, paramètres réels du vêtement, précision, zéro hallucination).
 
@@ -34,12 +34,10 @@ L’architecture est **modulaire, robuste**, et sépare clairement l’UI, les c
   - état visuel
 - Modèle VintedListing standardisé
 
-### Multi-IA
-- Provider abstrait
-- Implémentations :
-  - Google Gemini 2.5 Flash
-  - OpenAI GPT-4o-mini
-- Extension prête : Claude, Llama Vision, DeepSeek
+### Modèle IA
+- Provider unique : Google Gemini
+- Modèle par défaut : **gemini-3-pro-preview**
+- Option alternative : **gemini-2.5-flash**
 
 ### Architecture claire
 - **Prompt contract** unique
@@ -71,7 +69,6 @@ AssistantVinted/
 ├── infrastructure/
 │   ├── ai_factory.py          # provider abstrait
 │   ├── gemini_client.py       # Gemini Vision+Texte
-│   ├── openai_client.py       # GPT-4o-mini Vision
 │   ├── http_utils.py
 │
 └── presentation/
@@ -86,7 +83,7 @@ AssistantVinted/
 ## 🔥 Flux complet
 
 **1) L’utilisateur fournit :**
-- provider IA
+- modèle Gemini
 - profil d’analyse (ex: jean Levi’s)
 - 1 à 10 images
 
@@ -126,7 +123,7 @@ Un **contrat JSON strict**, identique entre modèles :
 * aucune invention
 * format déterministe
 
-Cela garantit un comportement **stable** entre OpenAI, Gemini, etc.
+Cela garantit un comportement **stable** avec Gemini (quel que soit le modèle sélectionné).
 
 ---
 
@@ -167,7 +164,6 @@ Présente uniquement dans la description.
 * API key :
 
   * Google Gemini
-  * OpenAI
 
 ### Installation
 
@@ -193,13 +189,11 @@ Configurer les clés via l'assistant interactif (recommandé pour les nouvelles 
 ./scripts/configure_api_keys.py
 ```
 
-L'assistant te demandera le provider par défaut (Gemini recommandé pour de meilleurs résultats que ChatGPT dans l'application), la clé correspondante et le modèle à utiliser. Un fichier `.env` est généré avec tes choix. Tu peux également créer ou éditer manuellement un fichier `.env` :
+L'assistant te demandera le modèle Gemini par défaut (gemini-3-pro-preview recommandé), la clé correspondante et le modèle à utiliser. Un fichier `.env` est généré avec tes choix. Tu peux également créer ou éditer manuellement un fichier `.env` :
 
 ```
 GEMINI_API_KEY=...
-OPENAI_API_KEY=...
-GEMINI_MODEL=gemini-2.5-flash
-OPENAI_MODEL=gpt-4o-mini
+GEMINI_MODEL=gemini-3-pro-preview
 ```
 
 ---
@@ -213,7 +207,7 @@ python main.py
 Interface graphique simple :
 
 * sélection des images
-* choix IA
+* choix du modèle Gemini
 * sélection du profile
 * génération automatique
 
@@ -237,7 +231,6 @@ Aucune modification du cœur de l’application.
 ### Court terme
 
 * Flags UI sur infos incertaines
-* Limitation OpenAI à 10 images (optimisation b64)
 * Support Levi’s SilverTab et 501XX
 * Gestion complète SKU : photo > OCR > doute > manuel
 
