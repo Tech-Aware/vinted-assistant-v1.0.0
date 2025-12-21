@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Sequence
 
 import google.generativeai as genai
 
@@ -87,7 +87,7 @@ class GeminiListingClient(AIListingProvider):
 
     def generate_listing(
         self,
-        image_paths: Union[Path, Sequence[Path]],
+        image_paths: Sequence[Path],
         profile: AnalysisProfile,
         ui_data: Dict[str, Any] | None = None,
     ) -> VintedListing:
@@ -95,11 +95,8 @@ class GeminiListingClient(AIListingProvider):
         Analyse UNE OU PLUSIEURS images (toutes du même article) + profil,
         renvoie un VintedListing.
         """
-        # Normalisation en liste de Path
-        if isinstance(image_paths, (str, Path)):
-            paths: List[Path] = [Path(image_paths)]
-        else:
-            paths = [Path(p) for p in image_paths]
+        # Normalisation en liste de Path pour garantir un contrat robuste
+        paths: List[Path] = [Path(p) for p in image_paths]
 
         if not paths:
             raise GeminiClientError("Aucune image fournie à Gemini.generate_listing.")

@@ -6,6 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, Optional, Sequence
 
 from domain.models import VintedListing
 from domain.templates import AnalysisProfile
@@ -26,8 +27,9 @@ class AIListingProvider(ABC):
     Interface commune pour le fournisseur d'IA.
 
     Chaque implémentation (Gemini) doit :
-    - prendre une image locale (Path)
+    - prendre une ou plusieurs images locales (Path)
     - prendre un profil d'analyse (AnalysisProfile)
+    - accepter des métadonnées UI optionnelles (ui_data)
     - renvoyer un VintedListing
     """
 
@@ -40,10 +42,17 @@ class AIListingProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def generate_listing(self, image_path: Path, profile: AnalysisProfile) -> VintedListing:
+    def generate_listing(
+        self,
+        image_paths: Sequence[Path],
+        profile: AnalysisProfile,
+        ui_data: Optional[Dict[str, Any]] = None,
+    ) -> VintedListing:
         """
-        Analyse l'image en fonction du profil et renvoie une annonce Vinted.
-        Doit lever une exception métier propre (par ex. GeminiClientError)
-        en cas de problème côté provider.
+        Analyse une ou plusieurs images en fonction du profil et renvoie une annonce Vinted.
+
+        Doit lever une exception métier propre (par ex. GeminiClientError) en cas de problème côté
+        provider. ui_data transporte des informations complémentaires saisies dans l'UI (tailles,
+        modes de mesure, etc.).
         """
         raise NotImplementedError
