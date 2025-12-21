@@ -39,6 +39,12 @@ YOUR GOAL:
 - Cross-check information between them (labels, global views, measurements).
 - Produce a SINGLE, coherent, honest Vinted listing for this item.
 
+OCR INPUT (IF PROVIDED):
+- You may receive OCR_TEXT below. Treat it as a strong hint for label content (size, composition, SKU, codes).
+- Never ignore OCR_TEXT when it is present, but do not invent information beyond it.
+- OCR_TEXT (aggregated from tag photos):
+{OCR_TEXT}
+
 EXTREME PRECISION & HONESTY (IMPORTANT):
 - You MUST be as precise and detailed as possible, but also STRICTLY honest.
 - NEVER invent information that is not clearly visible on at least one image.

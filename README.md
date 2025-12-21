@@ -16,6 +16,7 @@ L’architecture est **modulaire, robuste**, et sépare clairement l’UI, les c
   - SKU manuscrits ou imprimés
   - photos globales et détails
   - mesures à plat avec mètre ruban
+- **OCR dédié** pour les étiquettes (Google Vision), activé uniquement sur les images cochées "OCR" dans la galerie
 - Extraction structurée par IA → JSON brut
 - **Zéro invention**
 - Gestion des incertitudes, champs null si doute
@@ -38,6 +39,8 @@ L’architecture est **modulaire, robuste**, et sépare clairement l’UI, les c
 - Provider unique : Google Gemini
 - Modèle par défaut : **gemini-3-pro-preview**
 - Option alternative : **gemini-2.5-flash**
+- OCR : **Google Vision** (texte injecté dans le prompt Gemini lorsque présent)
+- Fallback contrôlé : si la réponse Gemini est invalide, l’app affiche un avertissement “Résultat partiel (fallback)” et conserve l’UI opérationnelle.
 
 ### Architecture claire
 - **Prompt contract** unique
@@ -64,11 +67,14 @@ AssistantVinted/
 │   ├── models.py              # modèle VintedListing
 │   ├── normalizer.py          # merge AI+UI + génération titre
 │   ├── title_builder.py       # règles métier Levi’s
+│   ├── title_engine.py        # orchestration des titres
+│   ├── description_engine.py  # orchestration des descriptions
 │   ├── json_utils.py          # parsing robuste JSON IA
 │
 ├── infrastructure/
 │   ├── ai_factory.py          # provider abstrait
 │   ├── gemini_client.py       # Gemini Vision+Texte
+│   ├── google_vision_ocr.py   # provider OCR (Google Vision)
 │   ├── http_utils.py
 │
 └── presentation/
@@ -197,6 +203,28 @@ GEMINI_MODEL=gemini-3-pro-preview
 ```
 
 ---
+
+### Activer l'OCR Google Vision
+
+1. Assure-toi d'avoir un compte de service Google Cloud Vision et un fichier de credentials JSON.
+2. Défini la variable d'environnement `GOOGLE_APPLICATION_CREDENTIALS` vers ce fichier avant de lancer l'application :
+
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS=/chemin/vers/ta-cle-vision.json
+   ```
+
+3. Dans l'UI, coche la case **OCR** sur chaque vignette correspondant à une étiquette (composition, taille, codes). Ces images seront traitées par l'OCR et **ne seront pas envoyées à Gemini**, sauf en cas de fallback contrôlé.
+4. Le texte OCR extrait est injecté tel quel dans le prompt Gemini, uniquement en complément des autres images.
+
+En absence de credentials ou si le service est indisponible, l'application continue de fonctionner en mode dégradé (sans OCR) avec journalisation explicite.
+
+---
+
+### Logs & diagnostics (PyCharm Community)
+
+- Le niveau de log est réglé sur DEBUG par défaut (`setup_logging(logging.DEBUG)` dans `main.py`) : vérifie dans PyCharm que l’onglet **Run** n’applique pas de filtre.
+- En cas de fallback JSON, l’UI affiche un avertissement (“Résultat partiel (fallback)”) et le log détaille la raison + un extrait du texte Gemini (tronqué). Consulte l’onglet Run pour diagnostiquer.
+- Pour l’OCR, si `GOOGLE_APPLICATION_CREDENTIALS` est absent ou invalide, le log indique le passage en mode dégradé (noop). Assure-toi que la variable d’environnement est bien renseignée dans ta configuration PyCharm (Run Configuration > Environment variables).
 
 ## ▶️ Exécution
 

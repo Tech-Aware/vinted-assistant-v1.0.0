@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 import google.generativeai as genai
+from jsonschema import ValidationError, validate
 
 from config.settings import Settings
 from domain.ai_provider import AIListingProvider, AIProviderName
 from domain.json_utils import safe_json_parse
+from domain.ocr_provider import OCRProvider, OCRProviderError, OCRResult
 from domain.models import VintedListing
 from domain.prompt import PROMPT_CONTRACT
 from domain.templates import AnalysisProfile
 from domain.normalizer import normalize_and_postprocess
+from infrastructure.google_vision_ocr import GoogleVisionOCRProvider
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +41,22 @@ class GeminiListingClient(AIListingProvider):
     - On parse ensuite ce JSON avec safe_json_parse.
     """
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, ocr_provider: OCRProvider | None = None) -> None:
         logger.debug("Initialisation GeminiListingClient...")
         if not settings.gemini_api_key:
             raise GeminiClientError("GEMINI_API_KEY absente.")
 
         genai.configure(api_key=settings.gemini_api_key)
         self._model_name = self._normalize_model_name(settings.gemini_model)
+        try:
+            self._ocr: OCRProvider = ocr_provider or GoogleVisionOCRProvider()
+        except Exception as exc:
+            logger.warning(
+                "OCR non disponible lors de l'initialisation (%s). Passage en mode dégradé sans OCR.",
+                exc,
+                exc_info=True,
+            )
+            self._ocr = self._build_noop_ocr()
 
         logger.info("GeminiListingClient initialisé (model=%s).", self._model_name)
 
@@ -89,13 +101,12 @@ class GeminiListingClient(AIListingProvider):
         self,
         image_paths: Sequence[Path],
         profile: AnalysisProfile,
-        ui_data: Dict[str, Any] | None = None,
+        ui_data: Optional[Dict[str, Any]] = None,
     ) -> VintedListing:
         """
         Analyse UNE OU PLUSIEURS images (toutes du même article) + profil,
         renvoie un VintedListing.
         """
-        # Normalisation en liste de Path pour garantir un contrat robuste
         paths: List[Path] = [Path(p) for p in image_paths]
 
         if not paths:
@@ -107,16 +118,63 @@ class GeminiListingClient(AIListingProvider):
             profile.name.value,
         )
 
+        ocr_paths: List[Path] = []
+        ocr_text: str = ""
+        ocr_paths_raw = (ui_data or {}).get("ocr_image_paths", [])
         try:
-            raw_text = self._call_api(paths, profile, ui_data=ui_data)
+            ocr_paths = [Path(p) for p in ocr_paths_raw]
+            if ocr_paths:
+                logger.info("Extraction OCR demandée pour %d image(s).", len(ocr_paths))
+                ocr_result = self._ocr.extract_text(ocr_paths)
+                ocr_text = ocr_result.full_text or ""
+                logger.info(
+                    "Extraction OCR effectuée: %d caractère(s) agrégés.",
+                    len(ocr_text),
+                )
+                if ocr_text:
+                    logger.debug("Texte OCR (tronqué): %s", ocr_text[:600])
+        except OCRProviderError as exc_ocr:
+            logger.warning("OCR indisponible: %s", exc_ocr)
+        except Exception as exc_ocr:  # pragma: no cover - robustesse
+            logger.warning(
+                "Erreur inattendue pendant l'OCR: %s",
+                exc_ocr,
+                exc_info=True,
+            )
+
+        gemini_paths: List[Path]
+        if ocr_paths:
+            ocr_set = {str(p) for p in ocr_paths}
+            gemini_paths = [p for p in paths if str(p) not in ocr_set]
+            if not gemini_paths:
+                logger.warning(
+                    "Toutes les images ont été marquées OCR : fallback envoi complet à Gemini."
+                )
+                gemini_paths = paths
+        else:
+            gemini_paths = paths
+
+        try:
+            raw_text = self._call_api(
+                gemini_paths,
+                profile,
+                ui_data=ui_data,
+                ocr_text=ocr_text,
+            )
             logger.debug("Gemini brut: %s", raw_text[:400])
 
             # JSON robuste (si jamais il y a des ```json ....```, safe_json_parse gère)
             parsed: Dict[str, Any] = safe_json_parse(raw_text)
             if parsed is None:
-                raise GeminiClientError(
-                    "Réponse Gemini illisible (JSON invalide ou introuvable)."
+                logger.warning(
+                    "Réponse Gemini illisible (JSON invalide ou introuvable). Utilisation d'un fallback."
                 )
+                return self._build_fallback_listing(
+                    reason="JSON Gemini introuvable ou invalide",
+                    raw_text=raw_text,
+                )
+
+            self._validate_json(parsed, profile)
 
             # Post-traitement + normalisation (titre JEAN_LEVIS, mapping clés, etc.)
             normalized = normalize_and_postprocess(
@@ -134,7 +192,10 @@ class GeminiListingClient(AIListingProvider):
             raise
         except Exception as exc:
             logger.exception("Erreur inattendue Gemini.generate_listing.")
-            raise GeminiClientError(f"Erreur inattendue: {exc}") from exc
+            return self._build_fallback_listing(
+                reason=f"Erreur inattendue: {exc}",
+                raw_text=None,
+            )
 
     # ------------------------------------------------------------------
     # Construction des contenus pour Gemini (texte + multi-images)
@@ -171,6 +232,7 @@ class GeminiListingClient(AIListingProvider):
         image_paths: List[Path],
         profile: AnalysisProfile,
         ui_data: Dict[str, Any] | None = None,
+        ocr_text: str | None = None,
     ) -> List[Any]:
         """
         Construit une liste de "parts" pour google-generativeai :
@@ -179,7 +241,8 @@ class GeminiListingClient(AIListingProvider):
         - ensuite toutes les images (SKU, vues, étiquettes, mesures) du même article
         """
         # Texte : contrat global + profil spécialisé
-        full_prompt = PROMPT_CONTRACT + "\n\n" + profile.prompt_suffix
+        prompt_template = PROMPT_CONTRACT + "\n\n" + profile.prompt_suffix
+        full_prompt = prompt_template.replace("{OCR_TEXT}", ocr_text or "")
 
         measurement_mode = None
         try:
@@ -236,6 +299,7 @@ class GeminiListingClient(AIListingProvider):
         image_paths: List[Path],
         profile: AnalysisProfile,
         ui_data: Dict[str, Any] | None = None,
+        ocr_text: str | None = None,
     ) -> str:
         """
         Appelle l'API Gemini en mode "simple" :
@@ -246,7 +310,12 @@ class GeminiListingClient(AIListingProvider):
         On attend donc que response.text soit une chaîne JSON (éventuellement encadrée
         par des ```json ... ```).
         """
-        parts = self._build_parts(image_paths, profile, ui_data=ui_data)
+        parts = self._build_parts(
+            image_paths,
+            profile,
+            ui_data=ui_data,
+            ocr_text=ocr_text,
+        )
 
         logger.debug(
             "Appel API Gemini (model=%s, nb_images=%d)...",
@@ -276,3 +345,73 @@ class GeminiListingClient(AIListingProvider):
         except Exception as exc:
             logger.exception("Erreur appel API Gemini.")
             raise GeminiClientError(f"Erreur API Gemini: {exc}") from exc
+
+    # ------------------------------------------------------------------
+    # Validation + fallback
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_noop_ocr() -> OCRProvider:
+        class _NoOpOCR(OCRProvider):
+            def extract_text(self, image_paths: Sequence[Path]) -> OCRResult:  # type: ignore[override]
+                logger.info("OCR noop utilisé, aucune extraction effectuée (%d image(s)).", len(image_paths))
+                return OCRResult(full_text="", per_image_text={})
+
+        return _NoOpOCR()
+
+    def _validate_json(self, payload: Dict[str, Any], profile: AnalysisProfile) -> None:
+        """
+        Valide le JSON Gemini contre le schéma attendu du profil.
+        Ne lève pas d'exception bloquante mais journalise les incohérences.
+        """
+        try:
+            validate(instance=payload, schema=profile.json_schema)
+            logger.info("Validation JSON Gemini réussie (profil=%s).", profile.name.value)
+        except ValidationError as exc:
+            logger.warning(
+                "JSON Gemini non conforme au schéma (%s): %s",
+                profile.name.value,
+                exc.message,
+            )
+            try:
+                required = profile.json_schema.get("required", [])
+                for key in required:
+                    payload.setdefault(key, None)
+            except Exception as nested_exc:  # pragma: no cover - robustesse
+                logger.debug(
+                    "Impossible de compléter les champs requis après validation: %s",
+                    nested_exc,
+                )
+
+    def _build_fallback_listing(self, reason: str, raw_text: Optional[str]) -> VintedListing:
+        """
+        Produit une annonce minimale pour éviter tout crash UI.
+        """
+        logger.warning("Construction d'une annonce de secours: %s", reason)
+        if raw_text:
+            logger.debug(
+                "Contenu brut Gemini (tronqué à 400 chars) pour diagnostic fallback: %s",
+                raw_text[:400],
+            )
+        fallback_data: Dict[str, Any] = {
+            "title": "Annonce à compléter",
+            "description": "Erreur d'analyse : photos/étiquette à vérifier.",
+            "brand": None,
+            "style": None,
+            "pattern": None,
+            "neckline": None,
+            "season": None,
+            "defects": None,
+            "features": {"error": reason},
+            "description_raw": raw_text,
+            "fallback_reason": reason,
+        }
+        try:
+            return VintedListing.from_dict(fallback_data)
+        except Exception as exc:  # pragma: no cover - robustesse
+            logger.error(
+                "Echec de construction du fallback VintedListing (%s)",
+                exc,
+                exc_info=True,
+            )
+            raise GeminiClientError(reason) from exc
