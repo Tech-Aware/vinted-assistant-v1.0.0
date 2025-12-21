@@ -6,6 +6,16 @@ from typing import Dict, Any, List, Optional
 import re
 import logging
 
+from domain.title_engine import (
+    JeanSpec,
+    JacketSpec,
+    PullGiletSpec,
+    TitleBlock,
+    TitleRules,
+    build_material_block,
+    render_title,
+)
+
 logger = logging.getLogger(__name__)
 
 SKU_PREFIX = "- "
@@ -412,6 +422,25 @@ def _normalize_carhartt_size(value: Optional[str]) -> tuple[str, str]:
         return "NC", "nc"
 
 
+def _sanitize_carhartt_size_for_title(raw_size: Optional[str]) -> Optional[str]:
+    """Retire les fragments de SKU (JCR) qui polluent la taille affichée."""
+    try:
+        cleaned = _normalize_str(raw_size)
+        if not cleaned:
+            return None
+        sanitized = re.sub(r"\bjcr\s*\d+\b", "", cleaned, flags=re.IGNORECASE)
+        sanitized = re.sub(r"\s{2,}", " ", sanitized).strip(" ,-/")
+        logger.debug(
+            "_sanitize_carhartt_size_for_title: taille brute '%s' -> '%s'",
+            raw_size,
+            sanitized,
+        )
+        return sanitized or None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("_sanitize_carhartt_size_for_title: nettoyage taille impossible (%s)", exc)
+        return _normalize_str(raw_size)
+
+
 def _classify_rise_from_cm(rise_cm: Optional[float]) -> Optional[str]:
     """
     Classe la taille (rise) à partir de la distance entre entrejambe
@@ -468,141 +497,171 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
     On n'invente JAMAIS :
     - si une info n'est pas fournie dans 'features', on l'ignore.
     """
-
-    # --- lecture + normalisation des champs attendus ---
-
-    brand = _normalize_str(features.get("brand"))
-    raw_model = _normalize_str(features.get("model"))
-    model = _sanitize_model_label(raw_model)
-    size_fr = _normalize_str(features.get("size_fr"))
-    size_us_raw = _normalize_str(features.get("size_us"))
-    length = _normalize_str(features.get("length"))  # conservé pour usage éventuel hors titre
-    fit_source = _normalize_str(features.get("fit"))
-    fit = _normalize_fit(fit_source)
-    if not fit:
-        fit = _normalize_fit(raw_model)
-    else:
-        try:
-            raw_model_low = (raw_model or "").lower()
-            if fit == "Skinny" and raw_model_low and any(
-                marker in raw_model_low
-                for marker in ("boot", "flare", "évas", "evase", "curve", "curvy")
-            ):
-                logger.debug(
-                    "build_jean_levis_title: fit ajusté en Bootcut/Évasé depuis modèle %s",
-                    raw_model,
-                )
-                fit = "Bootcut/Évasé"
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("build_jean_levis_title: ajustement fit impossible (%s)", exc)
-    color = _normalize_str(features.get("color"))
-    gender = _normalize_gender(_normalize_str(features.get("gender")))
-    sku = _normalize_str(features.get("sku"))
-
-    # % coton / élasthanne
-    cotton_raw = features.get("cotton_percent")
-    elas_raw = features.get("elasthane_percent")
-
     try:
-        cotton_percent = int(cotton_raw) if cotton_raw is not None else None
-    except (ValueError, TypeError):
-        cotton_percent = None
-
-    try:
-        elas_percent = float(elas_raw) if elas_raw is not None else None
-    except (ValueError, TypeError):
-        elas_percent = None
-
-    # Rise : soit déjà fourni comme type, soit calculé depuis rise_cm
-    rise_type: Optional[str] = features.get("rise_type")
-    if not rise_type:
-        rise_cm = features.get("rise_cm")
-        rise_type = _classify_rise_from_cm(rise_cm)
-    else:
-        try:
-            normalized_rise = rise_type.strip().lower()
-            if "basse" in normalized_rise or "low" in normalized_rise:
-                rise_type = "low"
-            elif "haute" in normalized_rise or "high" in normalized_rise:
-                rise_type = "high"
-            elif "moy" in normalized_rise or "mid" in normalized_rise:
-                rise_type = "mid"
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("build_jean_levis_title: rise_type illisible (%s)", exc)
-
-    low_rise = _is_low_rise_label(rise_type)
-    if not low_rise:
-        try:
-            rise_cm_value = features.get("rise_cm")
-            low_rise = _is_low_rise_label(_classify_rise_from_cm(rise_cm_value))
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("build_jean_levis_title: détection taille basse impossible (%s)", exc)
-
-    # Normalisation d'affichage de la taille US :
-    # - si déjà au format "W28", on garde tel quel
-    # - sinon, on préfixe avec "W"
-    size_us_display: Optional[str] = None
-    if size_us_raw:
-        s = size_us_raw.strip().upper()
-        if s.startswith("W"):
-            size_us_display = s
+        brand = _normalize_str(features.get("brand"))
+        raw_model = _normalize_str(features.get("model"))
+        model = _sanitize_model_label(raw_model)
+        size_fr = _normalize_str(features.get("size_fr"))
+        size_us_raw = _normalize_str(features.get("size_us"))
+        fit_source = _normalize_str(features.get("fit"))
+        fit = _normalize_fit(fit_source)
+        if not fit:
+            fit = _normalize_fit(raw_model)
         else:
-            size_us_display = f"W{s}"
+            try:
+                raw_model_low = (raw_model or "").lower()
+                if fit == "Skinny" and raw_model_low and any(
+                    marker in raw_model_low
+                    for marker in ("boot", "flare", "évas", "evase", "curve", "curvy")
+                ):
+                    logger.debug(
+                        "build_jean_levis_title: fit ajusté en Bootcut/Évasé depuis modèle %s",
+                        raw_model,
+                    )
+                    fit = "Bootcut/Évasé"
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("build_jean_levis_title: ajustement fit impossible (%s)", exc)
+        color = _normalize_str(features.get("color"))
+        gender = _normalize_gender(_normalize_str(features.get("gender")))
+        sku = _normalize_str(features.get("sku"))
 
-    # --- construction du titre ---
+        # % coton / élasthanne
+        cotton_raw = features.get("cotton_percent")
+        elas_raw = features.get("elasthane_percent")
 
-    parts: List[str] = []
+        try:
+            cotton_percent = int(cotton_raw) if cotton_raw is not None else None
+        except (ValueError, TypeError):
+            cotton_percent = None
 
-    # Type de vêtement
-    parts.append("Jean")
+        try:
+            elas_percent = float(elas_raw) if elas_raw is not None else None
+        except (ValueError, TypeError):
+            elas_percent = None
 
-    # Marque
-    if brand:
-        brand_formatted = " ".join(word.capitalize() for word in brand.lower().split())
-        parts.append(brand_formatted)
+        # Rise : soit déjà fourni comme type, soit calculé depuis rise_cm
+        rise_type: Optional[str] = features.get("rise_type")
+        if not rise_type:
+            rise_cm = features.get("rise_cm")
+            rise_type = _classify_rise_from_cm(rise_cm)
+        else:
+            try:
+                normalized_rise = rise_type.strip().lower()
+                if "basse" in normalized_rise or "low" in normalized_rise:
+                    rise_type = "low"
+                elif "haute" in normalized_rise or "high" in normalized_rise:
+                    rise_type = "high"
+                elif "moy" in normalized_rise or "mid" in normalized_rise:
+                    rise_type = "mid"
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("build_jean_levis_title: rise_type illisible (%s)", exc)
 
-    # Modèle
-    if model:
-        parts.append(model)
+        low_rise = _is_low_rise_label(rise_type)
+        if not low_rise:
+            try:
+                rise_cm_value = features.get("rise_cm")
+                low_rise = _is_low_rise_label(_classify_rise_from_cm(rise_cm_value))
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("build_jean_levis_title: détection taille basse impossible (%s)", exc)
 
-    # Taille FR / US (sans longueur L dans le titre)
-    if size_fr:
-        parts.append(f"FR{size_fr}")
-    if size_us_display:
-        parts.append(size_us_display)
+        # Normalisation d'affichage de la taille US :
+        size_us_display: Optional[str] = None
+        if size_us_raw:
+            s = size_us_raw.strip().upper()
+            size_us_display = s if s.startswith("W") else f"W{s}"
 
-    # Coupe + éventuelle 'taille basse'
-    if fit and low_rise:
-        parts.append(f"coupe {fit} taille basse")
-    elif fit:
-        parts.append(f"coupe {fit}")
-    elif low_rise:
-        parts.append("taille basse")
+        size_segments: List[str] = []
+        if size_fr:
+            size_segments.append(f"FR{size_fr}")
+        if size_us_display:
+            size_segments.append(size_us_display)
+        size_value = " ".join(size_segments)
 
-    # % coton si >= 60
-    if cotton_percent is not None and cotton_percent >= 60:
-        parts.append(f"{cotton_percent}% coton")
+        fit_segment = None
+        if fit and low_rise:
+            fit_segment = f"coupe {fit} taille basse"
+        elif fit:
+            fit_segment = f"coupe {fit}"
+        elif low_rise:
+            fit_segment = "taille basse"
 
-    # Stretch si élasthanne >= 2%
-    if elas_percent is not None and elas_percent >= 2:
-        parts.append("stretch")
+        colors = _normalize_colors(color)
+        color_primary = colors[0] if colors else None
+        color_secondary = colors[1] if len(colors) > 1 else None
 
-    # Genre (homme / femme)
-    if gender:
-        parts.append(gender)
+        material_candidates: List[str] = []
+        cotton_label = f"{cotton_percent}% coton" if cotton_percent is not None else None
+        if cotton_label:
+            material_candidates.append(cotton_label)
+        try:
+            formatted_material = _format_material_segment(
+                features.get("material"), cotton_percent, features.get("wool_percent")
+            )
+            if formatted_material:
+                material_candidates.append(formatted_material)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("build_jean_levis_title: matière non exploitable (%s)", exc)
 
-    # Couleur
-    if color:
-        parts.append(color)
+        blocks: List[TitleBlock] = [
+            TitleBlock(kind="category", value="Jean", critical=True, capitalize=False),
+        ]
 
-    # SKU (préfixé d'un tiret)
-    if sku:
-        parts.append(f"{SKU_PREFIX}{sku}")
+        if brand:
+            brand_formatted = " ".join(word.capitalize() for word in brand.lower().split())
+            blocks.append(
+                TitleBlock(kind="brand", value=brand_formatted, critical=True, capitalize=False)
+            )
 
-    title = _safe_join(parts)
+        if model:
+            blocks.append(TitleBlock(kind="model", value=model, trim_priority=1, capitalize=False))
 
-    logger.debug("Titre jean Levi's construit à partir de %s -> '%s'", features, title)
-    return title
+        if size_value:
+            blocks.append(
+                TitleBlock(
+                    kind="size",
+                    value=size_value,
+                    trim_priority=1,
+                    capitalize=False,
+                    critical=True,
+                )
+            )
+
+        if fit_segment:
+            blocks.append(TitleBlock(kind="fit", value=fit_segment, trim_priority=2))
+
+        if elas_percent is not None and elas_percent >= 2:
+            blocks.append(TitleBlock(kind="stretch", value="stretch", trim_priority=2))
+
+        material_block = build_material_block(material_candidates)
+        if material_block:
+            material_block.trim_priority = 1
+            blocks.append(material_block)
+
+        if color_primary:
+            blocks.append(TitleBlock(kind="color_primary", value=color_primary, trim_priority=1))
+        if color_secondary:
+            blocks.append(TitleBlock(kind="color_secondary", value=color_secondary, trim_priority=3))
+
+        if gender:
+            blocks.append(TitleBlock(kind="gender", value=gender, trim_priority=1))
+
+        if sku:
+            blocks.append(TitleBlock(kind="sku", value=f"{SKU_PREFIX}{sku}", trim_priority=0))
+
+        title = render_title(blocks, JeanSpec(), TitleRules())
+        logger.debug("Titre jean Levi's construit à partir de %s -> '%s'", features, title)
+        return title
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("build_jean_levis_title: échec de construction (%s)", exc)
+        parts: List[str] = []
+        try:
+            if features.get("brand"):
+                parts.append(str(features.get("brand")))
+            if features.get("model"):
+                parts.append(str(features.get("model")))
+        except Exception:
+            pass
+        return _safe_join(["Jean", *parts]).strip()
 
 
 def build_pull_tommy_title(features: Dict[str, Any]) -> str:
@@ -636,36 +695,59 @@ def build_pull_tommy_title(features: Dict[str, Any]) -> str:
         if not brand:
             brand = "Tommy Hilfiger"
 
-        parts: List[str] = [garment_type]
+        blocks: List[TitleBlock] = [
+            TitleBlock(kind="category", value=garment_type, critical=True, capitalize=False),
+            TitleBlock(
+                kind="brand",
+                value=" ".join(word.capitalize() for word in brand.lower().split()),
+                critical=True,
+                capitalize=False,
+            ),
+        ]
 
-        if brand:
-            brand_formatted = " ".join(word.capitalize() for word in brand.lower().split())
-            parts.append(brand_formatted)
-            # AJOUT : si "Pima" détecté sur ce pull Tommy, ajouter "Premium" après la marque
-            if features.get("is_pima") and brand.lower() == "tommy hilfiger":
-                parts.append("Premium")
-                logger.info("build_pull_tommy_title: ajout de 'Premium' au titre (Pima cotton détecté)")
-
-        if gender:
-            parts.append(gender)
-
-        if size:
-            parts.append(f"taille {size}")
-
-        if material:
-            parts.append(material)
-
-        if colors_segment:
-            parts.append(colors_segment)
+        if features.get("is_pima") and brand.lower() == "tommy hilfiger":
+            blocks.append(TitleBlock(kind="premium", value="Premium", trim_priority=1))
+            logger.info("build_pull_tommy_title: ajout de 'Premium' au titre (Pima cotton détecté)")
 
         if pattern:
-            parts.append(pattern)
+            blocks.append(TitleBlock(kind="pattern", value=pattern, trim_priority=2))
+
+        if size:
+            blocks.append(
+                TitleBlock(
+                    kind="size",
+                    value=f"taille {size}",
+                    trim_priority=1,
+                    critical=True,
+                    capitalize=False,
+                )
+            )
+
+        color_values = _normalize_colors(colors_segment or colors_input)
+        if color_values:
+            blocks.append(TitleBlock(kind="color_primary", value=color_values[0], trim_priority=1))
+        if len(color_values) > 1:
+            blocks.append(
+                TitleBlock(kind="color_secondary", value=color_values[1], trim_priority=3)
+            )
+
+        material_block = build_material_block([material] if material else [])
+        if material_block:
+            material_block.trim_priority = 1
+            blocks.append(material_block)
 
         if neckline:
-            parts.append(neckline)
+            blocks.append(TitleBlock(kind="neckline", value=neckline, trim_priority=2))
+
+        if gender:
+            blocks.append(TitleBlock(kind="gender", value=gender, trim_priority=1))
+
+        specificity = _normalize_str(features.get("specificity"))
+        if specificity:
+            blocks.append(TitleBlock(kind="specificity", value=specificity, trim_priority=2))
 
         if sku and sku_status and sku_status.lower() == "ok":
-            parts.append(f"{SKU_PREFIX}{sku}")
+            blocks.append(TitleBlock(kind="sku", value=f"{SKU_PREFIX}{sku}", trim_priority=0))
         elif sku:
             logger.debug(
                 "build_pull_tommy_title: SKU ignoré car statut non 'ok' (%s)",
@@ -676,7 +758,7 @@ def build_pull_tommy_title(features: Dict[str, Any]) -> str:
                 "build_pull_tommy_title: SKU absent ou illisible (statut=%s)", sku_status
             )
 
-        title = _safe_join(parts)
+        title = render_title(blocks, PullGiletSpec(), TitleRules())
         logger.debug("Titre pull Tommy construit à partir de %s -> '%s'", features, title)
         return title
     except Exception as exc:  # pragma: no cover - defensive
@@ -689,7 +771,7 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
     try:
         brand = _normalize_str(features.get("brand")) or "Carhartt"
         model = _normalize_str(features.get("model"))
-        raw_size = _normalize_str(features.get("size"))
+        raw_size = _sanitize_carhartt_size_for_title(features.get("size"))
         size, size_token = _normalize_carhartt_size(raw_size)
         color = _normalize_str(features.get("color"))
         gender = _normalize_str(features.get("gender")) or "homme"
@@ -703,46 +785,110 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
         sku = _normalize_str(features.get("sku"))
         sku_status = _normalize_str(features.get("sku_status"))
 
-        prefix = "Veste à capuche Carhartt" if has_hood else "Veste Carhartt"
-        parts: List[str] = [prefix]
+        category_value = "Jacket à capuche" if has_hood else "Jacket"
+        blocks: List[TitleBlock] = [
+            TitleBlock(kind="category", value=category_value, critical=True, capitalize=False)
+        ]
 
-        if brand and brand.lower() != "carhartt":
-            parts.append(brand)
+        brand_value = brand if brand and brand.lower() != "carhartt" else "Carhartt"
+        blocks.append(
+            TitleBlock(
+                kind="brand",
+                value=brand_value,
+                critical=True,
+                capitalize=False,
+            )
+        )
 
+        style_value = None
         if model:
             model_clean = model.strip()
             model_lower = model_clean.lower()
-            if "jacket" in model_lower:
-                model_segment = model_clean
-            else:
-                model_segment = f"{model_clean} Jacket"
-
+            normalized_style = model_lower.replace("jacket", "").replace("veste", "").strip()
+            if normalized_style in {"detroit", "détroit"}:
+                normalized_style = "Detroit"
+            style_value = normalized_style or model_clean
             if is_new_york or "new york" in model_lower or model_lower.endswith(" ny"):
-                model_segment = model_segment.rstrip() + " NY"
-
-            parts.append(model_segment)
+                style_value = f"{style_value} NY".strip()
         elif is_new_york:
-            parts.append("modèle NY")
+            style_value = "NY"
 
-        parts.append(f"taille {size}" if size else "taille NC")
+        if style_value:
+            blocks.append(TitleBlock(kind="style", value=style_value, trim_priority=1, capitalize=True))
 
-        if color:
-            parts.append(f"couleur {color}")
+        size_label = f"taille {size}" if size else "taille NC"
+        blocks.append(
+            TitleBlock(
+                kind="size",
+                value=size_label,
+                trim_priority=1,
+                critical=True,
+                capitalize=False,
+            )
+        )
 
-        if is_camouflage:
-            if is_realtree:
-                parts.append("Realtree")
-            else:
-                parts.append("camouflage")
-        elif pattern and pattern.lower() == "camouflage":
-            parts.append("camouflage")
+        specificities: List[str] = []
+        if pattern and pattern.lower() == "camouflage":
+            is_camouflage = True
+
+        if has_hood:
+            logger.debug("build_jacket_carhart_title: capuche déjà portée par la catégorie")
+
+        collar = _normalize_str(features.get("collar"))
+        if collar:
+            specificities.append(collar)
+
+        lining = _normalize_str(features.get("lining"))
+        if lining:
+            specificities.append(lining)
+
+        closure = _normalize_str(features.get("closure"))
+        if closure:
+            specificities.append(closure)
+
+        if is_realtree:
+            specificities.append("Realtree")
+        elif is_camouflage:
+            specificities.append("camouflage")
+
+        if specificities:
+            ordered_specificities = []
+            for label in specificities:
+                low = label.lower()
+                if "col" in low:
+                    ordered_specificities.insert(0, label)
+                elif "doublure" in low or "lining" in low:
+                    ordered_specificities.append(label)
+                elif "zip" in low or "fermeture" in low:
+                    ordered_specificities.append(label)
+                else:
+                    ordered_specificities.append(label)
+            blocks.append(
+                TitleBlock(
+                    kind="specificities",
+                    value=" ".join(ordered_specificities),
+                    trim_priority=2,
+                )
+            )
+
+        material_block = build_material_block(
+            [features.get("exterior"), features.get("material"), features.get("lining")]
+        )
+        if material_block:
+            material_block.trim_priority = 1
+            blocks.append(material_block)
+
+        color_values = _normalize_colors(color)
+        if color_values:
+            blocks.append(TitleBlock(kind="color_primary", value=color_values[0], trim_priority=1))
+        if len(color_values) > 1:
+            blocks.append(TitleBlock(kind="color_secondary", value=color_values[1], trim_priority=3))
 
         if gender:
-            parts.append(gender)
+            blocks.append(TitleBlock(kind="gender", value=gender, trim_priority=1))
 
-        # SKU (préfixé d'un tiret) uniquement si statut OK
         if sku and sku_status and sku_status.lower() == "ok":
-            parts.append(f"{SKU_PREFIX}{sku}")
+            blocks.append(TitleBlock(kind="sku", value=f"{SKU_PREFIX}{sku}", trim_priority=0))
         elif sku:
             logger.debug(
                 "build_jacket_carhart_title: SKU ignoré car statut non 'ok' (%s)",
@@ -754,7 +900,7 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
                 sku_status,
             )
 
-        title = _safe_join(parts)
+        title = render_title(blocks, JacketSpec(), TitleRules())
         logger.debug(
             "build_jacket_carhart_title: titre construit depuis %s -> '%s'",
             features,
@@ -763,4 +909,4 @@ def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
         return title
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("build_jacket_carhart_title: échec de construction (%s)", exc)
-        return _safe_join(["Veste Carhartt jacket"])
+        return _safe_join(["Jacket Carhartt"])

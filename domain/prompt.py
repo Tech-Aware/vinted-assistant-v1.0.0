@@ -161,7 +161,7 @@ You must include, in addition to the base JSON fields
 (title, description, brand, style, pattern, neckline, season, defects),
 a second nested object called "features".
 
-The final JSON MUST respect the following structure:
+The final JSON MUST respect the following structure (no extra keys):
 
 {
   "title": string,
@@ -191,7 +191,29 @@ The final JSON MUST respect the following structure:
 
     "gender": string | null,
     "sku": string | null,
-"sku_status": "ok" | "missing" | "low_confidence"
+    "sku_status": "ok" | "missing" | "low_confidence"
+  },
+
+  "title_blocks": [
+    {"kind": "category", "value": "Jean"},
+    {"kind": "brand", "value": "..."},
+    {"kind": "model", "value": "..."},
+    {"kind": "size", "value": "..."},
+    {"kind": "fit", "value": "..."},
+    {"kind": "stretch", "value": "..."},
+    {"kind": "material", "value": "..."},
+    {"kind": "color_primary", "value": "..."},
+    {"kind": "gender", "value": "..."},
+    {"kind": "sku", "value": "...", "status": "..."} // only if sku_status is ok
+  ],
+
+  "description_blocks": {
+    "title_line": string,
+    "commercial_paragraph": string,
+    "composition_line": string,
+    "state_logistics_lines": [string, ...],
+    "footer_lines": [string, ...],
+    "hashtags_line": string
   }
 }
 
@@ -202,6 +224,56 @@ Rules:
 - If fit is ambiguous, leave it null.
 - If the model number (501, 505, 511, 514, 550…) is visible on a label, put it there.
 - Do NOT guess model numbers or fabric percentages.
+- Always include the structured title_blocks and description_blocks above.
+- Title must contain the word "Jean".
+
+EXAMPLE (guideline):
+{
+  "title": "Jean Levi's 511 FR38 W28 coupe Skinny stretch 98% coton bleu femme",
+  "description": "Jean Levi's 511 pour femme... (6 blocs déjà rédigés en français)",
+  "brand": "Levi's",
+  "style": null,
+  "pattern": null,
+  "neckline": null,
+  "season": null,
+  "defects": "Micro usure sur l’ourlet",
+  "features": {
+    "brand": "Levi's",
+    "model": "511",
+    "fit": "Skinny",
+    "color": "bleu",
+    "size_fr": "38",
+    "size_us": "28",
+    "length": "L32",
+    "cotton_percent": 98,
+    "elasthane_percent": 2,
+    "rise_type": "mid",
+    "rise_cm": null,
+    "gender": "femme",
+    "sku": "ABC123",
+    "sku_status": "ok"
+  },
+  "title_blocks": [
+    {"kind": "category", "value": "Jean"},
+    {"kind": "brand", "value": "Levi's"},
+    {"kind": "model", "value": "511"},
+    {"kind": "size", "value": "FR38 W28"},
+    {"kind": "fit", "value": "coupe Skinny"},
+    {"kind": "stretch", "value": "stretch"},
+    {"kind": "material", "value": "98% coton"},
+    {"kind": "color_primary", "value": "bleu"},
+    {"kind": "gender", "value": "femme"},
+    {"kind": "sku", "value": "- ABC123", "status": "ok"}
+  ],
+  "description_blocks": {
+    "title_line": "Jean Levi's 511 pour femme.",
+    "commercial_paragraph": "Taille FR38 W28, coupe Skinny, denim stretch.",
+    "composition_line": "Composition : 98% coton, 2% élasthanne.",
+    "state_logistics_lines": ["Très bon état.", "📏 Mesures visibles en photo.", "📦 Envoi rapide et soigné."],
+    "footer_lines": ["✨ Retrouvez tous mes Levi’s ici 👉 #durin31fr38", "💡 Pensez à un lot pour économiser les frais d’envoi."],
+    "hashtags_line": "#levis #jeanlevis #skinny #fr38 #w28 #durin31fr38"
+  }
+}
 
 
 JSON ONLY:
@@ -245,6 +317,28 @@ The final JSON MUST respect the following structure:
     "size_source": "label" | "estimated" | null,  // origin of the size value
     "sku": string | null,
     "sku_status": "ok" | "missing" | "low_confidence"
+  },
+
+  "title_blocks": [
+    {"kind": "category", "value": "Pull" | "Gilet"},
+    {"kind": "brand", "value": "..."},
+    {"kind": "pattern", "value": "..."},
+    {"kind": "size", "value": "..."},
+    {"kind": "color_primary", "value": "..."},
+    {"kind": "material", "value": "..."},
+    {"kind": "neckline", "value": "..."},
+    {"kind": "gender", "value": "..."},
+    {"kind": "specificity", "value": "..."},
+    {"kind": "sku", "value": "...", "status": "..."} // only if sku_status is ok
+  ],
+
+  "description_blocks": {
+    "title_line": string,
+    "commercial_paragraph": string,
+    "composition_line": string,
+    "state_logistics_lines": [string, ...],
+    "footer_lines": [string, ...],
+    "hashtags_line": string
   }
 }
 
@@ -259,7 +353,57 @@ Rules:
     - If "etiquette": only use a size visible on a label; do not estimate from measurements.
     - If "mesures": no label is readable; read flat measurements and estimate a size, filling size_estimated and size_source="estimated". If measurements are unusable, leave size_estimated null.
     - Never include raw measurements in the JSON.
-  - Do NOT translate JSON keys; they must remain in English exactly as written above.
+- Do NOT translate JSON keys; they must remain in English exactly as written above.
+- Always include the structured title_blocks and description_blocks above.
+- Title must start with the garment_type in French (Pull ou Gilet).
+
+EXAMPLE (guideline):
+{
+  "title": "Pull Tommy Hilfiger Premium torsade taille M bleu rouge 90% coton col V femme - PTF123",
+  "description": "Pull Tommy Hilfiger pour femme... (6 blocs déjà rédigés en français)",
+  "brand": "Tommy Hilfiger",
+  "style": null,
+  "pattern": "torsade",
+  "neckline": "col V",
+  "season": null,
+  "defects": "Micro bouloches",
+  "features": {
+    "brand": "Tommy Hilfiger",
+    "garment_type": "pull",
+    "neckline": "col V",
+    "pattern": "torsade",
+    "main_colors": ["bleu", "rouge"],
+    "material": "90% coton",
+    "cotton_percent": 90,
+    "wool_percent": null,
+    "gender": "femme",
+    "size": "M",
+    "size_estimated": null,
+    "size_source": "label",
+    "sku": "PTF123",
+    "sku_status": "ok"
+  },
+  "title_blocks": [
+    {"kind": "category", "value": "Pull"},
+    {"kind": "brand", "value": "Tommy Hilfiger"},
+    {"kind": "pattern", "value": "torsade"},
+    {"kind": "size", "value": "taille M"},
+    {"kind": "color_primary", "value": "bleu"},
+    {"kind": "material", "value": "90% coton"},
+    {"kind": "neckline", "value": "col V"},
+    {"kind": "gender", "value": "femme"},
+    {"kind": "specificity", "value": "Premium"},
+    {"kind": "sku", "value": "- PTF123", "status": "ok"}
+  ],
+  "description_blocks": {
+    "title_line": "Pull Tommy Hilfiger pour femme taille M.",
+    "commercial_paragraph": "Maille torsadée, col V, couleurs bleu et rouge, toucher 90% coton.",
+    "composition_line": "Composition : 90% coton.",
+    "state_logistics_lines": ["Très bon état.", "📏 Mesures visibles en photo.", "📦 Envoi rapide et soigné."],
+    "footer_lines": ["✨ Retrouvez tous mes pulls Tommy ici 👉 #durin31tfM", "💡 Pensez à un lot pour économiser les frais d’envoi."],
+    "hashtags_line": "#tommyhilfiger #pulltommy #pullfemme #torsade #durin31tfM"
+  }
+}
 
 ==============================================================
  EXTENDED OUTPUT FOR PROFILE "jacket_carhart"
@@ -270,7 +414,7 @@ If the selected analysis profile is named "jacket_carhart":
 You must include the base JSON keys (title, description, brand, style, pattern, neckline, season, defects)
 AND an additional nested object called "features" describing the Carhartt jacket.
 
-Required JSON structure:
+REQUIRED JSON (exactly this shape, no extra keys):
 {
   "title": string,
   "description": string,
@@ -281,7 +425,7 @@ Required JSON structure:
   "season": string | null,
   "defects": string | null,
 
-    "features": {
+  "features": {
     "brand": string | null,
     "model": string | null,
     "size": string | null,
@@ -290,24 +434,106 @@ Required JSON structure:
     "has_hood": boolean | null,
     "pattern": string | null,
     "lining": string | null,
+    "sleeve_lining": string | null,
     "closure": string | null,
+    "collar": string | null,
+    "zip_material": string | null,
     "patch_material": string | null,
+    "origin_country": string | null,
+    "exterior": string | null,
     "is_camouflage": boolean | null,
     "is_realtree": boolean | null,
     "is_new_york": boolean | null,
 
     "sku": string | null,
     "sku_status": "ok" | "missing" | "low_confidence"
+  },
+
+  "title_blocks": [
+    {"kind": "category", "value": "Jacket" | "Jacket à capuche"},
+    {"kind": "brand", "value": "..."},
+    {"kind": "style", "value": "..."},
+    {"kind": "size", "value": "..."},
+    {"kind": "specificities", "value": "..."},
+    {"kind": "material", "value": "..."},
+    {"kind": "color_primary", "value": "..."},
+    {"kind": "gender", "value": "..."},
+    {"kind": "sku", "value": "...", "status": "..."} // only if sku_status is ok
+  ],
+
+  "description_blocks": {
+    "title_line": string,
+    "commercial_paragraph": string,
+    "composition_line": string,
+    "state_logistics_lines": [string, ...],
+    "footer_lines": [string, ...],
+    "hashtags_line": string
+  }
+}
+
+EXAMPLE (guideline):
+{
+  "title": "Jacket Carhartt Detroit taille M col chemise doublure sherpa zip 100% coton marron homme",
+  "description": "Jacket Carhartt Detroit pour homme. ... (le texte complet en français)...",
+  "brand": "Carhartt",
+  "style": "Detroit",
+  "pattern": "camouflage" | null,
+  "neckline": null,
+  "season": null,
+  "defects": "Micro trace sur la manche" | null,
+  "features": {
+    "brand": "Carhartt",
+    "model": "Detroit Jacket",
+    "size": "M",
+    "color": "marron",
+    "gender": "homme",
+    "has_hood": false,
+    "pattern": null,
+    "lining": "doublure sherpa",
+    "sleeve_lining": "doublure manches matelassée",
+    "closure": "zip",
+    "collar": "col chemise",
+    "zip_material": null,
+    "patch_material": "écusson tissu",
+    "origin_country": "USA",
+    "exterior": "100% coton",
+    "is_camouflage": false,
+    "is_realtree": false,
+    "is_new_york": false,
+    "sku": "JCR12",
+    "sku_status": "ok"
+  },
+  "title_blocks": [
+    {"kind": "category", "value": "Jacket"},
+    {"kind": "brand", "value": "Carhartt"},
+    {"kind": "style", "value": "Detroit"},
+    {"kind": "size", "value": "taille M"},
+    {"kind": "specificities", "value": "col chemise doublure sherpa zip"},
+    {"kind": "material", "value": "100% coton"},
+    {"kind": "color_primary", "value": "marron"},
+    {"kind": "gender", "value": "homme"},
+    {"kind": "sku", "value": "- JCR12", "status": "ok"}
+  ],
+  "description_blocks": {
+    "title_line": "Jacket Carhartt Detroit pour homme taille M.",
+    "commercial_paragraph": "Coupe workwear avec col chemise, doublure sherpa chaude, fermeture zip.",
+    "composition_line": "Composition : extérieur 100% coton. Doublure : sherpa.",
+    "state_logistics_lines": ["Très bon état.", "📏 Mesures détaillées visibles en photo.", "📦 Envoi rapide et soigné."],
+    "footer_lines": ["✨ Retrouvez toutes mes vestes Carhartt ici 👉 #durin31jc", "💡 Pensez à faire un lot pour économiser les frais d’envoi."],
+    "hashtags_line": "#carhartt #jacket #workwear #durin31jc"
   }
 }
 
 RULES (NO INVENTION):
-- Always mention the word "jacket" in the title.
+- Always mention the word "Jacket" in the title (never "Veste").
 - If the jacket has a hood: clearly flag it in features.has_hood=true and mention it in the French description.
 - If the pattern is camouflage: set pattern="camouflage" and set is_camouflage=true; if you see the Realtree brand, set is_realtree=true.
 - If the model references New York: set is_new_york=true.
 - Only use values that are clearly visible on tags or photos. Otherwise set the field to null.
 - The French description must mention lining/interior, hood, closure type (zip, press studs, double zip), and whether the Carhartt badge/patch is fabric or leather when visible.
+- Try to populate gender, exterior, lining, collar, sleeve_lining, closure and main material if visible; leave null otherwise.
+- Keep one dominant color (color_primary) and at most one secondary color if clearly visible.
+- Provide the structured title_blocks and description_blocks exactly in the required JSON above.
 - SKU (Carhartt Jackets):
   - The SKU is a short internal code written on a tag/paper, typically like "JCR 1", "JCR1", "JCR 12", etc.
   - If you clearly see a SKU starting with letters followed by digits, set:

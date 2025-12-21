@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+from domain.description_engine import DescriptionBlockOrder, render_description
 
 # ---------------------------------------------------------------------------
 # Helpers internes
@@ -674,21 +675,37 @@ def build_jean_levis_description(
             durin_tag=durin_tag,
         )
 
-        paragraphs = [
-            intro_sentence,
-            size_sentence,
-            color_sentence,
-            composition_sentence,
-            closure_sentence,
+        commercial_paragraph = "\n".join(
+            part
+            for part in [
+                size_sentence,
+                color_sentence,
+                closure_sentence,
+            ]
+            if part
+        )
+
+        state_logistics_lines = [
             state_sentence,
             logistics_sentence,
             shipping_sentence,
-            cta_durin_sentence,
-            cta_lot_sentence,
-            hashtags,
         ]
 
-        description = "\n\n".join(part for part in paragraphs if part)
+        footer_lines = [
+            cta_durin_sentence,
+            cta_lot_sentence,
+        ]
+
+        blocks = DescriptionBlockOrder(
+            title_line=intro_sentence,
+            commercial_paragraph=commercial_paragraph,
+            composition_line=composition_sentence,
+            state_logistics_lines=state_logistics_lines,
+            footer_lines=footer_lines,
+            hashtags_line=hashtags,
+        )
+
+        description = render_description(blocks)
         description = _strip_footer_lines(description)
         logger.debug("build_jean_levis_description: description générée = %s", description)
         return description
@@ -804,11 +821,11 @@ def build_pull_tommy_description(
 
         state_sentence = _build_state_sentence(defects)
 
-        logistics_lines = [
+        state_logistics_lines = [
+            state_sentence,
             "📏 Mesures détaillées visibles en photo pour plus de précisions.",
             "📦 Envoi rapide et soigné.",
         ]
-        logistics_sentence = "\n".join(logistics_lines)
 
         tokens_hashtag: List[str] = []
         try:
@@ -851,25 +868,21 @@ def build_pull_tommy_description(
             logger.warning("build_pull_tommy_description: hashtags réduits (%s)", exc)
 
         hashtags_block = " ".join(tokens_hashtag)
-        hashtags_with_cta = "\n".join(
-            [
-                f"✨ Retrouvez tous mes pulls Tommy femme ici 👉 {durin_tag}",
-                "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
-                "",
-                hashtags_block,
-            ]
-        )
-
-        paragraphs = [
-            intro_sentence,
-            descriptive_sentence,
-            composition_sentence,
-            state_sentence,
-            logistics_sentence,
-            hashtags_with_cta,
+        footer_lines = [
+            f"✨ Retrouvez tous mes pulls Tommy femme ici 👉 {durin_tag}",
+            "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
         ]
 
-        description = "\n\n".join([p for p in paragraphs if p])
+        blocks = DescriptionBlockOrder(
+            title_line=intro_sentence,
+            commercial_paragraph=descriptive_sentence,
+            composition_line=composition_sentence,
+            state_logistics_lines=state_logistics_lines,
+            footer_lines=footer_lines,
+            hashtags_line=hashtags_block,
+        )
+
+        description = render_description(blocks)
         cleaned = _strip_footer_lines(description)
         logger.debug("build_pull_tommy_description: description générée = %s", cleaned)
         return cleaned
@@ -1109,14 +1122,16 @@ def build_jacket_carhart_description(
         size_tag = f"{general_tag}{size_token}" if size_token else "#durin31jcnc"
         color_tag = f"#{color.lower().replace(' ', '')}" if color else ""
 
-        logistics_sentence = "📏 Mesures détaillées visibles en photo pour plus de précisions."
-        shipping_sentence = "📦 Envoi rapide et soigné."
-        cta_sentence = (
-            f"✨ Retrouvez toutes mes vestes Carhartt ici 👉 {general_tag} et à votre taille 👉 {size_tag}"
-        )
-        bundle_sentence = (
-            "💡 Pensez à faire un lot pour bénéficier d’une réduction et économiser sur les frais d’envoi."
-        )
+        state_logistics_lines = [
+            state_sentence,
+            "📏 Mesures détaillées visibles en photo pour plus de précisions.",
+            "📦 Envoi rapide et soigné.",
+        ]
+
+        footer_lines = [
+            f"✨ Retrouvez toutes mes vestes Carhartt ici 👉 {general_tag} et à votre taille 👉 {size_tag}",
+            "💡 Pensez à faire un lot pour bénéficier d’une réduction et économiser sur les frais d’envoi.",
+        ]
 
         hashtags = " ".join(
             token
@@ -1136,22 +1151,16 @@ def build_jacket_carhart_description(
             if token
         ).strip()
 
-        # --- 11) Assemblage final -------------------------------------------
-        paragraphs = [
-            product_sentence,
-            style_sentence,
-            warmth_sentence,
-            zip_sentence,
-            composition_block,
-            state_sentence,
-            logistics_sentence,
-            shipping_sentence,
-            cta_sentence,
-            bundle_sentence,
-            hashtags,
-        ]
+        blocks = DescriptionBlockOrder(
+            title_line=product_sentence,
+            commercial_paragraph="\n".join(part for part in [style_sentence, warmth_sentence, zip_sentence] if part),
+            composition_line=composition_block,
+            state_logistics_lines=state_logistics_lines,
+            footer_lines=footer_lines,
+            hashtags_line=hashtags,
+        )
 
-        description = "\n\n".join(part for part in paragraphs if part).strip()
+        description = render_description(blocks).strip()
         logger.debug("build_jacket_carhart_description: description générée = %s", description)
         return description
 
