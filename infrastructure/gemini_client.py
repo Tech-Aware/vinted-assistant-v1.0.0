@@ -6,8 +6,18 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from typing import TYPE_CHECKING
+
 import google.generativeai as genai
-from jsonschema import ValidationError, validate
+
+try:  # pragma: no cover - dépendance optionnelle en environnement restreint
+    from jsonschema import ValidationError, validate
+except Exception:  # pragma: no cover - fallback local si jsonschema absent
+    ValidationError = None
+
+    def validate(instance: dict, schema: dict) -> None:  # type: ignore
+        """Fallback no-op si jsonschema n'est pas disponible."""
+        return
 
 from config.settings import Settings
 from domain.ai_provider import AIListingProvider, AIProviderName
@@ -17,7 +27,9 @@ from domain.models import VintedListing
 from domain.prompt import PROMPT_CONTRACT
 from domain.templates import AnalysisProfile
 from domain.normalizer import normalize_and_postprocess
-from infrastructure.google_vision_ocr import GoogleVisionOCRProvider
+
+if TYPE_CHECKING:  # pragma: no cover
+    from infrastructure.google_vision_ocr import GoogleVisionOCRProvider
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +61,12 @@ class GeminiListingClient(AIListingProvider):
         genai.configure(api_key=settings.gemini_api_key)
         self._model_name = self._normalize_model_name(settings.gemini_model)
         try:
-            self._ocr: OCRProvider = ocr_provider or GoogleVisionOCRProvider()
+            if ocr_provider is not None:
+                self._ocr = ocr_provider
+            else:
+                from infrastructure.google_vision_ocr import GoogleVisionOCRProvider  # lazy import
+
+                self._ocr = GoogleVisionOCRProvider()
         except Exception as exc:
             logger.warning(
                 "OCR non disponible lors de l'initialisation (%s). Passage en mode dégradé sans OCR.",
@@ -367,11 +384,11 @@ class GeminiListingClient(AIListingProvider):
         try:
             validate(instance=payload, schema=profile.json_schema)
             logger.info("Validation JSON Gemini réussie (profil=%s).", profile.name.value)
-        except ValidationError as exc:
+        except Exception as exc:
             logger.warning(
                 "JSON Gemini non conforme au schéma (%s): %s",
                 profile.name.value,
-                exc.message,
+                getattr(exc, "message", exc),
             )
             try:
                 required = profile.json_schema.get("required", [])
