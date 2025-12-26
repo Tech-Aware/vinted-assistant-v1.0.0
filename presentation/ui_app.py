@@ -330,7 +330,7 @@ class VintedAIApp(ctk.CTk):
                 hover_color=self.palette.get("accent_gradient_end"),
                 text_color="white",
             )
-            self.generate_btn.pack(anchor="e", padx=6, pady=(0, 6))
+            self.generate_btn.pack(anchor="e", padx=6, pady=(2, 4))
 
             logger.info("Bouton de génération positionné dans le header de la galerie.")
         except Exception as exc:
