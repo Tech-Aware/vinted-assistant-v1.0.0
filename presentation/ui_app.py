@@ -102,6 +102,8 @@ class VintedAIApp(ctk.CTk):
 
         self._background_canvas: Optional[tk.Canvas] = None
         self._content_container: Optional[ctk.CTkFrame] = None
+        self._gallery_target_height: int = 440
+        logger.info("Hauteur cible de la galerie initialisée à %spx.", self._gallery_target_height)
 
         self._init_theme()
         self._build_ui()
@@ -557,11 +559,16 @@ class VintedAIApp(ctk.CTk):
             # Zone de preview réutilisée depuis l’ancienne app
             self.preview_frame = ImagePreview(
                 gallery_wrapper,
+                height=self._gallery_target_height,
                 on_remove=self._remove_image,
                 get_ocr_var=lambda p: self.ocr_flags.get(p),
             )
             self.preview_frame.configure(fg_color=self.palette.get("bg_end"))
             self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
+            logger.info(
+                "Galerie d'images initialisée avec une hauteur cible de %spx.",
+                self._gallery_target_height,
+            )
 
             # --- Contenu principal (gauche = paramètres, droite = résultat) ---
             self.main_content_frame = ctk.CTkScrollableFrame(
@@ -1959,16 +1966,7 @@ class VintedAIApp(ctk.CTk):
         try:
             variants: List[Dict[str, str]] = []
 
-            raw_desc = getattr(listing, "description_raw", "") or ""
             refined_desc = listing.description or ""
-
-            if raw_desc.strip():
-                variants.append(
-                    {
-                        "label": "Description brute IA",
-                        "value": raw_desc.strip(),
-                    }
-                )
 
             variants.append(
                 {
@@ -2007,6 +2005,15 @@ class VintedAIApp(ctk.CTk):
 
             if self.description_header_label:
                 self.description_header_label.configure(text=variant.get("label", "Description"))
+
+            if self.description_toggle_btn:
+                next_state = "normal" if len(self.description_variants) > 1 else "disabled"
+                self.description_toggle_btn.configure(state=next_state)
+                logger.info(
+                    "Bouton de bascule description %s (nombre de variantes: %s).",
+                    "activé" if next_state == "normal" else "désactivé",
+                    len(self.description_variants),
+                )
         except Exception as exc:
             logger.error("_render_description_variant: erreur %s", exc, exc_info=True)
 
