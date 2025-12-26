@@ -509,15 +509,15 @@ class VintedAIApp(ctk.CTk):
             us_entry.grid(row=0, column=3, sticky="w")
 
             self.size_hint = ctk.CTkLabel(
-                self.size_inputs_frame,
+                size_row,
                 text="Renseigner les tailles améliore la précision des fiches.",
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
                 justify="left",
-                wraplength=340,
+                wraplength=220,
                 anchor="w",
             )
-            self.size_hint.pack(anchor="w", pady=(2, 0))
+            self.size_hint.grid(row=0, column=4, sticky="w", padx=(12, 0))
 
             self.measure_mode_frame = ctk.CTkFrame(
                 size_controls_frame,
@@ -1068,9 +1068,9 @@ class VintedAIApp(ctk.CTk):
 
             if self.clear_gallery_btn:
                 try:
-                    if count >= 2:
+                    if count >= 1:
                         if not self.clear_gallery_btn.winfo_manager():
-                            self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=10)
+                            self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
                             logger.info(
                                 "Bouton de vidage de galerie affiché (compte: %s).",
                                 count,
