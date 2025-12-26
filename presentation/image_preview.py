@@ -215,7 +215,7 @@ class ImagePreview(ctk.CTkFrame):
                         hover_color="#1cc59c",
                         text_color="white",
                     )
-                    checkbox.place(relx=1.0, rely=1.0, anchor="se", x=-6, y=-6)
+                    checkbox.place(relx=0.0, rely=0.0, anchor="nw", x=6, y=6)
                     self._ocr_checkboxes.append(checkbox)
 
         self._gallery_container.update_idletasks()
