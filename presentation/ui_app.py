@@ -311,17 +311,14 @@ class VintedAIApp(ctk.CTk):
 
     def _build_generate_button(self, parent: ctk.CTkFrame) -> None:
         try:
+            # Statut non affiché pour aligner les boutons mais conservé pour mise à jour interne
             status_wrapper = ctk.CTkFrame(parent, fg_color="transparent")
-            status_wrapper.pack(anchor="e", fill="x", padx=6, pady=(0, 2))
-
             self.status_label = ctk.CTkLabel(
                 status_wrapper,
-                text="Prêt à générer",
+                text="",
                 font=self.fonts.get("small"),
                 text_color=self.palette.get("text_muted"),
             )
-            self.status_label.pack(anchor="e", pady=(0, 2))
-
             self.generate_btn = ctk.CTkButton(
                 parent,
                 text="Générer",
@@ -387,7 +384,7 @@ class VintedAIApp(ctk.CTk):
             if profile_values and not self.profile_var.get():
                 self.profile_var.set(profile_values[0])
 
-            profile_frame = ctk.CTkFrame(header_inner, fg_color="transparent")
+            profile_frame = ctk.CTkFrame(header_left, fg_color="transparent")
             profile_frame.pack(side="left", padx=(0, 12), pady=(2, 2))
 
             profile_label = ctk.CTkLabel(
@@ -418,36 +415,6 @@ class VintedAIApp(ctk.CTk):
             buttons_row = ctk.CTkFrame(header_actions, fg_color="transparent")
             buttons_row.pack(anchor="e")
 
-            self.reset_gallery_btn = ctk.CTkButton(
-                buttons_row,
-                text="⟲",  # ton symbole
-                width=30,
-                height=28,
-                corner_radius=12,
-                fg_color=self.palette.get("accent_gradient_end"),
-                hover_color=self.palette.get("accent_gradient_start"),
-                text_color="white",
-                font=ctk.CTkFont(size=16, weight="bold"),
-                border_spacing=0,  # clé: padding interne
-                anchor="center",  # si ta version CTk le supporte
-                command=self._reset_all,
-            )
-            self.reset_gallery_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
-
-            self.clear_gallery_btn = ctk.CTkButton(
-                buttons_row,
-                text="Vider",
-                width=84,
-                height=28,
-                corner_radius=12,
-                fg_color=self.palette.get("card_border"),
-                hover_color=self.palette.get("accent_gradient_start"),
-                text_color="white",
-                command=self._clear_gallery,
-            )
-            self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
-            self.clear_gallery_btn.pack_forget()
-
             add_image_btn = ctk.CTkButton(
                 buttons_row,
                 text="+ Ajouter",
@@ -464,6 +431,36 @@ class VintedAIApp(ctk.CTk):
             generate_wrapper = ctk.CTkFrame(buttons_row, fg_color="transparent")
             generate_wrapper.pack(side="right", padx=(0, 6), pady=(0, 2))
             self._build_generate_button(generate_wrapper)
+
+            self.clear_gallery_btn = ctk.CTkButton(
+                buttons_row,
+                text="Vider",
+                width=84,
+                height=28,
+                corner_radius=12,
+                fg_color=self.palette.get("card_border"),
+                hover_color=self.palette.get("accent_gradient_start"),
+                text_color="white",
+                command=self._clear_gallery,
+            )
+            self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
+            self.clear_gallery_btn.pack_forget()
+
+            self.reset_gallery_btn = ctk.CTkButton(
+                buttons_row,
+                text="⟲",  # ton symbole
+                width=30,
+                height=28,
+                corner_radius=12,
+                fg_color=self.palette.get("accent_gradient_end"),
+                hover_color=self.palette.get("accent_gradient_start"),
+                text_color="white",
+                font=ctk.CTkFont(size=16, weight="bold"),
+                border_spacing=0,  # clé: padding interne
+                anchor="center",  # si ta version CTk le supporte
+                command=self._reset_all,
+            )
+            self.reset_gallery_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
 
             size_controls_frame = ctk.CTkFrame(header, fg_color="transparent")
             size_controls_frame.pack(fill="x", padx=8, pady=(0, 8))
