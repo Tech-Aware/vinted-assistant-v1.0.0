@@ -1959,16 +1959,7 @@ class VintedAIApp(ctk.CTk):
         try:
             variants: List[Dict[str, str]] = []
 
-            raw_desc = getattr(listing, "description_raw", "") or ""
             refined_desc = listing.description or ""
-
-            if raw_desc.strip():
-                variants.append(
-                    {
-                        "label": "Description brute IA",
-                        "value": raw_desc.strip(),
-                    }
-                )
 
             variants.append(
                 {
@@ -2007,6 +1998,15 @@ class VintedAIApp(ctk.CTk):
 
             if self.description_header_label:
                 self.description_header_label.configure(text=variant.get("label", "Description"))
+
+            if self.description_toggle_btn:
+                next_state = "normal" if len(self.description_variants) > 1 else "disabled"
+                self.description_toggle_btn.configure(state=next_state)
+                logger.info(
+                    "Bouton de bascule description %s (nombre de variantes: %s).",
+                    "activé" if next_state == "normal" else "désactivé",
+                    len(self.description_variants),
+                )
         except Exception as exc:
             logger.error("_render_description_variant: erreur %s", exc, exc_info=True)
 
