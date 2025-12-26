@@ -38,7 +38,9 @@ class ImagePreview(ctk.CTkFrame):
     ) -> None:
         super().__init__(master)
         self._thumb_min_width = width
-        self._max_height = height
+        self._default_max_height = max(1, height)
+        self._max_height = max(1, height)
+        self._max_allowed_height = 1400
         self._card_bg = "#0f2135"
         self._card_border = "#1f3953"
         self._remove_bg = "#d9534f"
@@ -132,9 +134,42 @@ class ImagePreview(ctk.CTkFrame):
             logger.error("Aucune vignette valide n'a pu être générée")
             return
 
+        self._update_target_height()
         self._show_gallery()
         self._render_gallery()
         logger.info("%d vignette(s) générée(s)", len(self._pil_images))
+
+    def _update_target_height(self) -> None:
+        try:
+            if not self._pil_images:
+                self._max_height = self._default_max_height
+                logger.info(
+                    "Hauteur de galerie réinitialisée à la valeur par défaut (%spx) faute d'image.",
+                    self._default_max_height,
+                )
+                return
+
+            tallest = max((img.height for img in self._pil_images), default=self._default_max_height)
+            capped_height = min(max(1, tallest), self._max_allowed_height)
+            if capped_height != tallest:
+                logger.info(
+                    "Hauteur d'image maximale (%spx) plafonnée à %spx pour éviter un débordement UI.",
+                    tallest,
+                    capped_height,
+                )
+            self._max_height = capped_height
+            logger.info(
+                "Hauteur de galerie ajustée dynamiquement à %spx pour éviter la troncature.",
+                self._max_height,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self._max_height = self._default_max_height
+            logger.error(
+                "Échec du calcul de la hauteur cible de galerie: %s. Repli sur %spx.",
+                exc,
+                self._default_max_height,
+                exc_info=True,
+            )
 
     def _on_resize(self, _event: object) -> None:
         if not self._pil_images:
@@ -158,7 +193,7 @@ class ImagePreview(ctk.CTkFrame):
         gap = 12
         available_width = max(self._scroll_frame.winfo_width(), self._thumb_min_width)
         column_width = max(self._thumb_min_width, (available_width - gap * (column_count + 1)) // column_count)
-        max_height = max(self._max_height, int(column_width * 1.2))
+        max_height = self._max_height
 
         for index, (image, path) in enumerate(zip(self._pil_images, self._image_paths)):
             thumbnail = image.copy()

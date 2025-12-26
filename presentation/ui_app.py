@@ -102,8 +102,6 @@ class VintedAIApp(ctk.CTk):
 
         self._background_canvas: Optional[tk.Canvas] = None
         self._content_container: Optional[ctk.CTkFrame] = None
-        self._gallery_target_height: int = 440
-        logger.info("Hauteur cible de la galerie initialisée à %spx.", self._gallery_target_height)
 
         self._init_theme()
         self._build_ui()
@@ -559,16 +557,11 @@ class VintedAIApp(ctk.CTk):
             # Zone de preview réutilisée depuis l’ancienne app
             self.preview_frame = ImagePreview(
                 gallery_wrapper,
-                height=self._gallery_target_height,
                 on_remove=self._remove_image,
                 get_ocr_var=lambda p: self.ocr_flags.get(p),
             )
             self.preview_frame.configure(fg_color=self.palette.get("bg_end"))
             self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
-            logger.info(
-                "Galerie d'images initialisée avec une hauteur cible de %spx.",
-                self._gallery_target_height,
-            )
 
             # --- Contenu principal (gauche = paramètres, droite = résultat) ---
             self.main_content_frame = ctk.CTkScrollableFrame(
