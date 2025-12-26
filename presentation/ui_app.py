@@ -323,9 +323,9 @@ class VintedAIApp(ctk.CTk):
                 parent,
                 text="Générer",
                 command=self.generate_listing,
-                width=118,
-                height=30,
-                corner_radius=12,
+                width=96,
+                height=28,
+                corner_radius=10,
                 fg_color=self.palette.get("accent_gradient_start"),
                 hover_color=self.palette.get("accent_gradient_end"),
                 text_color="white",
@@ -426,10 +426,10 @@ class VintedAIApp(ctk.CTk):
                 text_color="white",
                 command=self.select_images,
             )
-            add_image_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
+            add_image_btn.pack(side="left", padx=(0, 6), pady=(2, 4))
 
             generate_wrapper = ctk.CTkFrame(buttons_row, fg_color="transparent")
-            generate_wrapper.pack(side="right", padx=(0, 6), pady=(0, 2))
+            generate_wrapper.pack(side="left", padx=(0, 6), pady=(0, 2))
             self._build_generate_button(generate_wrapper)
 
             self.clear_gallery_btn = ctk.CTkButton(
@@ -443,7 +443,7 @@ class VintedAIApp(ctk.CTk):
                 text_color="white",
                 command=self._clear_gallery,
             )
-            self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
+            self.clear_gallery_btn.pack(side="left", padx=(0, 6), pady=(2, 4))
             self.clear_gallery_btn.pack_forget()
 
             self.reset_gallery_btn = ctk.CTkButton(
@@ -460,7 +460,7 @@ class VintedAIApp(ctk.CTk):
                 anchor="center",  # si ta version CTk le supporte
                 command=self._reset_all,
             )
-            self.reset_gallery_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
+            self.reset_gallery_btn.pack(side="left", padx=(0, 0), pady=(2, 4))
 
             size_controls_frame = ctk.CTkFrame(header, fg_color="transparent")
             size_controls_frame.pack(fill="x", padx=8, pady=(0, 8))
@@ -1070,7 +1070,7 @@ class VintedAIApp(ctk.CTk):
                 try:
                     if count >= 1:
                         if not self.clear_gallery_btn.winfo_manager():
-                            self.clear_gallery_btn.pack(side="right", padx=(0, 6), pady=(2, 4))
+                            self.clear_gallery_btn.pack(side="left", padx=(0, 6), pady=(2, 4))
                             logger.info(
                                 "Bouton de vidage de galerie affiché (compte: %s).",
                                 count,
