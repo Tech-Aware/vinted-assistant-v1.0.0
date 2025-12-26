@@ -44,6 +44,18 @@ def build_description_jean_levis(
         sku = _safe_clean(features.get("sku"))
         rise_label = _format_rise_label(features.get("rise_type"), features.get("rise_cm"))
 
+        # --- Fit effectif (doit matcher le titre) ---
+        fit_effective = fit
+        model_low = (model or "").lower()
+
+        # règle métier: Demi Curve => Bootcut/Évasé
+        # (on évite de forcer Bootcut dès qu'on voit "curve" seul si tu as d'autres modèles "Curve")
+        if "demi" in model_low and "curve" in model_low:
+            fit_effective = "Bootcut/Évasé"
+        elif "curve" in model_low and not fit_effective:
+            # fallback doux si l'IA n'a rien mis dans fit
+            fit_effective = "Bootcut/Évasé"
+
         title_intro_parts = ["Jean", brand]
         if model:
             title_intro_parts.append(model)
@@ -51,45 +63,89 @@ def build_description_jean_levis(
 
         intro_sentence = f"{title_intro} pour {gender}."
 
-        size_sentence_parts = []
+        # --- Phrase taille / coupe / rise ---
+        size_sentence_parts: List[str] = []
+
         if size_us and size_fr:
             size_sentence_parts.append(f"Taille {size_us} US (équivalent {size_fr} FR)")
         elif size_fr:
             size_sentence_parts.append(f"Taille {size_fr} FR")
         elif size_us:
             size_sentence_parts.append(f"Taille {size_us} US")
-        if fit:
-            size_sentence_parts.append(f"coupe {fit}")
+
+        if fit_effective:
+            size_sentence_parts.append(f"coupe {fit_effective}")
+
         if rise_label:
             size_sentence_parts.append(f"à {rise_label}")
+
         if size_sentence_parts:
             size_sentence_parts.append("pour une silhouette ajustée et confortable")
+
         size_sentence = ", ".join(size_sentence_parts).strip()
         size_sentence = f"{size_sentence}." if size_sentence else "Taille non précisée."
 
+        # --- Couleur ---
         color_has_fade = "lavé" in color.lower() if color else False
         if color:
             nuance = " légèrement délavé" if not color_has_fade else ""
             color_sentence = f"Coloris {color}{nuance}, très polyvalent et facile à assortir."
         else:
             color_sentence = "Coloris non précisé, se référer aux photos pour les nuances."
-        composition_sentence = _build_composition(features.get("cotton_percent"), features.get("elasthane_percent"))
+
+        # --- Prose / sensation (prudente, dérivée des features) ---
+        comfort_sentence = None
+        try:
+            # On ne "promet" pas : juste des formulations non risquées
+            elas_val = _format_percent(features.get("elasthane_percent"))
+
+            base = "Denim agréable à porter"
+
+            # "stretch" uniquement si > 2%
+            if elas_val is not None and elas_val > 2:
+                base += ", stretch pour plus de confort"
+
+            # fit
+            fit_low = (fit_effective or "").lower()
+            if "boot" in fit_low or "évas" in fit_low or "evas" in fit_low or "flare" in fit_low:
+                base += ", avec une jambe qui s’évase subtilement en bas"
+            elif "skinny" in fit_low:
+                base += ", coupe près du corps"
+
+            '''# rise
+            if rise_label:
+                rl = rise_label.lower()
+                if "basse" in rl:
+                    base += ", taille basse"
+                elif "haute" in rl:
+                    base += ", taille haute"
+                elif "moyenne" in rl or "mi-haute" in rl or "mi haute" in rl:
+                    base += ", taille mi-haute"'''
+
+            comfort_sentence = base.strip().rstrip(".") + "."
+        except Exception:
+            comfort_sentence = None
+
+        composition_sentence = _build_composition(
+            features.get("cotton_percent"),
+            features.get("elasthane_percent"),
+        )
+
         closure_sentence = "Fermeture zippée + bouton gravé Levi’s."
         state_sentence = _build_state_sentence(ai_defects or features.get("defects"))
 
         logistics_sentence = "📏 Mesures visibles en photo."
-        shipping_sentence = "📦 Envoi rapide et soigné"
+        shipping_sentence = "📦 Envoi rapide et soigné."
 
-        cta_lot_sentence = (
-            "💡 Pensez à un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !"
-        )
+        cta_lot_sentence = "💡 Pensez à un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !"
         durin_tag = f"#durin31fr{(size_fr or 'nc').lower()}"
         cta_durin_sentence = f"✨ Retrouvez tous mes articles Levi’s à votre taille ici 👉 {durin_tag}"
 
+        # IMPORTANT: passer fit_effective au builder hashtags pour éviter incohérences (#skinnyjean vs bootcut)
         hashtags = _build_hashtags(
             brand=brand,
             model=model,
-            fit=fit,
+            fit=fit_effective,  # <-- ici
             color=color,
             size_fr=size_fr,
             size_us=size_us,
@@ -103,6 +159,7 @@ def build_description_jean_levis(
             intro_sentence,
             size_sentence,
             color_sentence,
+            comfort_sentence,
             composition_sentence,
             closure_sentence,
             state_sentence,
@@ -123,6 +180,7 @@ def build_description_jean_levis(
         return _safe_clean(ai_description)
 
 
+
 def build_description_pull_tommy(
     features: Dict[str, Any], ai_description: Optional[str] = None, ai_defects: Optional[str] = None
 ) -> str:
@@ -130,7 +188,6 @@ def build_description_pull_tommy(
         logger.info("build_description_pull_tommy: features reçus = %s", features)
 
         brand = _safe_clean(features.get("brand")) or "Tommy Hilfiger"
-        brand.capitalize()
         garment_type = _safe_clean(features.get("garment_type")) or "pull"
         gender = _safe_clean(features.get("gender")) or "femme"
         neckline = _safe_clean(features.get("neckline"))
@@ -145,91 +202,168 @@ def build_description_pull_tommy(
         measurement_mode = (_safe_clean(features.get("measurement_mode")) or "").lower()
         defects = ai_defects or features.get("defects")
 
+        # --- Couleurs normalisées (texte simple) ---
         colors = ""
-        try:
-            if isinstance(colors_raw, list):
-                colors = ", ".join([_safe_clean(c) for c in colors_raw if _safe_clean(c)])
-            else:
-                colors = _safe_clean(colors_raw)
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("build_description_pull_tommy: couleurs non exploitables (%s)", exc)
-            colors = ""
-
-        intro_parts: List[str] = []
-        intro_parts.append(f"{garment_type.capitalize()} {brand}")
-        if gender:
-            intro_parts.append(f"pour {gender}")
-        intro_base = " ".join(intro_parts).strip()
-
-        if size:
-            if size_source == "estimated" or measurement_mode == "mesures":
-                intro_sentence = f"{intro_base} taille {size} (Estimée à la main à partir des mesures à plat)."
-            else:
-                intro_sentence = f"{intro_base} taille {size}."
+        if isinstance(colors_raw, list):
+            colors = ", ".join([_safe_clean(c) for c in colors_raw if _safe_clean(c)])
         else:
-            intro_sentence = f"{intro_base}."
+            colors = _safe_clean(colors_raw)
 
-        material_phrase = "maille agréable"
+        # --- Normaliser neckline pour éviter "col col V" ---
+        neckline_text = ""
+        if neckline:
+            nl = neckline.strip()
+            if nl.lower().startswith("col"):
+                neckline_text = nl  # ex: "col V"
+            else:
+                neckline_text = f"col {nl}"
+
+        # --- Headline (plus naturel) ---
+        # Ex: "Pull Tommy Hilfiger femme - taille XL. Maille torsadée, col V, bleu. 100% coton."
+        headline_main: List[str] = [f"{garment_type.capitalize()} {brand}"]
+        if gender:
+            headline_main.append(gender.lower())
+
         cotton_val = _format_percent(cotton_percent)
         wool_val = _format_percent(wool_percent)
         angora_val = _format_percent(angora_percent)
 
+        # --- Sensation / toucher (dérivé de la matière, sans invention) ---
+        sensation_sentence = None
         if angora_val is not None:
-            material_phrase = f"maille {angora_val}% angora"
+            sensation_sentence = "Maille douce et légère au toucher, offrant un confort chaleureux et agréable."
         elif wool_val is not None:
-            material_phrase = f"maille {wool_val}% laine"
+            sensation_sentence = "Maille chaude et confortable, agréable à porter par temps frais."
         elif cotton_val is not None:
-            material_phrase = f"maille {cotton_val}% coton"
-        if material:
-            material_phrase = material
+            sensation_sentence = "Maille douce et respirante, confortable pour un usage quotidien."
 
-        style_phrase = []
-        if neckline:
-            style_phrase.append(f"col {neckline}")
+
+        # taille
+        size_part = ""
+        if size:
+            if size_source == "estimated" or measurement_mode == "mesures":
+                size_part = f"taille {size} (estimée via mesures)"
+            else:
+                size_part = f"taille {size}"
+
+        headline_line1 = " ".join([p for p in headline_main if p]).strip()
+        if size_part:
+            headline_line1 = f"{headline_line1} - {size_part}"
+        headline_line1 = headline_line1.rstrip(".") + "."
+
+        # style (sans composition chiffrée)
+        style_bits: List[str] = []
         if pattern:
-            style_phrase.append(pattern)
-        style_sentence = ", ".join(style_phrase) + "." if style_phrase else None
+            # pattern attendu: "torsadé", "uni", etc.
+            style_bits.append(f"maille {pattern}".strip())
+        if neckline_text:
+            style_bits.append(neckline_text)
+        if colors:
+            style_bits.append(colors)
 
-        color_sentence = f"Couleur : {colors}." if colors else None
+        headline_line2 = ", ".join([b for b in style_bits if b]).strip()
+        if headline_line2:
+            headline_line2 = headline_line2.rstrip(".") + "."
 
+        headline = "\n".join([line for line in [headline_line1, headline_line2] if line])
+
+        # --- Composition (priorité au % si dispo, sinon à l'étiquette texte) ---
         composition_sentence = None
-        if cotton_val is not None or wool_val is not None or angora_val is not None:
-            composition_sentence = "Composition : "
-            tokens = []
-            if cotton_val is not None:
-                tokens.append(f"{cotton_val}% coton")
-            if wool_val is not None:
-                tokens.append(f"{wool_val}% laine")
-            if angora_val is not None:
-                tokens.append(f"{angora_val}% angora")
-            composition_sentence += " / ".join(tokens) + "."
+        cotton_val = _format_percent(cotton_percent)
+        wool_val = _format_percent(wool_percent)
+        angora_val = _format_percent(angora_percent)
 
-        state_sentence = f"État visuel : {defects}." if defects else "État visuel : bon état, voir photos."
+        comp_tokens = []
+        if cotton_val is not None:
+            comp_tokens.append(f"{cotton_val}% coton")
+        if wool_val is not None:
+            comp_tokens.append(f"{wool_val}% laine")
+        if angora_val is not None:
+            comp_tokens.append(f"{angora_val}% angora")
 
-        footer = (
-            "📏 Mesures détaillées visibles en photo pour plus de précisions.\n"
-            "📦 Envoi rapide et soigné.\n"
-            "✨ Retrouvez tous mes pulls Tommy femme ici 👉 #durin31tfM\n"
-            "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !\n\n"
-            "#tommyhilfiger #pulltommy #tommy #pullfemme #modefemme #preloved #durin31tfM #ptf #rouge"
+        if comp_tokens:
+            composition_sentence = "Composition : " + " / ".join(comp_tokens) + "."
+        else:
+            mat = _safe_clean(material)
+            if mat:
+                composition_sentence = f"Composition (étiquette) : {mat.rstrip('.')}."
+            else:
+                composition_sentence = "Composition non lisible (voir photos)."
+
+        # --- Phrase détail (propre) ---
+        details_parts = []
+        if neckline_text:
+            details_parts.append(neckline_text)
+        if pattern:
+            details_parts.append(pattern)
+        # details_sentence = f"Détails : {', '.join(details_parts)}." if details_parts else None
+        details_sentence = None
+
+        # --- État (cohérent) ---
+        if defects:
+            d = _safe_clean(defects).strip().rstrip(".")
+            # "Aucun défaut..." -> "aucun défaut..."
+            if d[:1].isupper():
+                d = d[:1].lower() + d[1:]
+            state_sentence = f"État : {d} (voir photos)."
+        else:
+            state_sentence = "État : très bon état (voir photos)."
+
+        # --- Footer dynamique (taille) ---
+        size_token = (size or "NC").replace(" ", "").upper()
+        durin_tag = f"#durin31tf{size_token}"
+
+        # --- Hashtags cohérents (pas de #rouge hardcodé) ---
+        hashtag_tokens: List[str] = []
+        def _add_tag(t: str) -> None:
+            if t and t not in hashtag_tokens:
+                hashtag_tokens.append(t)
+
+        _add_tag("#tommyhilfiger")
+        _add_tag("#pulltommy")
+        _add_tag("#tommy")
+        _add_tag("#pullfemme" if gender.lower() == "femme" else "#pullhomme")
+        _add_tag("#mode")
+        _add_tag("#preloved")
+        _add_tag(durin_tag)
+        _add_tag("#ptf")
+
+        if colors:
+            for c in colors.split(","):
+                cc = c.strip().lower().replace(" ", "")
+                if cc:
+                    _add_tag(f"#{cc}")
+
+        hashtags = " ".join(hashtag_tokens)
+
+        footer = "\n".join(
+            [
+                "📏 Mesures détaillées visibles en photo pour plus de précisions.",
+                "📦 Envoi rapide et soigné.",
+                f"✨ Retrouvez tous mes pulls Tommy ici 👉 {durin_tag}",
+                "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
+                "",
+                hashtags,
+            ]
         )
 
         paragraphs = [
-            intro_sentence,
-            f"Matière : {material_phrase}." if material_phrase else None,
-            style_sentence,
-            color_sentence,
+            headline,
+            sensation_sentence,
             composition_sentence,
             state_sentence,
             footer,
         ]
 
         description = "\n\n".join([p for p in paragraphs if p])
+        description = _safe_clean(description)
         logger.debug("build_description_pull_tommy: description générée = %s", description)
         return description
+
     except Exception as exc:  # pragma: no cover - robustesse
         logger.exception("build_description_pull_tommy: fallback description IA (%s)", exc)
         return _safe_clean(ai_description)
+
 
 
 def build_description_jacket_carhart(
@@ -319,25 +453,31 @@ def build_description_jacket_carhart(
                 cleaned = _clean_carhartt_material_segment(text)
                 if not cleaned:
                     return ""
-                matches = re.findall(r"\d+\\s*%\\s*[A-Za-zÀ-ÿ'’\\- ]+", cleaned)
+                matches = re.findall(r"\d+\s*%\s*[A-Za-zÀ-ÿ'’\- ]+", cleaned)
                 if matches:
-                    return ", ".join(m.strip() for m in matches)
+                    return " / ".join(m.strip() for m in matches)
                 return cleaned
             except Exception as exc:  # pragma: no cover
                 logger.warning("_pick_percent_line: erreur (%s)", exc)
                 return _clean_carhartt_material_segment(text) or ""
 
+        # --- Warmth sentence: ne jamais injecter la composition dans la prose ---
         lining_label = ""
         try:
             low = (lining or "").lower()
-            if "matelass" in low:
+
+            # uniquement des libellés "qualitatifs", jamais des %/matières
+            if "matelass" in low or "quilt" in low:
                 lining_label = "doublure matelassée"
             elif "sherpa" in low:
                 lining_label = "doublure sherpa"
-            elif lining:
-                lining_label = _strip_percentage_tokens(_clean_carhartt_material_segment(lining))
+            elif "blanket" in low or "laine" in low:
+                lining_label = "doublure type blanket"
+            else:
+                lining_label = ""  # important : sinon risque "70% acrylique..."
         except Exception as exc:  # pragma: no cover
             logger.debug("lining_label: fallback (%s)", exc)
+            lining_label = ""
 
         warmth_parts: List[str] = []
         if lining_label:
@@ -357,7 +497,11 @@ def build_description_jacket_carhart(
 
         warmth_sentence = ""
         if warmth_parts:
-            warmth_sentence = ", ".join(warmth_parts).strip().rstrip(".") + "."
+            joined = ", ".join(warmth_parts).strip().lstrip(", ").rstrip(".")
+            # évite une phrase qui démarre par "avec ..."
+            if joined.lower().startswith("avec "):
+                joined = f"Veste agréable à porter, {joined}"
+            warmth_sentence = joined + "."
 
         zip_sentence = ""
         if zip_material:

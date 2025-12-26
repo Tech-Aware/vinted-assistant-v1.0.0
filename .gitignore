@@ -1,3 +1,7 @@
+credentials/
+*.json
+
+
 # --- Python ---
 __pycache__/
 *.py[cod]

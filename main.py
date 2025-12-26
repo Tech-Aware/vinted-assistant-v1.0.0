@@ -33,7 +33,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     try:
         settings = load_settings()
-        logger.debug("Settings chargés: %r", settings)
+        logger.debug("Settings chargés: %r", "good api key for gemini")
     except Exception as exc:
         logger.critical(
             "Impossible de charger la configuration (Settings). Erreur: %s",

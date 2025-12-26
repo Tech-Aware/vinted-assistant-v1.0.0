@@ -10,6 +10,7 @@ from .base import (
     AnalysisProfile,
     AnalysisProfileName,
     BASE_LISTING_SCHEMA,
+    AI_ENVELOPE_SCHEMA
 )
 
 logger = logging.getLogger(__name__)
@@ -26,45 +27,55 @@ JEAN_LISTING_SCHEMA = deepcopy(BASE_LISTING_SCHEMA)
 # Ajout des champs JEAN spécifiques
 JEAN_LISTING_SCHEMA["properties"].update(
     {
-        "sku": {
-            "type": "string",
-            "description": "Numéro interne lu depuis la photo SKU. Exemple: JLF87."
-        },
-        "sku_status": {
-            "type": "string",
-            "description": "Statut d'extraction SKU: ok, missing, low_confidence.",
-            "enum": ["ok", "missing", "low_confidence"]
-        },
-        "model": {
-            "type": "string",
-            "description": "Modèle Levi's si visible (501, 505, 511, etc.)."
-        },
-        "fit": {
-            "type": "string",
-            "description": "Coupe: skinny, slim, straight/droit, bootcut/évasé, etc."
-        },
-        "length": {
-            "type": "string",
-            "description": "Longueur lisible sur l’étiquette (ex: L34)."
-        },
-        "cotton_percent": {
-            "type": "number",
-            "description": "% coton si visible sur l’étiquette de composition."
-        },
-        "elasthane_percent": {
-            "type": "number",
-            "description": "% élasthanne si > 2%, sinon ne pas inventer."
-        },
-        "gender": {
-            "type": "string",
-            "description": "Genre détecté: homme, femme, ou incertain.",
-        },
-        "color": {
-            "type": "string",
-            "description": "Couleur dominante détectée: noir, bleu brut, etc."
+        # L'enveloppe IA est au niveau racine, pas dans features
+        "ai": AI_ENVELOPE_SCHEMA,
+
+        # Les champs spécifiques jeans vont dans features
+        "features": {
+            "type": "object",
+            "properties": {
+                "brand": {"type": ["string", "null"]},
+                "model": {"type": ["string", "null"]},
+                "fit": {"type": ["string", "null"]},
+                "color": {"type": ["string", "null"]},
+                "size_fr": {"type": ["string", "null"]},
+                "size_us": {"type": ["string", "null"]},
+                "length": {"type": ["string", "null"]},
+                "cotton_percent": {"type": ["number", "null"]},
+                "elasthane_percent": {"type": ["number", "null"]},
+                "rise_type": {"type": ["string", "null"]},
+                "rise_cm": {"type": ["number", "null"]},
+                "gender": {"type": ["string", "null"]},
+                "sku": {"type": ["string", "null"]},
+                "sku_status": {
+                    "type": ["string", "null"],
+                    "enum": ["ok", "missing", "low_confidence", None],
+                    "description": "Statut d'extraction SKU.",
+                },
+            },
+            "required": [
+                "brand",
+                "model",
+                "fit",
+                "color",
+                "size_fr",
+                "size_us",
+                "length",
+                "cotton_percent",
+                "elasthane_percent",
+                "rise_type",
+                "rise_cm",
+                "gender",
+                "sku",
+                "sku_status",
+            ],
+            "additionalProperties": False,
         },
     }
 )
+required = set(JEAN_LISTING_SCHEMA.get("required", []))
+required.update({"ai", "features"})
+JEAN_LISTING_SCHEMA["required"] = list(required)
 
 # NOTA:
 # - On NE modifie PAS les 'required' ici.

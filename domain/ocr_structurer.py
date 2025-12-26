@@ -117,6 +117,8 @@ class StructuredOCRExtractor:
         )
         return lines
 
+    SKU_LABEL_RE = re.compile(r"\b[A-Z]{2,6}\d{1,4}\b")
+
     def _filter_relevant_lines(self, lines: Sequence[str]) -> List[str]:
         kept: List[str] = []
         for line in lines:
@@ -138,6 +140,11 @@ class StructuredOCRExtractor:
         return "MADE IN" in line or "MADEIN" in line or "FABRIQU" in line
 
     def _is_sku_line(self, line: str) -> bool:
+        # 1) SKU interne Durin type PTF161 / JLF123 / PTNF007 etc.
+        if self.SKU_LABEL_RE.search(line):
+            return True
+
+        # 2) Autres regex “codes” (RN/CA, STYLE, REF, JCR...)
         return any(regex.search(line) for regex in self._SKU_REGEXES[:4])
 
     def _extract_sizes(self, lines: Sequence[str]) -> List[str]:
@@ -199,14 +206,24 @@ class StructuredOCRExtractor:
 
     def _extract_skus(self, lines: Sequence[str]) -> List[str]:
         candidates: List[str] = []
+
+        def _add(value: str) -> None:
+            cleaned = value.replace(" ", "").replace(":", "")
+            if 4 <= len(cleaned) <= 20 and any(ch.isdigit() for ch in cleaned):
+                if cleaned.upper() not in (c.upper() for c in candidates):
+                    candidates.append(cleaned)
+
         for line in lines:
+            # 1) SKU interne Durin (PTF161, JLF123, etc.)
+            for m in self.SKU_LABEL_RE.findall(line):
+                _add(m)
+
+            # 2) Autres codes (RN/CA, STYLE, REF, JCR...)
             for regex in self._SKU_REGEXES:
                 for match in regex.findall(line):
                     value = match if isinstance(match, str) else "".join(match)
-                    cleaned = value.replace(" ", "").replace(":", "")
-                    if 4 <= len(cleaned) <= 20 and any(ch.isdigit() for ch in cleaned):
-                        if cleaned.upper() not in (c.upper() for c in candidates):
-                            candidates.append(cleaned)
+                    _add(value)
+
         return candidates
 
     def _build_filtered_text(

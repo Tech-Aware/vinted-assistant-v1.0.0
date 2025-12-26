@@ -21,6 +21,7 @@ class AnalysisProfileName(Enum):
     JACKET_CARHART = "jacket_carhart"
 
 
+
 @dataclass
 class AnalysisProfile:
     """
@@ -46,10 +47,53 @@ class AnalysisProfile:
         return desc
 
 
+# --------------------------------------------------------------------
+# Enveloppe IA standard (statut + champs manquants + avertissements)
+# --------------------------------------------------------------------
+
+AI_STATUS_ENUM = [
+    "ok",
+    "needs_user_input",
+    "insufficient_images",
+    "refused",
+    "error",
+]
+
+AI_ENVELOPE_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": AI_STATUS_ENUM,
+            "description": "Statut global du résultat IA.",
+        },
+        "reason": {
+            "type": ["string", "null"],
+            "description": "Raison courte si status != ok (ou info utile).",
+        },
+        "missing": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Liste des champs manquants (ex: ['sku', 'composition']).",
+            "minItems": 0,
+        },
+        "warnings": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Avertissements non bloquants.",
+            "minItems": 0,
+        },
+    },
+    "required": ["status", "reason", "missing", "warnings"],
+    "additionalProperties": False,
+}
+
+
 # Schéma JSON commun à tous les profils (aligné avec PROMPT_CONTRACT)
 BASE_LISTING_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "properties": {
+        "ai": AI_ENVELOPE_SCHEMA,
         "title": {"type": "string"},
         "description": {"type": "string"},
         "brand": {"type": ["string", "null"]},
@@ -60,6 +104,7 @@ BASE_LISTING_SCHEMA: Dict[str, Any] = {
         "defects": {"type": ["string", "null"]},
     },
     "required": [
+        "ai",
         "title",
         "description",
         "brand",

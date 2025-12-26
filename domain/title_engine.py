@@ -30,6 +30,8 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
     Reprise des règles métier jean Levi's sans appel aux builders historiques.
     """
     try:
+        from domain.validator import is_valid_internal_sku  # <-- AJOUT
+
         brand = _normalize_str(features.get("brand"))
         raw_model = _normalize_str(features.get("model"))
         model = _sanitize_model_label(raw_model)
@@ -132,7 +134,8 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
         if cotton_percent is not None and cotton_percent >= 60:
             parts.append(f"{cotton_percent}% coton")
 
-        if elas_percent is not None and elas_percent >= 2:
+        # Stretch uniquement si > 2% (ex: 3% et +)
+        if elas_percent is not None and elas_percent > 2:
             parts.append("stretch")
 
         if gender:
@@ -141,12 +144,18 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
         if color:
             parts.append(color)
 
-        if sku:
+        # --- SKU: n'ajouter AU TITRE que si valide ---
+        if sku and is_valid_internal_sku(sku, profile="jean_levis"):
             parts.append(f"{SKU_PREFIX}{sku}")
+        else:
+            # Optionnel: log utile pour comprendre les cas rejetés
+            if sku:
+                logger.debug("build_title_jean_levis: SKU ignoré dans le titre (invalide): %s", sku)
 
         title = _safe_join(parts)
         logger.debug("build_title_jean_levis: titre construit à partir de %s -> '%s'", features, title)
         return title
+
     except Exception as exc:  # pragma: no cover - robustesse
         logger.error("build_title_jean_levis: erreur lors de la génération du titre (%s)", exc, exc_info=True)
         return "Jean Levi's"

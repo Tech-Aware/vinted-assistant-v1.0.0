@@ -38,9 +38,35 @@ JACKET_LISTING_SCHEMA["properties"].update(
                 "sku": {"type": ["string", "null"]},
                 "sku_status": {"type": ["string", "null"]},
             },
-        }
+            "required": [
+                "brand",
+                "model",
+                "size",
+                "color",
+                "gender",
+                "has_hood",
+                "pattern",
+                "lining",
+                "closure",
+                "patch_material",
+                "collar",
+                "zip_material",
+                "origin_country",
+                "has_chest_pocket",
+                "is_camouflage",
+                "is_realtree",
+                "is_new_york",
+                "sku",
+                "sku_status",
+            ],
+            "additionalProperties": False,
+        },
     }
 )
+# features est obligatoire au niveau racine
+if "features" not in JACKET_LISTING_SCHEMA.get("required", []):
+    JACKET_LISTING_SCHEMA["required"] = list(JACKET_LISTING_SCHEMA.get("required", [])) + ["features"]
+
 
 
 JACKETS_PROFILES: Dict[AnalysisProfileName, AnalysisProfile] = {

@@ -13,6 +13,7 @@ from domain.description_builder import (
 from domain.description_engine import build_description
 from domain.templates import AnalysisProfileName
 from domain.title_engine import build_title
+from domain.validator import is_valid_internal_sku
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,21 @@ def normalize_listing(data: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Utilitaires internes
 # ---------------------------------------------------------------------------
+def _strip_parentheses_notes(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return s
+    # enlève tout ce qui est entre parenthèses
+    return re.sub(r"\s*\([^)]*\)\s*", " ", str(s)).strip()
+
+def _strip_composition_prefixes(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return s
+    txt = str(s).strip()
+    # supprime les préfixes redondants (on affiche déjà "Extérieur :" etc dans la description)
+    txt = re.sub(r"(?i)^\s*[-•]?\s*(mati[eè]re\s+)?(ext[eé]rieur|exterior|shell)\s*[:\-–]\s*", "", txt).strip()
+    txt = re.sub(r"(?i)^\s*[-•]?\s*(doublure|lining|body\s+lining)\s*[:\-–]\s*", "", txt).strip()
+    txt = re.sub(r"(?i)^\s*[-•]?\s*(doublure\s+des\s+manches|manches|sleeve\s+lining)\s*[:\-–]\s*", "", txt).strip()
+    return txt
 
 
 def _coerce_profile_name(
@@ -181,6 +197,29 @@ def _extract_model_from_text(text: str) -> Optional[str]:
     if match:
         return match.group(0)
     return None
+
+def _normalize_sku_value(value: Any) -> Optional[str]:
+    """
+    Normalise un SKU en supprimant les placeholders issus de l'IA (ex: "null").
+    Retourne None si la valeur est absente/placeholder.
+    """
+    if value is None:
+        return None
+
+    try:
+        s = str(value).strip()
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+    if not s:
+        return None
+
+    low = s.lower()
+    if low in {"null", "none", "n/a", "na", "nc", "unknown", "missing", "?"}:
+        logger.debug("_normalize_sku_value: placeholder détecté (%r) -> None", s)
+        return None
+
+    return s
 
 
 def _extract_fit_from_text(text: str) -> Optional[str]:
@@ -516,55 +555,234 @@ def _extract_sleeve_lining_from_text(text: str) -> Optional[str]:
         logger.debug("_extract_sleeve_lining_from_text: échec (%s)", exc)
         return None
 
+def _extract_carhartt_composition_from_ocr_structured(ocr_structured: dict) -> Dict[str, Optional[str]]:
+    """
+    Retourne un dict: exterior, body_lining, sleeve_lining, sleeve_interlining
+    en se basant sur les lignes OCR retenues (FR/EN/ES) présentes dans ocr_structured.
+    """
+    text = (ocr_structured.get("filtered_text") or "").strip()
+    if not text:
+        return {"exterior": None, "body_lining": None, "sleeve_lining": None, "sleeve_interlining": None}
+
+    # On ne travaille que sur la partie LIGNES RETENUES (plus fiable)
+    m = re.search(r"(?is)LIGNES RETENUES:\s*(.*)$", text)
+    lines_block = m.group(1) if m else text
+
+    # Normalisation espace + ponctuation
+    s = re.sub(r"[ \t]+", " ", lines_block)
+    s = s.replace("…", " ").strip()
+
+    def pick(pattern: str) -> Optional[str]:
+        mm = re.search(pattern, s, flags=re.IGNORECASE)
+        return mm.group(1).strip() if mm else None
+
+    # EN: SHELL / BODY LINING / SLEEVE LINING / SLEEVE INTERLINING
+    shell = pick(r"SHELL\s*:\s*([^\.]+)")
+    body = pick(r"BODY\s+LINING\s*:\s*([^\.]+)")
+    sleeve = pick(r"SLEEVE\s+LINING\s*:\s*([^\.]+)")
+    inter = pick(r"SLEEVE\s+INTERLINING\s*:\s*([^\.]+)")
+
+    # FR fallback si EN absent : EXTÉRIEUR / DOUBLURE DU CORPS / DOUBLURE DE LA MANCHE / ENTREDOUBLURE
+    if not shell:
+        shell = pick(r"EXT[ÉE]RIEUR\s*:\s*([^\.]+)")
+    if not body:
+        body = pick(r"DOUBLURE\s+DU\s+CORPS\s*:\s*([^\.]+)")
+    if not sleeve:
+        sleeve = pick(r"DOUBLURE\s+DE\s+LA\s+MANCHE\s*:\s*([^\.]+)")
+    if not inter:
+        inter = pick(r"ENTREDOUBLURE\s+DE\s+LA\s+MANCHE\s*:\s*([^\.]+)")
+
+    # Nettoyage final : garde uniquement “xx% matière” ou “100% coton” etc.
+    def clean_percent_chunk(x: Optional[str]) -> Optional[str]:
+        if not x:
+            return None
+        t = x
+        t = re.sub(r"\s*\([^)]*\)", "", t)           # supprime parenthèses
+        t = t.replace("REPROCESSED", "").replace("RETRANSFORMÉ", "")
+        t = re.sub(r"\s+", " ", t).strip(" -:;.")
+        return t.strip() or None
+
+    return {
+        "exterior": clean_percent_chunk(shell),
+        "body_lining": clean_percent_chunk(body),
+        "sleeve_lining": clean_percent_chunk(sleeve),
+        "sleeve_interlining": clean_percent_chunk(inter),
+    }
+
 
 def _split_carhartt_composition_blocks(text: Optional[str]) -> Dict[str, str]:
-    """Décompose un bloc de composition en segments ext/intérieur/manches."""
+    """
+    Décompose un bloc de composition en 3 segments concis :
+      - exterior: matière principale (si possible avec %)
+      - lining: % doublure corps
+      - sleeve_lining: % doublure manches
+
+    Objectif: éviter de répéter tout le paragraphe brut dans chaque champ.
+    """
 
     try:
         if not text:
             return {}
 
-        cleaned = str(text).strip()
-        if not cleaned:
+        raw = str(text).strip()
+        if not raw:
             return {}
 
-        parts = re.split(r"[;,\n]", cleaned)
-        blocks: Dict[str, str] = {}
-
-        def assign_if_absent(key: str, value: str, keywords: tuple[str, ...]) -> None:
-            nonlocal blocks
-            if key in blocks:
-                return
-            lowered = value.lower()
-            if any(marker in lowered for marker in keywords):
-                stripped = _strip_leading_keyword(value, keywords)
-                stripped = stripped.strip(" .-:")
-                if stripped:
-                    blocks[key] = stripped
-                    logger.info(
-                        "_split_carhartt_composition_blocks: segment '%s' affecté à %s",
-                        stripped,
-                        key,
-                    )
-
-        for part in parts:
-            fragment = part.strip()
-            if not fragment:
+        # Normalisation "ligne"
+        raw = raw.replace("\r", "\n")
+        # On éclate aussi sur ; pour éviter les phrases trop longues
+        chunks = []
+        for part in raw.split("\n"):
+            part = part.strip()
+            if not part:
                 continue
-            assign_if_absent("exterior", fragment, ("exterieur", "extérieur", "exterior"))
-            assign_if_absent(
-                "sleeve_lining", fragment, ("doublure des manches", "manches", "sleeve")
-            )
-            assign_if_absent(
-                "lining",
-                fragment,
-                ("doublure", "interieur", "intérieur", "doublure corps"),
-            )
+            chunks.extend([p.strip() for p in part.split(";") if p.strip()])
 
-        return blocks
+        if not chunks:
+            return {}
+
+        def _is_exterior_line(s: str) -> bool:
+            low = s.lower()
+            return any(k in low for k in ("exterieur", "extérieur", "exterior", "shell", "outer"))
+
+        def _is_lining_line(s: str) -> bool:
+            low = s.lower()
+            return any(k in low for k in ("doublure", "interieur", "intérieur", "lining", "body lining"))
+
+        def _is_sleeve_line(s: str) -> bool:
+            low = s.lower()
+            return any(k in low for k in ("manche", "manches", "sleeve"))
+
+        def _strip_prefixes(s: str) -> str:
+            # enlève les préfixes usuels "Extérieur:", "Doublure:", etc.
+            return _strip_leading_keyword(
+                s,
+                (
+                    "exterieur",
+                    "extérieur",
+                    "exterior",
+                    "shell",
+                    "outer",
+                    "doublure",
+                    "interieur",
+                    "intérieur",
+                    "lining",
+                    "body lining",
+                    "manche",
+                    "manches",
+                    "sleeve",
+                    "sleeve lining",
+                    "doublure des manches",
+                ),
+            ).strip(" .:-–—")
+
+        def _extract_percent_snippet(s: str) -> Optional[str]:
+            """
+            Extrait un résumé type: '100% coton' ou '65% polyester, 35% coton'
+            On évite volontairement des regex fragiles.
+            """
+            low = s.lower()
+            if "%" not in low:
+                return None
+
+            # On garde une version courte: tout ce qui contient '%' et un peu de contexte
+            # 1) on split grossièrement par virgules / slash
+            parts = [p.strip() for p in re.split(r"[,\|/]", s) if p.strip()]
+            kept = [p for p in parts if "%" in p]
+
+            if not kept:
+                # fallback: garde la ligne nettoyée si elle contient au moins un %
+                return _strip_prefixes(s)
+
+            # nettoie chaque fragment
+            kept = [_strip_prefixes(k) for k in kept]
+            kept = [k for k in kept if k]
+            return ", ".join(kept) if kept else None
+
+        def _extract_main_material(s: str) -> Optional[str]:
+            """
+            Extérieur: on veut surtout la matière principale.
+            - si la ligne contient des %, on retourne le snippet % (court)
+            - sinon on retourne la ligne nettoyée (court)
+            """
+            snippet = _extract_percent_snippet(s)
+            if snippet:
+                return snippet
+
+            cleaned = _strip_prefixes(s)
+            if not cleaned:
+                return None
+
+            # Évite de renvoyer une ligne qui parle seulement de doublure/manches
+            low = cleaned.lower()
+            if any(k in low for k in ("doublure", "lining", "manche", "sleeve")):
+                return None
+
+            return cleaned
+
+        # Collecte par "sections" (avec un petit état)
+        sections = {"exterior": [], "lining": [], "sleeve_lining": []}
+        current = None
+
+        for line in chunks:
+            l = line.strip()
+            if not l:
+                continue
+
+            if _is_sleeve_line(l) and _is_lining_line(l):
+                current = "sleeve_lining"
+                sections[current].append(l)
+                continue
+
+            if _is_sleeve_line(l):
+                current = "sleeve_lining"
+                sections[current].append(l)
+                continue
+
+            if _is_exterior_line(l):
+                current = "exterior"
+                sections[current].append(l)
+                continue
+
+            if _is_lining_line(l):
+                current = "lining"
+                sections[current].append(l)
+                continue
+
+            # lignes sans mot-clé: si on est dans une section et qu'il y a des %, on rattache
+            if current in sections and "%" in l:
+                sections[current].append(l)
+
+        # Résumé final: on prend la meilleure ligne (courte) par section
+        out: Dict[str, str] = {}
+
+        # EXTERIOR -> matière principale
+        for candidate in sections["exterior"]:
+            v = _extract_main_material(candidate)
+            if v:
+                out["exterior"] = v
+                break
+
+        # LINING -> pourcentage(s) doublure corps
+        for candidate in sections["lining"]:
+            v = _extract_percent_snippet(candidate) or _strip_prefixes(candidate)
+            if v and "%" in v:
+                out["lining"] = v
+                break
+
+        # SLEEVE LINING -> pourcentage(s) doublure manches
+        for candidate in sections["sleeve_lining"]:
+            v = _extract_percent_snippet(candidate) or _strip_prefixes(candidate)
+            if v and "%" in v:
+                out["sleeve_lining"] = v
+                break
+
+        return out
+
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("_split_carhartt_composition_blocks: découpe impossible (%s)", exc)
         return {}
+
 
 
 def _extract_closure_from_text(text: str) -> Optional[str]:
@@ -1034,6 +1252,17 @@ def _extract_sizes_from_text(text: str) -> tuple[Optional[str], Optional[str]]:
     length = f"L{l_match.group(1)}" if l_match else None
     return size_us, length
 
+def _pick_carhartt_sku_from_candidates(candidates: list[str]) -> Optional[str]:
+    if not candidates:
+        return None
+
+    # priorité absolue: JCR\d+
+    for c in candidates:
+        if re.fullmatch(r"JCR\d+", c, flags=re.IGNORECASE):
+            return c.upper()
+
+    # sinon: None (on ne veut pas EJ001 comme SKU “workflow”)
+    return None
 
 def normalize_sizes(features: dict) -> dict:
     """
@@ -1158,10 +1387,24 @@ def build_features_for_jean_levis(
     )
 
     # --- SKU ---------------------------------------------------------------
-    sku = ui_data.get("sku") or raw_features.get("sku") or ai_data.get("sku")
-    sku_status = raw_features.get("sku_status") or ai_data.get("sku_status")
-    if not sku_status:
-        sku_status = "missing" if sku is None else "ok"
+
+    raw_sku = ui_data.get("sku") or raw_features.get("sku") or ai_data.get("sku")
+    sku = _normalize_sku_value(raw_sku)
+
+    if sku is None:
+        if raw_sku:
+            sku_status = "invalid"
+            logger.info(
+                "build_features_for_jean_levis: SKU détecté mais invalide (%r)",
+                raw_sku,
+            )
+        else:
+            sku_status = "missing"
+    else:
+        sku_status = "ok"
+
+    if sku is None and raw_sku:
+        logger.info("build_features_for_jean_levis: SKU ignoré (placeholder/invalid) raw=%r", raw_sku)
 
     features: Dict[str, Any] = {
         "brand": brand,
@@ -1310,13 +1553,15 @@ def build_features_for_pull_tommy(
                 )
             else:
                 if sku_from_ai:
+                    sku = None
+                    sku_status = "invalid"
                     logger.info(
-                        "build_features_for_pull_tommy: SKU IA rejeté (statut=%s, valeur=%s)",
-                        sku_status,
+                        "build_features_for_pull_tommy: SKU détecté mais invalide (%s)",
                         sku_from_ai,
                     )
-                sku = None
-                sku_status = "missing"
+                else:
+                    sku = None
+                    sku_status = "missing"
 
         try:
             normalized_brand = _normalize_tommy_brand(brand)
@@ -1362,7 +1607,9 @@ def build_features_for_pull_tommy(
 
 
 def build_features_for_jacket_carhart(
-    ai_data: Dict[str, Any], ui_data: Optional[Dict[str, Any]] = None
+    ai_data: Dict[str, Any],
+    ui_data: Optional[Dict[str, Any]] = None,
+    ocr_sku_candidates: Optional[list[str]] = None,
 ) -> Dict[str, Any]:
     """Construit les features nécessaires au titre/description Carhartt."""
 
@@ -1378,6 +1625,18 @@ def build_features_for_jacket_carhart(
 
         # texte “source composition” = description IA uniquement
         composition_text = (ai_data.get("description") or "").strip()
+
+        # --- Composition: priorité OCR structuré si disponible -------------------
+        ocr_structured = ui_data.get("ocr_structured") or {}
+        ocr_composition_text = ""
+        try:
+            # selon ton to_dict(), "filtered_text" existe très probablement (tu le logges côté OCR)
+            ocr_composition_text = (ocr_structured.get("filtered_text") or "").strip()
+        except Exception:
+            ocr_composition_text = ""
+
+        # Source finale pour parser la compo
+        composition_source_text = ocr_composition_text or composition_text
 
         brand = raw_features.get("brand") or ai_data.get("brand") or "Carhartt"
         model = raw_features.get("model") or ai_data.get("model")
@@ -1408,11 +1667,16 @@ def build_features_for_jacket_carhart(
         lining = raw_features.get("lining") or ai_data.get("lining")
         if lining is None:
             lining = _extract_lining_from_text(full_text)
-        # bloc “composition doublure” doit venir de composition_text
+
+        # bloc “composition doublure” doit venir de composition_source_text
         if lining is None or "%" not in str(lining):
-            lining_composition = _extract_body_lining_composition(composition_text)
+            lining_composition = _extract_body_lining_composition(composition_source_text)
             if lining_composition:
                 lining = lining_composition
+
+        # >>> AJOUT ICI : nettoyage "DU" (valeur parasite)
+        if isinstance(lining, str) and lining.strip().upper() in {"DU", "D U"}:
+            lining = None
 
         closure = raw_features.get("closure") or ai_data.get("closure")
         if closure is None:
@@ -1437,18 +1701,15 @@ def build_features_for_jacket_carhart(
         # EXTERIOR
         exterior = raw_features.get("exterior") or ai_data.get("exterior")
         if exterior is None:
-            exterior = _extract_exterior_from_text(composition_text)
+            exterior = _extract_exterior_from_text(composition_source_text)
 
         # SLEEVE LINING
         sleeve_lining = raw_features.get("sleeve_lining") or ai_data.get("sleeve_lining")
         if sleeve_lining is None:
-            sleeve_lining = _extract_sleeve_lining_from_text(composition_text)
+            sleeve_lining = _extract_sleeve_lining_from_text(composition_source_text)
 
-        split_blocks: Dict[str, str] = {}
-        for candidate in (exterior, sleeve_lining, lining, composition_text):
-            split_blocks.update(
-                {k: v for k, v in _split_carhartt_composition_blocks(candidate).items() if v}
-            )
+        # Découpe UNE seule fois depuis la source la plus fiable (description IA = composition_text)
+        split_blocks: Dict[str, str] = _split_carhartt_composition_blocks(composition_source_text)
 
         if split_blocks.get("exterior"):
             exterior = split_blocks["exterior"]
@@ -1476,7 +1737,7 @@ def build_features_for_jacket_carhart(
             is_new_york = _detect_flag_from_text(full_text, ("new york", " ny"))
 
         # --- SKU (Carhartt JCR) --------------------------------------------
-        # Priorité: UI > IA (features). PAS de fallback depuis texte libre.
+        # Priorité: UI > OCR structuré > IA (features). PAS de fallback depuis texte libre.
         sku_from_ui = ui_data.get("sku")
         sku_from_ai = raw_features.get("sku") or ai_data.get("sku")
         sku_status_raw = raw_features.get("sku_status") or ai_data.get("sku_status")
@@ -1502,21 +1763,53 @@ def build_features_for_jacket_carhart(
                     sku_from_ui,
                 )
         else:
-            normalized_ai_sku = _normalize_jcr_sku(sku_from_ai)
-            if normalized_ai_sku:
-                sku = normalized_ai_sku
+            # >>> OCR candidates (prioritaire sur IA)
+            ocr_candidates = ai_data.get("_ocr_sku_candidates") or []
+            if not isinstance(ocr_candidates, list):
+                ocr_candidates = []
+
+            ocr_sku = _pick_carhartt_sku_from_candidates([str(x) for x in ocr_candidates])
+
+            if ocr_sku:
+                sku = ocr_sku
                 sku_status = "ok"
-                logger.info("build_features_for_jacket_carhart: SKU IA validé (%s)", sku)
+                logger.info("build_features_for_jacket_carhart: SKU OCR structuré validé (%s)", sku)
             else:
-                if sku_status == "low_confidence":
-                    sku = None
-                    logger.info(
-                        "build_features_for_jacket_carhart: SKU low_confidence côté IA (aucune valeur retenue)"
-                    )
+                normalized_ai_sku = _normalize_jcr_sku(sku_from_ai)
+                if normalized_ai_sku:
+                    sku = normalized_ai_sku
+                    sku_status = "ok"
+                    logger.info("build_features_for_jacket_carhart: SKU IA validé (%s)", sku)
                 else:
-                    sku = None
-                    sku_status = "missing"
-                    logger.debug("build_features_for_jacket_carhart: SKU absent (missing)")
+                    if sku_status == "low_confidence":
+                        sku = None
+                        logger.info(
+                            "build_features_for_jacket_carhart: SKU low_confidence côté IA (aucune valeur retenue)"
+                        )
+                    else:
+                        sku = None
+                        sku_status = "missing"
+                        logger.debug("build_features_for_jacket_carhart: SKU absent (missing)")
+
+        exterior = _strip_composition_prefixes(_strip_parentheses_notes(exterior))
+        lining = _strip_composition_prefixes(_strip_parentheses_notes(lining))
+        sleeve_lining = _strip_composition_prefixes(_strip_parentheses_notes(sleeve_lining))
+
+        ocr_structured = ui_data.get("ocr_structured") or {}
+        ocr_comp = _extract_carhartt_composition_from_ocr_structured(ocr_structured)
+
+        # Priorité OCR si présent (sinon fallback IA/texte)
+        exterior = ocr_comp.get("exterior") or exterior
+        lining = ocr_comp.get("body_lining") or lining
+        sleeve_lining = ocr_comp.get("sleeve_lining") or sleeve_lining
+
+        # Option: si tu veux inclure l'entredoiblure manches, tu peux concaténer proprement
+        sleeve_inter = ocr_comp.get("sleeve_interlining")
+        if sleeve_inter and sleeve_lining and sleeve_inter != sleeve_lining:
+            # ex: "100% nylon" + "100% polyester"
+            sleeve_lining = f"{sleeve_lining} / {sleeve_inter}"
+        elif sleeve_inter and not sleeve_lining:
+            sleeve_lining = sleeve_inter
 
         features: Dict[str, Any] = {
             "brand": brand,
@@ -1583,7 +1876,20 @@ def normalize_and_postprocess(
     elif profile_name == AnalysisProfileName.PULL_TOMMY:
         features = build_features_for_pull_tommy(ai_data, ui_data)
     elif profile_name == AnalysisProfileName.JACKET_CARHART:
-        features = build_features_for_jacket_carhart(ai_data, ui_data)
+        # on supporte 2 formats possibles venant du pipeline :
+        # 1) ai_data["_ocr_sku_candidates"] = ["EJ001", "JCR1", ...]
+        # 2) ai_data["_structured_ocr"] = {"sku_candidates": [...], ...}
+        ocr_sku_candidates = ai_data.get("_ocr_sku_candidates")
+
+        if not ocr_sku_candidates:
+            structured = ai_data.get("_structured_ocr") or {}
+            if isinstance(structured, dict):
+                ocr_sku_candidates = structured.get("sku_candidates")
+
+        if not isinstance(ocr_sku_candidates, list):
+            ocr_sku_candidates = []
+
+        features = build_features_for_jacket_carhart(ai_data, ui_data, ocr_sku_candidates=ocr_sku_candidates)
     else:
         # Pour les autres profils (à développer plus tard)
         features = {}
@@ -1599,6 +1905,16 @@ def normalize_and_postprocess(
     title = build_title(profile_name, title_context)
 
     logger.debug("normalize_and_postprocess: features construites: %s", features)
+
+    sku = features.get("sku")
+    sku_status = features.get("sku_status")
+
+    if sku and not is_valid_internal_sku(sku, profile=profile):
+        logger.warning("SKU incohérent après normalisation (profil=%s): '%s' -> rejeté", profile, sku)
+        features["sku"] = None
+        features["sku_status"] = "invalid"  # ou "missing"
+
+        # NE PAS toucher sku_status ici
 
     raw_description = ai_data.get("description") or ""
 

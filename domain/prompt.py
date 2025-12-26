@@ -77,6 +77,27 @@ OUTPUT FORMAT (MANDATORY):
 - Do NOT translate keys to French.
 - Do NOT include explanations, markdown, comments, or any additional text outside the JSON.
 
+AI ENVELOPE (MANDATORY FOR ALL PROFILES):
+- You MUST include a top-level object named "ai" with this structure:
+  {
+    "status": "ok" | "needs_user_input" | "insufficient_images" | "refused" | "error",
+    "reason": string | null,
+    "missing": array of strings,
+    "warnings": array of strings
+  }
+
+Rules for ai.status:
+- "ok": you found enough reliable information to produce a correct listing.
+- "needs_user_input": some important info is missing but could be provided manually (e.g. sku, size, composition). Put missing keys in ai.missing.
+- "insufficient_images": not enough photos (e.g. no labels visible). Put missing keys in ai.missing.
+- "refused": if you refuse to answer.
+- "error": if you cannot extract data reliably for any reason.
+
+If ai.status != "ok":
+- Keep all uncertain fields as null.
+- Still output the full JSON object (including all schema keys).
+
+
 TARGET JSON SCHEMA:
 
 {

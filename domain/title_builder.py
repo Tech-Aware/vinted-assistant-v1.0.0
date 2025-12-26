@@ -497,7 +497,9 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
             logger.warning("build_jean_levis_title: ajustement fit impossible (%s)", exc)
     color = _normalize_str(features.get("color"))
     gender = _normalize_gender(_normalize_str(features.get("gender")))
+
     sku = _normalize_str(features.get("sku"))
+    sku_status = _normalize_str(features.get("sku_status"))
 
     # % coton / élasthanne
     cotton_raw = features.get("cotton_percent")
@@ -595,14 +597,19 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
     if color:
         parts.append(color)
 
-    # SKU (préfixé d'un tiret)
-    if sku:
+    # SKU (préfixé d'un tiret) uniquement si statut OK
+    if sku and sku_status and sku_status.lower() == "ok":
         parts.append(f"{SKU_PREFIX}{sku}")
-
-    title = _safe_join(parts)
-
-    logger.debug("Titre jean Levi's construit à partir de %s -> '%s'", features, title)
-    return title
+    elif sku:
+        logger.debug(
+            "build_jean_levis_title: SKU ignoré car statut non 'ok' (%s)",
+            sku_status,
+        )
+    else:
+        logger.debug(
+            "build_jean_levis_title: SKU absent ou illisible (statut=%s)",
+            sku_status,
+        )
 
 
 def build_pull_tommy_title(features: Dict[str, Any]) -> str:

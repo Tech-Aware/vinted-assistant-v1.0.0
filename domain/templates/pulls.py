@@ -3,16 +3,60 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
+from copy import deepcopy
+from typing import Any, Dict
 
-from .base import AnalysisProfile, AnalysisProfileName, BASE_LISTING_SCHEMA
+from .base import AnalysisProfile, AnalysisProfileName, BASE_LISTING_SCHEMA, AI_ENVELOPE_SCHEMA
 
 logger = logging.getLogger(__name__)
 
+# --------------------------------------------------------------------
+# Schéma spécialisé pour les pulls
+# - On part du schéma de base
+# - On garantit la présence de:
+#   - ai (enveloppe IA standardisée)
+#   - features (objet, même vide pour ce profil)
+# --------------------------------------------------------------------
+
+PULL_LISTING_SCHEMA: Dict[str, Any] = deepcopy(BASE_LISTING_SCHEMA)
+
+# 1) Garantir que "ai" est bien une propriété top-level et conforme
+PULL_LISTING_SCHEMA.setdefault("properties", {})
+PULL_LISTING_SCHEMA["properties"]["ai"] = AI_ENVELOPE_SCHEMA
+
+# 2) Garantir que "features" existe (même vide) pour homogénéiser le pipeline
+#    (Le normalizer peut s'appuyer dessus sans cas spécial)
+PULL_LISTING_SCHEMA["properties"].setdefault(
+    "features",
+    {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": True,  # Pulls: on ne force pas encore des clés spécifiques
+    },
+)
+
+# 3) Garantir required = au moins "ai" + "features"
+required = list(PULL_LISTING_SCHEMA.get("required", []))
+if "ai" not in required:
+    required.append("ai")
+if "features" not in required:
+    required.append("features")
+PULL_LISTING_SCHEMA["required"] = required
+
+logger.debug(
+    "PULL_LISTING_SCHEMA initialisé (required=%s, properties=%s)",
+    PULL_LISTING_SCHEMA.get("required", []),
+    list(PULL_LISTING_SCHEMA.get("properties", {}).keys()),
+)
+
+# --------------------------------------------------------------------
+# Profils
+# --------------------------------------------------------------------
 
 PULLS_PROFILES: Dict[AnalysisProfileName, AnalysisProfile] = {
     AnalysisProfileName.PULL_TOMMY: AnalysisProfile(
         name=AnalysisProfileName.PULL_TOMMY,
+        json_schema=PULL_LISTING_SCHEMA,
         prompt_suffix=r"""
 PROFILE TYPE: PULL TOMMY HILFIGER / PREPPY KNIT
 
@@ -96,16 +140,23 @@ FOCUS ON:
        - éventuelle composition (si lisible),
        - état général et défauts.
 
+AI ENVELOPE (MANDATORY):
+- Include top-level "ai" with:
+  - status: "ok" | "needs_user_input" | "insufficient_images" | "refused" | "error"
+  - reason: string or null
+  - missing: array of strings
+  - warnings: array of strings
+- If status != "ok": keep uncertain fields to null and fill ai.missing.
+
 JSON SCHEMA:
-- Use the SAME JSON keys as defined in the main prompt contract:
-  "title", "description", "brand", "style", "pattern", "neckline", "season", "defects".
+- Use the SAME JSON keys as defined in the main prompt contract.
 - Do NOT add extra keys, and do NOT change key names.
+- Output ONLY JSON, no extra text.
 """,
-        json_schema=BASE_LISTING_SCHEMA,
     ),
 }
 
 logger.debug(
     "Profil PULL_TOMMY chargé avec schéma %s",
-    list(BASE_LISTING_SCHEMA["properties"].keys()),
+    list(PULL_LISTING_SCHEMA.get("properties", {}).keys()),
 )

@@ -2104,22 +2104,34 @@ class VintedAIApp(ctk.CTk):
             sku_value = getattr(listing, "sku", None)
             sku_status = getattr(listing, "sku_status", None)
 
+            # 1) SKU présent => jamais de saisie manuelle
             if sku_value:
                 logger.info("SKU détecté (%s), pas de saisie manuelle requise.", sku_value)
                 return False
 
-            if sku_status and sku_status != "ok":
+            # 2) SKU absent + statut explicite
+            # - ok mais sku absent => incohérent => demander
+            # - missing / invalid / illisible => demander
+            if sku_status:
+                sku_status_norm = str(sku_status).strip().lower()
+
+                if sku_status_norm == "ok":
+                    logger.warning("SKU status=ok mais sku absent -> saisie manuelle requise.")
+                    return True
+
                 logger.warning(
-                    "SKU manquant ou illisible (statut=%s), ouverture de la saisie manuelle.",
+                    "SKU manquant/invalid (statut=%s), ouverture de la saisie manuelle.",
                     sku_status,
                 )
                 return True
 
-            logger.info("SKU absent sans statut explicite, demande manuelle enclenchée.")
+            # 3) SKU absent + pas de statut => demander
+            logger.info("SKU absent (aucun statut), demande manuelle enclenchée.")
             return True
+
         except Exception as exc:
             logger.error("Erreur lors de la vérification du SKU: %s", exc, exc_info=True)
-            return False
+            return True
 
     def _apply_manual_sku(self, listing: VintedListing, sku_value: str) -> None:
         try:

@@ -272,7 +272,12 @@ def _clean_carhartt_material_segment(value: Optional[Any]) -> str:
             r"^(composition|matiere|material)[:\-]?\s*", "", cleaned, flags=re.IGNORECASE
         )
         cleaned = cleaned.strip(" .;:-")
+
+        # enlève les tirets parasites du type "30 % - POLYESTER"
+        cleaned = re.sub(r"\s*-\s*", " ", cleaned)
+
         cleaned = _normalize_percentage_spacing(cleaned)
+
         if cleaned:
             logger.info(
                 "_clean_carhartt_material_segment: segment nettoyé='%s' (source=%s)",
@@ -1098,11 +1103,14 @@ def build_jacket_carhart_description(
         # --- 9) État ----------------------------------------------------------
         defects = _safe_clean(features.get("defects") or ai_defects)
         normalized_defects = _normalize_defects(defects)
-        state_sentence = (
-            "Très bon état, aucun défaut majeur visible. Veste propre et bien conservée (voir photos)."
-            if not normalized_defects
-            else f"Très bon état, {normalized_defects}. Veste propre et bien conservée (voir photos)."
-        )
+        if not normalized_defects:
+            state_sentence = "Très bon état, aucun défaut majeur visible. Veste propre et bien conservée (voir photos)."
+        else:
+            nd = normalized_defects.strip()
+            # si ça commence par une majuscule, on la baisse (après virgule)
+            if nd[:1].isupper():
+                nd = nd[:1].lower() + nd[1:]
+            state_sentence = f"Très bon état, {nd}. Veste propre et bien conservée (voir photos)."
 
         # --- 10) Footer / tags ----------------------------------------------
         general_tag = "#durin31jc"
