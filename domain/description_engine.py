@@ -305,7 +305,8 @@ def build_description_pull_tommy(
             # "Aucun défaut..." -> "aucun défaut..."
             if d[:1].isupper():
                 d = d[:1].lower() + d[1:]
-            state_sentence = f"État : {d} (voir photos)."
+            state_sentence = f"Bon état : {d} (voir photos)."
+            logger.info("build_description_pull_tommy: état renseigné = %s", state_sentence)
         else:
             state_sentence = "État : très bon état (voir photos)."
 
