@@ -145,7 +145,9 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
             parts.append(color)
 
         # --- SKU: n'ajouter AU TITRE que si valide ---
-        if sku and is_valid_internal_sku(sku, profile="jean_levis"):
+        # NOTE: on passe explicitement le profil (enum) pour éviter les crashes liés à l'ancien appel
+        # avec une string, ce qui répond à la signature attendue et garantit une validation cohérente.
+        if sku and is_valid_internal_sku(profile=AnalysisProfileName.JEAN_LEVIS, sku=sku):
             parts.append(f"{SKU_PREFIX}{sku}")
         else:
             # Optionnel: log utile pour comprendre les cas rejetés
