@@ -20,7 +20,7 @@ class FakeGemini(GeminiListingClient):
         super().__init__(Settings(gemini_api_key="dummy-key", gemini_model="gemini-3-pro-preview"), ocr_provider=FakeOCR())
         self.last_image_paths = []
 
-    def _call_api(self, image_paths, profile, ui_data=None, ocr_text=None):
+    def _call_api(self, image_paths, profile, ui_data=None, ocr_text=None, structured_schema=None):
         # capture paths envoyées à Gemini (pour vérifier l'exclusion OCR)
         self.last_image_paths = list(image_paths)
         payload = {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 import sys
 import traceback
@@ -10,6 +11,22 @@ from config.log_config import setup_logging
 from config.settings import load_settings
 from infrastructure.ai_factory import build_providers
 from presentation.ui_app import VintedAIApp
+
+
+def _verifier_dependances_images(logger: logging.Logger) -> None:
+    """Vérifie la présence des dépendances images nécessaires (olefile pour Pillow)."""
+    olefile_spec = importlib.util.find_spec("olefile")
+    if olefile_spec is None:
+        logger.error(
+            "Dépendance image manquante : le paquet 'olefile' est absent. "
+            "Installez-le (requirements.txt) pour éviter les avertissements Pillow et "
+            "permettre le chargement des images OLE/Mic.",
+        )
+        return
+
+    olefile_module = importlib.import_module("olefile")
+    olefile_version = getattr(olefile_module, "__version__", "inconnue")
+    logger.debug("Dépendance image 'olefile' détectée (version %s).", olefile_version)
 
 
 def main() -> None:
@@ -27,6 +44,7 @@ def main() -> None:
     setup_logging(logging.DEBUG)
     logger = logging.getLogger(__name__)
     logger.info("Démarrage de l'application Vinted Assistant (Gemini uniquement).")
+    _verifier_dependances_images(logger)
 
     # ------------------------------------------------------------------
     # Chargement Settings
