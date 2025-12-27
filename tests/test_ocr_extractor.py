@@ -62,16 +62,6 @@ def test_generic_sku_patterns():
     assert "CA1234" in structured.sku_candidates
 
 
-def test_internal_sku_with_separator():
-    raw = """
-    PTF 217
-    TAILLE M
-    """
-    structured = StructuredOCRExtractor().structure(raw)
-
-    assert "PTF217" in structured.sku_candidates
-
-
 def test_no_information_returns_empty_structures():
     raw = """
     Lorem ipsum dolor sit amet

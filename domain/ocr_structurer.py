@@ -118,7 +118,6 @@ class StructuredOCRExtractor:
         return lines
 
     SKU_LABEL_RE = re.compile(r"\b[A-Z]{2,6}\d{1,4}\b")
-    SKU_LABEL_FLEX_RE = re.compile(r"\b([A-Z]{2,6})[\s\-_/]*([0-9]{1,4})\b")
 
     def _filter_relevant_lines(self, lines: Sequence[str]) -> List[str]:
         kept: List[str] = []
@@ -142,7 +141,7 @@ class StructuredOCRExtractor:
 
     def _is_sku_line(self, line: str) -> bool:
         # 1) SKU interne Durin type PTF161 / JLF123 / PTNF007 etc.
-        if self.SKU_LABEL_RE.search(line) or self.SKU_LABEL_FLEX_RE.search(line):
+        if self.SKU_LABEL_RE.search(line):
             return True
 
         # 2) Autres regex “codes” (RN/CA, STYLE, REF, JCR...)
@@ -218,16 +217,6 @@ class StructuredOCRExtractor:
             # 1) SKU interne Durin (PTF161, JLF123, etc.)
             for m in self.SKU_LABEL_RE.findall(line):
                 _add(m)
-
-            for match in self.SKU_LABEL_FLEX_RE.finditer(line):
-                prefix, digits = match.groups()
-                candidate = f"{prefix}{digits}"
-                _add(candidate)
-                logger.debug(
-                    "StructuredOCRExtractor: SKU détecté avec séparateur (brut=%r, normalisé=%s).",
-                    match.group(0),
-                    candidate,
-                )
 
             # 2) Autres codes (RN/CA, STYLE, REF, JCR...)
             for regex in self._SKU_REGEXES:
