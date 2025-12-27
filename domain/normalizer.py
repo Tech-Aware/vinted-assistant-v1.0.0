@@ -1909,8 +1909,12 @@ def normalize_and_postprocess(
     sku = features.get("sku")
     sku_status = features.get("sku_status")
 
-    if sku and not is_valid_internal_sku(sku, profile=profile):
-        logger.warning("SKU incohérent après normalisation (profil=%s): '%s' -> rejeté", profile, sku)
+    if sku and not is_valid_internal_sku(profile=profile_name, sku=sku):
+        logger.warning(
+            "SKU incohérent après normalisation (profil=%s): '%s' -> rejeté",
+            getattr(profile_name, "value", profile_name),
+            sku,
+        )
         features["sku"] = None
         features["sku_status"] = "invalid"  # ou "missing"
 
