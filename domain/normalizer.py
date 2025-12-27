@@ -1517,6 +1517,17 @@ def build_features_for_pull_tommy(
             str(sku_status_raw).strip().lower() if sku_status_raw is not None else None
         )
         sku_source = "ui" if sku_from_ui is not None else "ai"
+        ocr_candidates: list[str] = []
+
+        try:
+            raw_candidates = ai_data.get("_ocr_sku_candidates") or ui_data.get("_ocr_sku_candidates")
+            if isinstance(raw_candidates, list):
+                ocr_candidates = [str(c).strip() for c in raw_candidates if c]
+        except Exception as candidates_exc:  # pragma: no cover - robustesse
+            logger.warning(
+                "build_features_for_pull_tommy: lecture des candidats SKU OCR impossible (%s)",
+                candidates_exc,
+            )
 
         def _is_label_sku(value: str) -> bool:
             """
@@ -1563,6 +1574,26 @@ def build_features_for_pull_tommy(
                     sku = None
                     sku_status = "missing"
 
+            if not sku and ocr_candidates:
+                try:
+                    fallback_sku = next((cand for cand in ocr_candidates if _is_label_sku(cand)), None)
+                    if fallback_sku:
+                        sku = re.sub(r"\s+", "", fallback_sku)
+                        sku_status = "ok"
+                        logger.info(
+                            "build_features_for_pull_tommy: SKU accepté via OCR structuré (%s)",
+                            sku,
+                        )
+                    else:
+                        logger.debug(
+                            "build_features_for_pull_tommy: aucun candidat SKU OCR valide trouvé (%s)",
+                            ocr_candidates,
+                        )
+                except Exception as sku_fallback_exc:  # pragma: no cover - robustesse
+                    logger.warning(
+                        "build_features_for_pull_tommy: sélection SKU OCR échouée (%s)",
+                        sku_fallback_exc,
+                    )
         try:
             normalized_brand = _normalize_tommy_brand(brand)
         except Exception as brand_exc:  # pragma: no cover - defensive
