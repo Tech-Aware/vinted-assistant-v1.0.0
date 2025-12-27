@@ -417,8 +417,8 @@ class VintedAIApp(ctk.CTk):
 
             add_image_btn = ctk.CTkButton(
                 buttons_row,
-                text="+ Ajouter",
-                width=96,
+                text="+",
+                width=48,
                 height=28,
                 corner_radius=12,
                 fg_color=self.palette.get("accent_gradient_end"),
