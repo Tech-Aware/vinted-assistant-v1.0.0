@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Vinted Assistant",
+  "version": "1.0.0",
+  "description": "Assistant de remplissage automatique pour brouillons Vinted",
+
+  "permissions": [
+    "activeTab"
+  ],
+
+  "host_permissions": [
+    "http://localhost:8765/*"
+  ],
+
+  "content_scripts": [{
+    "matches": [
+      "*://www.vinted.fr/items/*/edit*",
+      "*://www.vinted.com/items/*/edit*"
+    ],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
