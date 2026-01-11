@@ -8,8 +8,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from typing import TYPE_CHECKING
+import warnings
 
-import google.generativeai as genai  # legacy (fallback)
+# Suppress deprecation warning from legacy google.generativeai package
+# (kept as fallback when google.genai structured outputs unavailable)
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=FutureWarning, message=".*google.generativeai.*")
+    import google.generativeai as genai  # legacy (fallback)
+
 import json
 
 try:  # structured outputs via Google GenAI SDK
