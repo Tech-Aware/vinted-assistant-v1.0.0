@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -10,7 +11,7 @@ import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from PIL import Image  # encore utilisé pour l’aperçu plein écran si tu le gardes ailleurs
+from PIL import Image  # encore utilisé pour l'aperçu plein écran si tu le gardes ailleurs
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
@@ -18,9 +19,18 @@ from tkinter import filedialog, messagebox
 from domain.ai_provider import AIProviderName, AIListingProvider
 from domain.models import VintedListing
 from domain.templates import AnalysisProfileName, AnalysisProfile, ALL_PROFILES
-from domain.title_builder import SKU_PREFIX, build_pull_tommy_title
+from domain.title_builder import SKU_PREFIX, build_pull_title, build_pull_tommy_title
 
-from presentation.image_preview import ImagePreview  # <- widget réutilisé depuis l’ancienne app
+from presentation.image_preview import ImagePreview  # <- widget réutilisé depuis l'ancienne app
+
+# Import du browser bridge pour communication avec l'extension Chrome
+try:
+    from infrastructure.browser_bridge import get_bridge
+    BROWSER_BRIDGE_AVAILABLE = True
+except ImportError:
+    BROWSER_BRIDGE_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("Browser bridge non disponible - fonctionnalité d'envoi vers Vinted désactivée")
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +62,17 @@ class VintedAIApp(ctk.CTk):
 
         self._main_mousewheel_bind_ids: dict[str, str] = {}
         self._main_mousewheel_target: Optional[ctk.CTkBaseClass] = None
+
+        # Browser bridge pour communication avec extension Chrome
+        self.browser_bridge = None
+        self.bridge_server_running = False
+        if BROWSER_BRIDGE_AVAILABLE:
+            try:
+                self.browser_bridge = get_bridge()
+                # Démarrer le serveur en arrière-plan
+                threading.Thread(target=self._start_bridge_server_async, daemon=True).start()
+            except Exception as exc:
+                logger.error("Impossible d'initialiser le browser bridge: %s", exc, exc_info=True)
 
         self.providers = providers
         self.gemini_provider: Optional[AIListingProvider] = providers.get(AIProviderName.GEMINI)
@@ -683,6 +704,22 @@ class VintedAIApp(ctk.CTk):
             )
             description_copy_btn.pack(side="left")
 
+            # NOUVEAU: Bouton "Envoyer vers Vinted" (si bridge disponible)
+            if BROWSER_BRIDGE_AVAILABLE:
+                self.send_vinted_btn = ctk.CTkButton(
+                    description_controls,
+                    text="📤 Vinted",
+                    width=90,
+                    height=32,
+                    corner_radius=10,
+                    fg_color=self.palette.get("accent_gradient_start"),
+                    hover_color=self.palette.get("accent_gradient_end"),
+                    text_color="white",
+                    command=self._send_to_vinted_clicked,
+                )
+                self.send_vinted_btn.pack(side="left", padx=(6, 0))
+                logger.info("Bouton 'Envoyer vers Vinted' ajouté à l'interface")
+
             self.description_text = ctk.CTkTextbox(
                 description_card,
                 wrap="word",
@@ -1097,7 +1134,7 @@ class VintedAIApp(ctk.CTk):
     def _profile_requires_measure_mode(self, profile_key: str) -> bool:
         return profile_key in {
             AnalysisProfileName.POLAIRE_OUTDOOR.value,
-            AnalysisProfileName.PULL_TOMMY.value,
+            AnalysisProfileName.PULL.value,
         }
 
     def _update_profile_ui(self) -> None:
@@ -1910,7 +1947,7 @@ class VintedAIApp(ctk.CTk):
                 )
                 return
 
-            if profile_name != AnalysisProfileName.PULL_TOMMY:
+            if profile_name != AnalysisProfileName.PULL:
                 logger.info(
                     "_rebuild_title_with_manual_composition: profil %s sans recalcul titre.",
                     profile_value,
@@ -1924,10 +1961,10 @@ class VintedAIApp(ctk.CTk):
                 )
                 return
 
-            updated_title = build_pull_tommy_title(features)
+            updated_title = build_pull_title(features)
             if updated_title and updated_title != listing.title:
                 logger.info(
-                    "Titre recalculé pour profil pull_tommy après composition: %s", updated_title
+                    "Titre recalcule pour profil pull apres composition: %s", updated_title
                 )
                 listing.title = updated_title
         except Exception as exc:
@@ -2262,3 +2299,91 @@ class VintedAIApp(ctk.CTk):
             logger.info("Fenêtre de saisie SKU affichée en modal.")
         except Exception as exc:
             logger.error("Erreur lors de l'affichage de la saisie SKU: %s", exc, exc_info=True)
+
+    # ------------------------------------------------------------------
+    # Browser Bridge - Envoi vers Vinted (NOUVEAU)
+    # ------------------------------------------------------------------
+
+    def _start_bridge_server_async(self) -> None:
+        """Démarre le serveur HTTP du bridge de manière asynchrone"""
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.browser_bridge.start_server())
+            self.bridge_server_running = True
+            logger.info("Serveur browser bridge démarré avec succès")
+        except Exception as exc:
+            logger.error("Erreur lors du démarrage du serveur bridge: %s", exc, exc_info=True)
+            self.bridge_server_running = False
+
+    def _send_to_vinted_clicked(self) -> None:
+        """
+        NOUVEAU: Callback pour le bouton "Envoyer vers Vinted"
+        Envoie le titre et la description générés vers le brouillon Vinted
+        """
+        try:
+            if not self.bridge_server_running or not self.browser_bridge:
+                messagebox.showwarning(
+                    "Bridge non disponible",
+                    "Le serveur de communication avec l'extension Chrome n'est pas démarré.\n"
+                    "Utilisez le copier-coller manuel."
+                )
+                return
+
+            if not self.current_listing:
+                messagebox.showwarning(
+                    "Pas de fiche générée",
+                    "Veuillez d'abord générer une fiche avant d'envoyer vers Vinted."
+                )
+                return
+
+            title = self.title_text.get("1.0", "end").strip() if self.title_text else ""
+            description = self.description_text.get("1.0", "end").strip() if self.description_text else ""
+
+            if not title or not description:
+                messagebox.showwarning(
+                    "Données incomplètes",
+                    "Le titre ou la description est vide. Générez d'abord une fiche complète."
+                )
+                return
+
+            # Envoyer de manière asynchrone dans un thread séparé
+            def _send_async():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    success = loop.run_until_complete(
+                        self.browser_bridge.send_to_vinted(title, description)
+                    )
+
+                    if success:
+                        self.after(0, lambda: messagebox.showinfo(
+                            "Succès",
+                            "✅ Titre et description envoyés vers le brouillon Vinted!\n\n"
+                            "Vérifiez le brouillon dans votre navigateur et complétez les champs restants."
+                        ))
+                    else:
+                        self.after(0, lambda: messagebox.showerror(
+                            "Échec",
+                            "❌ L'envoi vers Vinted a échoué.\n\n"
+                            "Vérifications:\n"
+                            "- Un brouillon Vinted est-il ouvert dans Chrome?\n"
+                            "- L'extension est-elle installée et activée?\n"
+                            "- Le port forwarding est-il configuré (Chromebook)?"
+                        ))
+                except Exception as exc_send:
+                    logger.error("Erreur lors de l'envoi vers Vinted: %s", exc_send, exc_info=True)
+                    self.after(0, lambda: messagebox.showerror(
+                        "Erreur",
+                        f"Une erreur est survenue:\n{exc_send}"
+                    ))
+
+            threading.Thread(target=_send_async, daemon=True).start()
+            logger.info("Envoi vers Vinted lancé en arrière-plan")
+
+        except Exception as exc:
+            logger.error("Erreur dans _send_to_vinted_clicked: %s", exc, exc_info=True)
+            messagebox.showerror(
+                "Erreur",
+                f"Impossible d'envoyer vers Vinted:\n{exc}"
+            )
