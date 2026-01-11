@@ -6,6 +6,7 @@ olefile==0.47
 
 requests==2.32.5
 
+# Legacy google-generativeai kept as fallback (deprecated, see google-genai below)
 google-generativeai==0.8.5
 google-cloud-vision==3.9.0
 jsonschema==4.23.0

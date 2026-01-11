@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import warnings
+
+# Suppress FutureWarnings from Google API packages before importing them
+# - google.generativeai deprecation warning (package replaced by google.genai)
+# - google.api_core Python version support warning
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*google.generativeai.*")
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*Python version.*google.*")
+
 import importlib
 import logging
 import os
