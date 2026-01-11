@@ -10,11 +10,12 @@ from typing import Any, Dict, List, Optional, Sequence
 from typing import TYPE_CHECKING
 import warnings
 
-# Suppress deprecation warning from legacy google.generativeai package
-# (kept as fallback when google.genai structured outputs unavailable)
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=FutureWarning, message=".*google.generativeai.*")
-    import google.generativeai as genai  # legacy (fallback)
+# Suppress ALL warnings during legacy google.generativeai import
+# (package is deprecated but kept as fallback when google.genai unavailable)
+_original_filters = warnings.filters[:]
+warnings.simplefilter("ignore")
+import google.generativeai as genai  # legacy (fallback)
+warnings.filters[:] = _original_filters
 
 import json
 
