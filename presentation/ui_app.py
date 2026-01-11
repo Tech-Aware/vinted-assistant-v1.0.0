@@ -163,13 +163,17 @@ class VintedAIApp(ctk.CTk):
         self._bind_main_mousewheel()
 
     def _on_main_scroll_leave(self, event: object) -> None:
-        # évite d'unbind si on “sort” vers un enfant interne
+        # évite d'unbind si on "sort" vers un enfant interne
         x_root = getattr(event, "x_root", None)
         y_root = getattr(event, "y_root", None)
         if x_root is not None and y_root is not None:
-            widget = self.winfo_containing(x_root, y_root)
-            if widget is not None and self._is_descendant(widget, self.main_content_frame):
-                return
+            try:
+                widget = self.winfo_containing(x_root, y_root)
+                if widget is not None and self._is_descendant(widget, self.main_content_frame):
+                    return
+            except KeyError:
+                # winfo_containing peut lever KeyError pour certains widgets (menus, popups)
+                pass
         self._unbind_main_mousewheel()
 
     def _bind_main_mousewheel(self) -> None:
