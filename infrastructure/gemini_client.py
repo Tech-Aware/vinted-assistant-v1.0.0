@@ -10,11 +10,12 @@ from typing import Any, Dict, List, Optional, Sequence
 from typing import TYPE_CHECKING
 import warnings
 
-# Suppress deprecation warning from legacy google.generativeai package
-# (kept as fallback when google.genai structured outputs unavailable)
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=FutureWarning, message=".*google.generativeai.*")
-    import google.generativeai as genai  # legacy (fallback)
+# Suppress ALL warnings during legacy google.generativeai import
+# (package is deprecated but kept as fallback when google.genai unavailable)
+_original_filters = warnings.filters[:]
+warnings.simplefilter("ignore")
+import google.generativeai as genai  # legacy (fallback)
+warnings.filters[:] = _original_filters
 
 import json
 
@@ -281,7 +282,8 @@ class GeminiListingClient(AIListingProvider):
             )
 
         gemini_paths: List[Path]
-        if ocr_paths:
+        if ocr_paths and ocr_payload:
+            # OCR a réussi : exclure les images OCR de l'envoi Gemini
             ocr_set = {str(p) for p in ocr_paths}
             gemini_paths = [p for p in paths if str(p) not in ocr_set]
             if not gemini_paths:
@@ -290,6 +292,11 @@ class GeminiListingClient(AIListingProvider):
                 )
                 gemini_paths = paths
         else:
+            # Pas d'OCR ou OCR échoué : envoyer TOUTES les images à Gemini
+            if ocr_paths and not ocr_payload:
+                logger.warning(
+                    "OCR demandé mais aucun texte extrait : envoi de toutes les images à Gemini pour analyse visuelle."
+                )
             gemini_paths = paths
 
         logger.info(
