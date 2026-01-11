@@ -237,10 +237,10 @@ JSON ONLY:
 - No surrounding text, no explanations, no markdown.
 
 ==============================================================
- EXTENDED OUTPUT FOR PROFILE "pull_tommy"
+ EXTENDED OUTPUT FOR PROFILE "pull"
 ==============================================================
 
-If the selected analysis profile is named "pull_tommy":
+If the selected analysis profile is named "pull":
 
 You must include, in addition to the base JSON fields
 (title, description, brand, style, pattern, neckline, season, defects),

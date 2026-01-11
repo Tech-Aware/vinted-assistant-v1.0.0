@@ -28,11 +28,34 @@ except Exception:  # pragma: no cover - fallback local si jsonschema absent
         """Fallback no-op si jsonschema n'est pas disponible."""
         return
 
+# Retry avec backoff exponentiel pour les appels API
+try:
+    from tenacity import (
+        retry,
+        stop_after_attempt,
+        wait_exponential,
+        retry_if_exception_type,
+        before_sleep_log,
+    )
+    TENACITY_AVAILABLE = True
+except ImportError:
+    TENACITY_AVAILABLE = False
+    # Fallback: décorateur no-op si tenacity n'est pas installé
+    def retry(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    stop_after_attempt = lambda x: None
+    wait_exponential = lambda **kwargs: None
+    retry_if_exception_type = lambda x: None
+    before_sleep_log = lambda logger, level: None
+
 from config.settings import Settings
 from domain.ai_provider import AIListingProvider, AIProviderName
 from domain.json_utils import safe_json_parse
 from domain.ocr_provider import OCRProvider, OCRProviderError, OCRResult
 from domain.models import VintedListing
+from domain.path_validator import validate_image_paths, PathValidationError
 from domain.prompt import PROMPT_CONTRACT
 from domain.templates import AnalysisProfile
 from domain.normalizer import normalize_and_postprocess
@@ -49,6 +72,31 @@ class GeminiClientError(RuntimeError):
     """
     Exception fonctionnelle pour les erreurs Gemini.
     """
+
+
+class GeminiRetryableError(GeminiClientError):
+    """
+    Exception pour les erreurs Gemini récupérables (timeout, rate limit, erreur réseau).
+    Ces erreurs peuvent être réessayées avec backoff exponentiel.
+    """
+
+
+# Décorateur de retry pour les appels API Gemini
+def _create_retry_decorator():
+    """Crée un décorateur de retry avec backoff exponentiel."""
+    if not TENACITY_AVAILABLE:
+        return lambda func: func
+
+    return retry(
+        stop=stop_after_attempt(3),  # Max 3 tentatives
+        wait=wait_exponential(multiplier=1, min=2, max=30),  # 2s, 4s, 8s... max 30s
+        retry=retry_if_exception_type(GeminiRetryableError),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+
+
+gemini_retry = _create_retry_decorator()
 
 
 class GeminiListingClient(AIListingProvider):
@@ -157,6 +205,13 @@ class GeminiListingClient(AIListingProvider):
 
         if not paths:
             raise GeminiClientError("Aucune image fournie à Gemini.generate_listing.")
+
+        # Validation sécurisée des chemins (prévention path traversal)
+        try:
+            paths = validate_image_paths(paths, check_exists=True, check_extension=True)
+        except PathValidationError as exc:
+            logger.error("Validation des chemins d'images échouée: %s", exc)
+            raise GeminiClientError(f"Chemins d'images invalides: {exc}") from exc
 
         logger.info(
             "Gemini.generate_listing(images=%s, profile='%s')",
@@ -576,6 +631,26 @@ class GeminiListingClient(AIListingProvider):
     # Appel API Gemini
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _is_retryable_error(exc: Exception) -> bool:
+        """Détermine si une exception est récupérable (timeout, rate limit, réseau)."""
+        error_str = str(exc).lower()
+        retryable_patterns = [
+            "timeout",
+            "rate limit",
+            "quota",
+            "503",
+            "502",
+            "504",
+            "connection",
+            "network",
+            "temporarily unavailable",
+            "resource exhausted",
+            "deadline exceeded",
+        ]
+        return any(pattern in error_str for pattern in retryable_patterns)
+
+    @gemini_retry
     def _call_api(
             self,
             image_paths: List[Path],
@@ -585,9 +660,16 @@ class GeminiListingClient(AIListingProvider):
             structured_schema: Dict[str, Any] | None = None,
     ) -> str:
         """
-        Appelle Gemini.
+        Appelle Gemini avec retry automatique sur erreurs récupérables.
+
         Priorité: structured outputs (google-genai) si dispo + schema.
         Fallback: legacy google-generativeai en prompt-only.
+
+        Le décorateur @gemini_retry réessaie automatiquement en cas de:
+        - Timeout
+        - Rate limit (429)
+        - Erreurs réseau temporaires
+        - Erreurs serveur (502, 503, 504)
         """
         profile_name = getattr(getattr(profile, "name", None), "value", "unknown")
 
@@ -634,6 +716,14 @@ class GeminiListingClient(AIListingProvider):
             except GeminiClientError:
                 raise
             except Exception as exc:
+                # Si c'est une erreur récupérable, relancer pour retry
+                if self._is_retryable_error(exc):
+                    logger.warning(
+                        "Erreur récupérable Gemini structured (%s): %s. Retry...",
+                        profile_name,
+                        exc,
+                    )
+                    raise GeminiRetryableError(f"Erreur Gemini récupérable: {exc}") from exc
                 logger.warning(
                     "Echec appel Gemini structured outputs (%s). Fallback legacy. (%s)",
                     profile_name,
@@ -685,6 +775,13 @@ class GeminiListingClient(AIListingProvider):
         except GeminiClientError:
             raise
         except Exception as exc:
+            # Si c'est une erreur récupérable, relancer pour retry
+            if self._is_retryable_error(exc):
+                logger.warning(
+                    "Erreur récupérable Gemini legacy: %s. Retry...",
+                    exc,
+                )
+                raise GeminiRetryableError(f"Erreur Gemini récupérable: {exc}") from exc
             logger.exception("Erreur appel API Gemini (legacy).")
             raise GeminiClientError(f"Erreur API Gemini: {exc}") from exc
 

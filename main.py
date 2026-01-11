@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import os
 import sys
 import traceback
 
@@ -11,6 +12,24 @@ from config.log_config import setup_logging
 from config.settings import load_settings
 from infrastructure.ai_factory import build_providers
 from presentation.ui_app import VintedAIApp
+
+
+def _get_log_level() -> int:
+    """
+    Récupère le niveau de log depuis la variable d'environnement LOG_LEVEL.
+    Par défaut : INFO en production pour éviter l'exposition de données sensibles.
+    Valeurs acceptées : DEBUG, INFO, WARNING, ERROR, CRITICAL
+    """
+    level_name = os.getenv("LOG_LEVEL", "INFO").upper().strip()
+    level_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "WARN": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+    return level_map.get(level_name, logging.INFO)
 
 
 def _verifier_dependances_images(logger: logging.Logger) -> None:
@@ -39,11 +58,15 @@ def main() -> None:
     - Lance l'interface graphique
     """
     # ------------------------------------------------------------------
-    # Logging
+    # Logging (configurable via LOG_LEVEL env var, default: INFO)
     # ------------------------------------------------------------------
-    setup_logging(logging.DEBUG)
+    log_level = _get_log_level()
+    setup_logging(log_level)
     logger = logging.getLogger(__name__)
-    logger.info("Démarrage de l'application Vinted Assistant (Gemini uniquement).")
+    logger.info(
+        "Démarrage de l'application Vinted Assistant (Gemini uniquement). Log level: %s",
+        logging.getLevelName(log_level),
+    )
     _verifier_dependances_images(logger)
 
     # ------------------------------------------------------------------

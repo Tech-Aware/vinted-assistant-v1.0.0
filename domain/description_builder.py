@@ -423,7 +423,7 @@ def _strip_footer_lines(description: str) -> str:
         return description
 
 
-def _build_pull_tommy_composition(
+def _build_pull_composition(
     material: Optional[str],
     cotton_percent: Optional[Any],
     wool_percent: Optional[Any],
@@ -458,7 +458,7 @@ def _build_pull_tommy_composition(
                 return aliases.get(cleaned_lower, cleaned_lower)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug(
-                    "_build_pull_tommy_composition: normalisation matière échouée (%s)",
+                    "_build_pull_composition: normalisation matière échouée (%s)",
                     exc,
                 )
                 return raw_label
@@ -484,7 +484,7 @@ def _build_pull_tommy_composition(
                     fibers.append(display)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug(
-                    "_build_pull_tommy_composition: impossible d'ajouter %s (%s)",
+                    "_build_pull_composition: impossible d'ajouter %s (%s)",
                     label,
                     exc,
                 )
@@ -507,7 +507,7 @@ def _build_pull_tommy_composition(
                     _add_fiber(fiber_name, percent_val)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning(
-                    "_build_pull_tommy_composition: parsing partiel de la composition (%s)",
+                    "_build_pull_composition: parsing partiel de la composition (%s)",
                     exc,
                 )
 
@@ -524,7 +524,7 @@ def _build_pull_tommy_composition(
             try:
                 if "angora" in material_lower and "laine" not in material_lower:
                     logger.info(
-                        "_build_pull_tommy_composition: wool_percent traité comme angora (material=%s)",
+                        "_build_pull_composition: wool_percent traité comme angora (material=%s)",
                         clean_material,
                     )
                     _add_fiber("angora", wool_val)
@@ -532,7 +532,7 @@ def _build_pull_tommy_composition(
                     _add_fiber("laine", wool_val)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug(
-                    "_build_pull_tommy_composition: impossible d'interpréter wool_percent (%s)",
+                    "_build_pull_composition: impossible d'interpréter wool_percent (%s)",
                     exc,
                 )
                 _add_fiber("laine", wool_val)
@@ -545,7 +545,7 @@ def _build_pull_tommy_composition(
 
         return "Composition non lisible (voir photos)."
     except Exception as exc:  # pragma: no cover - defensive
-        logger.error("_build_pull_tommy_composition: erreur %s", exc)
+        logger.error("_build_pull_composition: erreur %s", exc)
         return "Composition non lisible (voir photos)."
 
 
@@ -703,17 +703,29 @@ def build_jean_levis_description(
         return _safe_clean(ai_description)
 
 
-def build_pull_tommy_description(
+def build_pull_description(
     features: Dict[str, Any],
     ai_description: Optional[str] = None,
     ai_defects: Optional[str] = None,
 ) -> str:
-    """Construit une description structurée pour un pull Tommy Hilfiger."""
-    try:
-        logger.info("build_pull_tommy_description: features reçus = %s", features)
+    """
+    Construit une description structuree pour un pull.
 
-        brand = _safe_clean(features.get("brand")) or "Tommy Hilfiger"
-        brand.capitalize()
+    Supporte:
+      - Pulls branded (Tommy Hilfiger, Ralph Lauren, etc.)
+      - Pulls vintage/unbranded (is_vintage=True ou brand=None)
+    """
+    try:
+        logger.info("build_pull_description: features recus = %s", features)
+
+        brand = _safe_clean(features.get("brand"))
+        is_vintage = features.get("is_vintage", False)
+
+        # Si pas de marque, c'est un pull vintage
+        if not brand:
+            is_vintage = True
+            brand = "Vintage"
+
         garment_type = _safe_clean(features.get("garment_type")) or "pull"
         gender = _safe_clean(features.get("gender")) or "femme"
         neckline = _safe_clean(features.get("neckline"))
@@ -735,7 +747,7 @@ def build_pull_tommy_description(
             else:
                 colors = _safe_clean(colors_raw)
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("build_pull_tommy_description: couleurs non exploitables (%s)", exc)
+            logger.warning("build_pull_description: couleurs non exploitables (%s)", exc)
             colors = ""
 
         intro_parts: List[str] = []
@@ -794,12 +806,12 @@ def build_pull_tommy_description(
             if descriptive_sentence and not descriptive_sentence[0].isupper():
                 descriptive_sentence = descriptive_sentence[0].upper() + descriptive_sentence[1:]
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("build_pull_tommy_description: phrase descriptive par défaut (%s)", exc)
+            logger.warning("build_pull_description: phrase descriptive par défaut (%s)", exc)
             descriptive_sentence = (
                 f"{neckline_text}{style_clause} aux coloris {color_text}, et une {material_phrase} pour un look iconique et confortable."
             ).strip()
 
-        composition_sentence = _build_pull_tommy_composition(
+        composition_sentence = _build_pull_composition(
             material=material,
             cotton_percent=cotton_percent,
             wool_percent=wool_percent,
@@ -820,7 +832,7 @@ def build_pull_tommy_description(
             size_token = _normalize_pull_size(size).replace(" ", "") if size else "NC"
             durin_tag = f"#durin31tf{size_token}"
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("build_pull_tommy_description: durin_tag défaut (%s)", exc)
+            logger.warning("build_pull_description: durin_tag défaut (%s)", exc)
             size_token = "NC"
             durin_tag = "#durin31tfNC"
 
@@ -853,7 +865,7 @@ def build_pull_tommy_description(
                     if clean_color:
                         _add_tag(f"#{clean_color}")
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("build_pull_tommy_description: hashtags réduits (%s)", exc)
+            logger.warning("build_pull_description: hashtags réduits (%s)", exc)
 
         hashtags_block = " ".join(tokens_hashtag)
         hashtags_with_cta = "\n".join(
@@ -876,11 +888,15 @@ def build_pull_tommy_description(
 
         description = "\n\n".join([p for p in paragraphs if p])
         cleaned = _strip_footer_lines(description)
-        logger.debug("build_pull_tommy_description: description générée = %s", cleaned)
+        logger.debug("build_pull_description: description generee = %s", cleaned)
         return cleaned
     except Exception as exc:  # pragma: no cover - defensive
-        logger.exception("build_pull_tommy_description: fallback description IA (%s)", exc)
+        logger.exception("build_pull_description: fallback description IA (%s)", exc)
         return _strip_footer_lines(_safe_clean(ai_description))
+
+
+# Alias pour retrocompatibilite
+build_pull_tommy_description = build_pull_description
 
 
 def _describe_lining(lining: str) -> str:

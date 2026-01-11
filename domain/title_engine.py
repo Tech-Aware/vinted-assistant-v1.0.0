@@ -163,15 +163,27 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
         return "Jean Levi's"
 
 
-def build_title_pull_tommy(features: Dict[str, Any]) -> str:
-    """Construit un titre pour les pulls/gilets Tommy Hilfiger (logique rapatriée)."""
+def build_title_pull(features: Dict[str, Any]) -> str:
+    """
+    Construit un titre pour les pulls/gilets.
+
+    Supporte:
+      - Pulls branded (Tommy Hilfiger, Ralph Lauren, etc.)
+      - Pulls vintage/unbranded (is_vintage=True ou brand=None)
+    """
     try:
-        brand = _normalize_str(features.get("brand")) or "Tommy Hilfiger"
+        brand = _normalize_str(features.get("brand"))
+        is_vintage = features.get("is_vintage", False)
+
+        # Si pas de marque, c'est un pull vintage
+        if not brand and not is_vintage:
+            is_vintage = True
+
         garment_type = _normalize_garment_type(features.get("garment_type")) or "Pull"
         raw_gender = _normalize_gender(_normalize_str(features.get("gender")))
         gender = "femme"
         if raw_gender and raw_gender.lower() != "femme":
-            logger.debug("build_title_pull_tommy: genre forcé à femme (entrée=%s)", raw_gender)
+            logger.debug("build_title_pull: genre force a femme (entree=%s)", raw_gender)
         elif raw_gender:
             gender = raw_gender
         size = _normalize_pull_size(_normalize_str(features.get("size")))
@@ -191,12 +203,17 @@ def build_title_pull_tommy(features: Dict[str, Any]) -> str:
 
         parts: List[str] = [garment_type]
 
-        if brand:
+        # Ajouter "Vintage" ou la marque
+        if is_vintage:
+            parts.append("Vintage")
+            logger.info("build_title_pull: pull vintage (pas de marque)")
+        elif brand:
             brand_formatted = " ".join(word.capitalize() for word in brand.lower().split())
             parts.append(brand_formatted)
+            # Premium uniquement pour Tommy Hilfiger avec Pima cotton
             if features.get("is_pima") and brand.lower() == "tommy hilfiger":
                 parts.append("Premium")
-                logger.info("build_title_pull_tommy: ajout de 'Premium' au titre (Pima cotton détecté)")
+                logger.info("build_title_pull: ajout de 'Premium' au titre (Pima cotton detecte)")
 
         if gender:
             parts.append(gender)
@@ -220,16 +237,20 @@ def build_title_pull_tommy(features: Dict[str, Any]) -> str:
             parts.append(f"{SKU_PREFIX}{sku}")
         elif sku:
             logger.debug(
-                "build_title_pull_tommy: SKU ignoré car statut non 'ok' (%s)",
+                "build_title_pull: SKU ignore car statut non 'ok' (%s)",
                 sku_status,
             )
 
         title = _safe_join(parts)
-        logger.debug("build_title_pull_tommy: titre construit à partir de %s -> '%s'", features, title)
+        logger.debug("build_title_pull: titre construit a partir de %s -> '%s'", features, title)
         return title
     except Exception as exc:  # pragma: no cover - robustesse
-        logger.exception("build_title_pull_tommy: échec de construction (%s)", exc)
-        return _safe_join(["Pull Tommy Hilfiger"])
+        logger.exception("build_title_pull: echec de construction (%s)", exc)
+        return _safe_join(["Pull Vintage"])
+
+
+# Alias pour retrocompatibilite
+build_title_pull_tommy = build_title_pull
 
 
 def build_title_jacket_carhart(features: Dict[str, Any]) -> str:
@@ -306,20 +327,20 @@ def build_title_jacket_carhart(features: Dict[str, Any]) -> str:
 
 def build_title(profile_name: AnalysisProfileName, features: Dict[str, Any]) -> str:
     """
-    Point d'entrée unique pour construire les titres depuis les features normalisées.
-    Expose aussi des fonctions dédiées par profil pour clarifier la logique métier.
+    Point d'entree unique pour construire les titres depuis les features normalisees.
+    Expose aussi des fonctions dediees par profil pour clarifier la logique metier.
     """
     try:
         if profile_name == AnalysisProfileName.JEAN_LEVIS:
             return build_title_jean_levis(features)
-        if profile_name == AnalysisProfileName.PULL_TOMMY:
-            return build_title_pull_tommy(features)
+        if profile_name == AnalysisProfileName.PULL:
+            return build_title_pull(features)
         if profile_name == AnalysisProfileName.JACKET_CARHART:
             return build_title_jacket_carhart(features)
 
         fallback = str(features.get("title") or "").strip()
-        logger.debug("Profil %s non géré par le moteur de titre, fallback brut.", profile_name)
+        logger.debug("Profil %s non gere par le moteur de titre, fallback brut.", profile_name)
         return fallback
     except Exception as exc:  # pragma: no cover - robustesse
-        logger.error("build_title: erreur lors de la génération du titre (%s)", exc, exc_info=True)
+        logger.error("build_title: erreur lors de la generation du titre (%s)", exc, exc_info=True)
         return str(features.get("title") or "").strip()

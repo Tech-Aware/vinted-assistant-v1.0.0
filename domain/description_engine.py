@@ -181,13 +181,27 @@ def build_description_jean_levis(
 
 
 
-def build_description_pull_tommy(
+def build_description_pull(
     features: Dict[str, Any], ai_description: Optional[str] = None, ai_defects: Optional[str] = None
 ) -> str:
-    try:
-        logger.info("build_description_pull_tommy: features reçus = %s", features)
+    """
+    Construit une description pour les pulls.
 
-        brand = _safe_clean(features.get("brand")) or "Tommy Hilfiger"
+    Supporte:
+      - Pulls branded (Tommy Hilfiger, Ralph Lauren, etc.)
+      - Pulls vintage/unbranded (is_vintage=True ou brand=None)
+    """
+    try:
+        logger.info("build_description_pull: features recus = %s", features)
+
+        brand = _safe_clean(features.get("brand"))
+        is_vintage = features.get("is_vintage", False)
+
+        # Si pas de marque, c'est un pull vintage
+        if not brand:
+            is_vintage = True
+            brand = "Vintage"
+
         garment_type = _safe_clean(features.get("garment_type")) or "pull"
         gender = _safe_clean(features.get("gender")) or "femme"
         neckline = _safe_clean(features.get("neckline"))
@@ -338,10 +352,10 @@ def build_description_pull_tommy(
 
         footer = "\n".join(
             [
-                "📏 Mesures détaillées visibles en photo pour plus de précisions.",
-                "📦 Envoi rapide et soigné.",
-                f"✨ Retrouvez tous mes pulls Tommy ici 👉 {durin_tag}",
-                "💡 Pensez à faire un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !",
+                "📏 Mesures detaillees visibles en photo pour plus de precisions.",
+                "📦 Envoi rapide et soigne.",
+                f"✨ Retrouvez tous mes pulls ici 👉 {durin_tag}",
+                "💡 Pensez a faire un lot pour profiter d'une reduction supplementaire et economiser des frais d'envoi !",
                 "",
                 hashtags,
             ]
@@ -357,12 +371,16 @@ def build_description_pull_tommy(
 
         description = "\n\n".join([p for p in paragraphs if p])
         description = _safe_clean(description)
-        logger.debug("build_description_pull_tommy: description générée = %s", description)
+        logger.debug("build_description_pull: description generee = %s", description)
         return description
 
     except Exception as exc:  # pragma: no cover - robustesse
-        logger.exception("build_description_pull_tommy: fallback description IA (%s)", exc)
+        logger.exception("build_description_pull: fallback description IA (%s)", exc)
         return _safe_clean(ai_description)
+
+
+# Alias pour retrocompatibilite
+build_description_pull_tommy = build_description_pull
 
 
 
@@ -589,8 +607,8 @@ def build_description(
     try:
         if profile_name == AnalysisProfileName.JEAN_LEVIS:
             return build_description_jean_levis(features, ai_description=ai_description, ai_defects=ai_defects)
-        if profile_name == AnalysisProfileName.PULL_TOMMY:
-            return build_description_pull_tommy(features, ai_description=ai_description, ai_defects=ai_defects)
+        if profile_name == AnalysisProfileName.PULL:
+            return build_description_pull(features, ai_description=ai_description, ai_defects=ai_defects)
         if profile_name == AnalysisProfileName.JACKET_CARHART:
             return build_description_jacket_carhart(features, ai_description=ai_description, ai_defects=ai_defects)
 

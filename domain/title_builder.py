@@ -612,17 +612,28 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
         )
 
 
-def build_pull_tommy_title(features: Dict[str, Any]) -> str:
-    """Construit un titre pour les pulls/gilets Tommy Hilfiger."""
+def build_pull_title(features: Dict[str, Any]) -> str:
+    """
+    Construit un titre pour les pulls/gilets.
+
+    Supporte:
+      - Pulls branded (Tommy Hilfiger, Ralph Lauren, etc.)
+      - Pulls vintage/unbranded (is_vintage=True ou brand=None)
+    """
     try:
         brand = _normalize_str(features.get("brand"))
+        is_vintage = features.get("is_vintage", False)
+
+        # Si pas de marque, c'est un pull vintage
+        if not brand and not is_vintage:
+            is_vintage = True
 
         garment_type = _normalize_garment_type(features.get("garment_type")) or "Pull"
         raw_gender = _normalize_gender(_normalize_str(features.get("gender")))
         gender = "femme"
         if raw_gender and raw_gender.lower() != "femme":
             logger.debug(
-                "build_pull_tommy_title: genre forcé à femme (entrée=%s)", raw_gender
+                "build_pull_title: genre force a femme (entree=%s)", raw_gender
             )
         elif raw_gender:
             gender = raw_gender
@@ -640,18 +651,20 @@ def build_pull_tommy_title(features: Dict[str, Any]) -> str:
 
         sku = _normalize_str(features.get("sku"))
         sku_status = _normalize_str(features.get("sku_status"))
-        if not brand:
-            brand = "Tommy Hilfiger"
 
         parts: List[str] = [garment_type]
 
-        if brand:
+        # Ajouter "Vintage" ou la marque
+        if is_vintage:
+            parts.append("Vintage")
+            logger.info("build_pull_title: pull vintage (pas de marque)")
+        elif brand:
             brand_formatted = " ".join(word.capitalize() for word in brand.lower().split())
             parts.append(brand_formatted)
-            # AJOUT : si "Pima" détecté sur ce pull Tommy, ajouter "Premium" après la marque
+            # Premium uniquement pour Tommy Hilfiger avec Pima cotton
             if features.get("is_pima") and brand.lower() == "tommy hilfiger":
                 parts.append("Premium")
-                logger.info("build_pull_tommy_title: ajout de 'Premium' au titre (Pima cotton détecté)")
+                logger.info("build_pull_title: ajout de 'Premium' au titre (Pima cotton detecte)")
 
         if gender:
             parts.append(gender)
@@ -675,20 +688,24 @@ def build_pull_tommy_title(features: Dict[str, Any]) -> str:
             parts.append(f"{SKU_PREFIX}{sku}")
         elif sku:
             logger.debug(
-                "build_pull_tommy_title: SKU ignoré car statut non 'ok' (%s)",
+                "build_pull_title: SKU ignore car statut non 'ok' (%s)",
                 sku_status,
             )
         else:
             logger.debug(
-                "build_pull_tommy_title: SKU absent ou illisible (statut=%s)", sku_status
+                "build_pull_title: SKU absent ou illisible (statut=%s)", sku_status
             )
 
         title = _safe_join(parts)
-        logger.debug("Titre pull Tommy construit à partir de %s -> '%s'", features, title)
+        logger.debug("Titre pull construit a partir de %s -> '%s'", features, title)
         return title
     except Exception as exc:  # pragma: no cover - defensive
-        logger.exception("build_pull_tommy_title: échec de construction (%s)", exc)
-        return _safe_join(["Pull Tommy Hilfiger"])
+        logger.exception("build_pull_title: echec de construction (%s)", exc)
+        return _safe_join(["Pull Vintage"])
+
+
+# Alias pour retrocompatibilite
+build_pull_tommy_title = build_pull_title
 
 
 def build_jacket_carhart_title(features: Dict[str, Any]) -> str:
