@@ -37,6 +37,7 @@ def _get_allowed_directories() -> List[Path]:
     - Répertoire de l'utilisateur (home)
     - Répertoires temporaires système
     - Répertoire courant de l'application
+    - Chromebook: /mnt/chromeos/MyFiles/ (Downloads, etc.)
 
     Peut être étendu via la variable d'environnement VINTED_ALLOWED_DIRS
     (chemins séparés par des point-virgules).
@@ -66,6 +67,15 @@ def _get_allowed_directories() -> List[Path]:
         temp_dir = Path(tempfile.gettempdir())
         if temp_dir.exists():
             allowed.append(temp_dir)
+    except Exception:
+        pass
+
+    # Chromebook: Autoriser /mnt/chromeos/MyFiles/ (Downloads, Documents, etc.)
+    try:
+        chromeos_myfiles = Path("/mnt/chromeos/MyFiles")
+        if chromeos_myfiles.exists():
+            allowed.append(chromeos_myfiles)
+            logger.debug("Chromebook MyFiles détecté et autorisé: %s", chromeos_myfiles)
     except Exception:
         pass
 
