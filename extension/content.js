@@ -28,6 +28,11 @@ class VintedFormFiller {
   startPolling() {
     console.log('🔄 Polling démarré - vérification toutes les 2 secondes');
 
+    // Variable pour tracer les erreurs (éviter spam mais afficher les erreurs importantes)
+    let lastErrorType = null;
+    let errorCount = 0;
+    let connectionVerified = false;
+
     setInterval(async () => {
       try {
         const response = await fetch('http://localhost:8765/check', {
@@ -39,6 +44,14 @@ class VintedFormFiller {
 
         if (response.ok) {
           const data = await response.json();
+
+          // Première connexion réussie
+          if (!connectionVerified) {
+            console.log('✅ Connexion établie avec le serveur Python (localhost:8765)');
+            connectionVerified = true;
+            lastErrorType = null;
+            errorCount = 0;
+          }
 
           // Si des données sont présentes
           if (data.title || data.description) {
@@ -55,10 +68,39 @@ class VintedFormFiller {
 
             console.log('✅ Confirmation envoyée à l\'app Python');
           }
+        } else {
+          // Erreur HTTP (4xx, 5xx)
+          if (lastErrorType !== 'http' || errorCount < 3) {
+            console.error(`❌ Erreur HTTP ${response.status}: ${response.statusText}`);
+            console.error('   Vérifiez que le serveur Python est démarré sur le port 8765');
+            errorCount = lastErrorType === 'http' ? errorCount + 1 : 1;
+            lastErrorType = 'http';
+          }
         }
       } catch (err) {
-        // App Python pas encore démarrée ou port non accessible
-        // Ignorer silencieusement pour éviter de polluer la console
+        // Erreur réseau (serveur non accessible, CORS, etc.)
+        if (lastErrorType !== 'network' || errorCount < 3) {
+          console.error('❌ Erreur de connexion au serveur Python:', err.message);
+          console.error('   → Type d\'erreur:', err.name);
+
+          // Messages d'aide selon le type d'erreur
+          if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+            console.error('   ⚠️  CAUSES POSSIBLES:');
+            console.error('      1. Le serveur Python n\'est PAS démarré');
+            console.error('      2. Le port forwarding n\'est PAS configuré (ChromeOS → Linux → Port 8765)');
+            console.error('      3. Le serveur écoute sur un AUTRE port que 8765');
+            console.error('   📋 ACTIONS À FAIRE:');
+            console.error('      → Vérifiez la console Python: doit afficher "Serveur HTTP démarré"');
+            console.error('      → Chromebook: Paramètres → Linux → Port forwarding → Ajouter port 8765 (TCP)');
+            console.error('      → Testez dans un autre onglet: http://localhost:8765/status');
+          } else if (err.message.includes('NetworkError') || err.message.includes('blocked')) {
+            console.error('   ⚠️  L\'extension est peut-être bloquée par le navigateur');
+            console.error('      → Vérifiez chrome://extensions/ - l\'extension doit être ACTIVÉE');
+          }
+
+          errorCount = lastErrorType === 'network' ? errorCount + 1 : 1;
+          lastErrorType = 'network';
+        }
       }
     }, 2000); // Vérifier toutes les 2 secondes
   }
