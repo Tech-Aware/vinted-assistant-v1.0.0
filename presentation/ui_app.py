@@ -66,6 +66,7 @@ class VintedAIApp(ctk.CTk):
         # Browser bridge pour communication avec extension Chrome
         self.browser_bridge = None
         self.bridge_server_running = False
+        self.bridge_ready_event = threading.Event()
         if BROWSER_BRIDGE_AVAILABLE:
             try:
                 self.browser_bridge = get_bridge()
@@ -2315,10 +2316,12 @@ class VintedAIApp(ctk.CTk):
             asyncio.set_event_loop(loop)
             loop.run_until_complete(self.browser_bridge.start_server())
             self.bridge_server_running = True
+            self.bridge_ready_event.set()  # Signaler que le serveur est prêt
             logger.info("Serveur browser bridge démarré avec succès")
         except Exception as exc:
             logger.error("Erreur lors du démarrage du serveur bridge: %s", exc, exc_info=True)
             self.bridge_server_running = False
+            # Ne pas set() l'event en cas d'erreur
 
     def _send_to_vinted_clicked(self) -> None:
         """
@@ -2332,6 +2335,18 @@ class VintedAIApp(ctk.CTk):
                     "Le serveur de communication avec l'extension Chrome n'est pas démarré.\n"
                     "Utilisez le copier-coller manuel."
                 )
+                return
+
+            # Attendre que le serveur soit prêt (max 5 secondes)
+            if not self.bridge_ready_event.wait(timeout=5):
+                messagebox.showerror(
+                    "Serveur non prêt",
+                    "Le serveur HTTP n'a pas démarré correctement.\n\n"
+                    "Solutions:\n"
+                    "- Relancez l'application\n"
+                    "- Vérifiez que le port 8765 est disponible"
+                )
+                logger.error("Timeout lors de l'attente du démarrage du serveur bridge")
                 return
 
             if not self.current_listing:
@@ -2349,6 +2364,23 @@ class VintedAIApp(ctk.CTk):
                     "Données incomplètes",
                     "Le titre ou la description est vide. Générez d'abord une fiche complète."
                 )
+                return
+
+            # Message instructif pour guider l'utilisateur
+            user_ready = messagebox.askyesno(
+                "📌 Action requise",
+                "AVANT de continuer, vérifiez que :\n\n"
+                "✅ Chrome est ouvert\n"
+                "✅ Vous êtes sur Vinted\n"
+                "✅ Un brouillon est ouvert en mode édition\n"
+                "   (L'URL doit contenir: /items/.../edit)\n\n"
+                "⚠️ Si le brouillon N'EST PAS ouvert, l'envoi échouera !\n\n"
+                "Le brouillon Vinted est-il ouvert maintenant ?",
+                icon='question'
+            )
+
+            if not user_ready:
+                logger.info("Utilisateur a annulé l'envoi - brouillon non ouvert")
                 return
 
             # Envoyer de manière asynchrone dans un thread séparé

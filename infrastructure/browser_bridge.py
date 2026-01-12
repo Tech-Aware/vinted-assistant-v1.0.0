@@ -195,14 +195,32 @@ class ChromebookBrowserBridge:
                 print("\n\n" + "=" * 60)
                 print("❌ TIMEOUT: L'extension n'a pas répondu")
                 print("-" * 60)
-                print("🔍 Vérifications à faire:")
-                print("   1. Un brouillon Vinted est-il ouvert dans Chrome?")
-                print("      → Ouvrir: vinted.fr → Créer brouillon → Éditer")
-                print("   2. L'extension est-elle installée et activée?")
-                print("      → Vérifier: chrome://extensions/")
-                print("   3. Le port forwarding est-il configuré?")
-                print("      → Paramètres ChromeOS → Linux → Port 8765")
-                print("   4. Console Chrome (F12) - Y a-t-il des erreurs?")
+
+                # Diagnostic automatique
+                print("🔍 DIAGNOSTIC AUTOMATIQUE:")
+                try:
+                    import urllib.request
+                    urllib.request.urlopen('http://localhost:8765/status', timeout=2)
+                    print("   ✅ Serveur accessible sur localhost:8765")
+                except Exception as e:
+                    print(f"   ❌ Serveur NON accessible: {type(e).__name__}")
+                    print("      → Relancer l'application")
+
+                print("\n⚠️ CAUSE PROBABLE:")
+                print("   Le brouillon Vinted N'EST PAS OUVERT dans Chrome !")
+                print("\n🛠️ VÉRIFICATIONS À FAIRE:")
+                print("   1. ⚠️ AVEZ-VOUS OUVERT LE BROUILLON VINTED ?")
+                print("      → L'URL doit contenir: /items/123456/edit")
+                print("      → Pas juste la page d'accueil Vinted !")
+                print("   2. Extension installée ? (chrome://extensions/)")
+                print("   3. Extension activée ? (toggle ON)")
+                print("   4. Port forwarding configuré ? (Port 8765)")
+                print("   5. Console Chrome (F12) - Erreurs ?")
+                print("\n💡 WORKFLOW CORRECT:")
+                print("   1. Créer un brouillon sur Vinted (avec photos)")
+                print("   2. Garder l'onglet du brouillon OUVERT")
+                print("   3. Retour à l'app Python")
+                print("   4. Cliquer '📤 Vinted'")
                 print("=" * 60 + "\n")
                 self.pending_data = None
                 return False
