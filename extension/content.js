@@ -165,14 +165,26 @@ class VintedFormFiller {
 
     // Essayer chaque sélecteur jusqu'à trouver l'élément
     let element = null;
+    let usedSelector = null;
     for (const selector of selectorArray) {
-      element = document.querySelector(selector);
-      if (element) break;
+      const el = document.querySelector(selector);
+      // Vérifier que l'élément existe ET est visible
+      if (el && el.offsetParent !== null && !el.disabled) {
+        element = el;
+        usedSelector = selector;
+        break;
+      }
     }
 
     if (!element) {
+      console.error('❌ ERREUR CRITIQUE: Champ non trouvé ou invisible');
+      console.error('   Les sélecteurs Vinted ont peut-être changé');
+      console.error('   Sélecteurs testés:', selectorArray);
+      console.error('   💡 SOLUTION: Vérifiez la console et signalez le problème');
       return false;
     }
+
+    console.log('   ✓ Champ trouvé avec sélecteur:', usedSelector);
 
     // Focus avec délai naturel
     element.focus();
@@ -274,7 +286,10 @@ class VintedFormFiller {
 }
 
 // Initialiser uniquement sur les pages d'édition Vinted
-if (window.location.href.includes('vinted.') &&
-    window.location.href.includes('/edit')) {
+// Vérification stricte du pattern d'édition de brouillon: /items/{id}/edit
+if (window.location.href.match(/vinted\.(fr|com)\/items\/\d+\/edit/)) {
+  console.log('✅ Page Vinted brouillon détectée - Initialisation de l\'extension');
   new VintedFormFiller();
+} else {
+  console.log('⏸️ Page Vinted non-brouillon - Extension en veille');
 }
