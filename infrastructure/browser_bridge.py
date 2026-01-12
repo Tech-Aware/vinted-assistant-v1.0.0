@@ -48,9 +48,9 @@ class ChromebookBrowserBridge:
         Endpoint GET /check
         L'extension Chrome vérifie s'il y a des données à remplir
         """
+        # Headers CORS (sans Content-Type car json_response le définit automatiquement)
         headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json'
+            'Access-Control-Allow-Origin': '*'
         }
 
         if self.pending_data and not self.confirmed:
