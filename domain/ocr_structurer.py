@@ -62,7 +62,6 @@ class StructuredOCRExtractor:
         re.compile(r"\bSTYLE[:\s]+[A-Z0-9-]+\b", re.IGNORECASE),
         re.compile(r"\bREF[:\s]+[A-Z0-9-]+\b", re.IGNORECASE),
         re.compile(r"\bJCR\d+\b", re.IGNORECASE),
-        re.compile(r"\b[A-Z0-9-]{4,20}\b", re.IGNORECASE),
     ]
 
     _SEPARATOR_SANITIZER = re.compile(r"[|·•]+")
@@ -117,8 +116,9 @@ class StructuredOCRExtractor:
         )
         return lines
 
-    SKU_LABEL_RE = re.compile(r"\b[A-Z]{2,6}\d{1,4}\b")
-    SKU_LABEL_FLEX_RE = re.compile(r"\b([A-Z]{2,6})[\s\-_/]*([0-9]{1,4})\b")
+    SKU_LABEL_RE = re.compile(r"\b[A-Z]{2,6}\d{1,6}\b")
+    SKU_LABEL_FLEX_RE = re.compile(r"\b([A-Z]{2,6})[\s\-_/]*([0-9]{1,6})\b")
+    SKU_EXPLICIT_RE = re.compile(r"\bSKU[:\s]+([A-Z]{2,6})[\s\-_/]*([0-9]{1,6})\b", re.IGNORECASE)
 
     def _filter_relevant_lines(self, lines: Sequence[str]) -> List[str]:
         kept: List[str] = []
@@ -142,11 +142,15 @@ class StructuredOCRExtractor:
 
     def _is_sku_line(self, line: str) -> bool:
         # 1) SKU interne Durin type PTF161 / JLF123 / PTNF007 etc.
-        if self.SKU_LABEL_RE.search(line) or self.SKU_LABEL_FLEX_RE.search(line):
+        if (
+            self.SKU_LABEL_RE.search(line)
+            or self.SKU_LABEL_FLEX_RE.search(line)
+            or self.SKU_EXPLICIT_RE.search(line)
+        ):
             return True
 
         # 2) Autres regex “codes” (RN/CA, STYLE, REF, JCR...)
-        return any(regex.search(line) for regex in self._SKU_REGEXES[:4])
+        return any(regex.search(line) for regex in self._SKU_REGEXES)
 
     def _extract_sizes(self, lines: Sequence[str]) -> List[str]:
         found: List[str] = []
@@ -203,16 +207,43 @@ class StructuredOCRExtractor:
         if not raw:
             return None
         key = raw.upper()
-        return self._MATERIAL_ALIASES.get(key)
+        if key in self._MATERIAL_ALIASES:
+            return self._MATERIAL_ALIASES[key]
+        fallback = raw.strip().lower()
+        if not fallback:
+            return None
+        logger.debug(
+            "StructuredOCRExtractor._canonical_material: alias manquant pour %r, fallback=%r",
+            raw,
+            fallback,
+        )
+        return fallback
 
     def _extract_skus(self, lines: Sequence[str]) -> List[str]:
         candidates: List[str] = []
 
         def _add(value: str) -> None:
             cleaned = value.replace(" ", "").replace(":", "")
-            if 4 <= len(cleaned) <= 20 and any(ch.isdigit() for ch in cleaned):
-                if cleaned.upper() not in (c.upper() for c in candidates):
-                    candidates.append(cleaned)
+            if not (4 <= len(cleaned) <= 20):
+                logger.debug(
+                    "StructuredOCRExtractor._extract_skus: SKU rejeté (longueur)=%r",
+                    cleaned,
+                )
+                return
+            if not any(ch.isdigit() for ch in cleaned):
+                logger.debug(
+                    "StructuredOCRExtractor._extract_skus: SKU rejeté (sans chiffre)=%r",
+                    cleaned,
+                )
+                return
+            if not any(ch.isalpha() for ch in cleaned):
+                logger.debug(
+                    "StructuredOCRExtractor._extract_skus: SKU rejeté (sans lettre)=%r",
+                    cleaned,
+                )
+                return
+            if cleaned.upper() not in (c.upper() for c in candidates):
+                candidates.append(cleaned)
 
         for line in lines:
             # 1) SKU interne Durin (PTF161, JLF123, etc.)

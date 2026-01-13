@@ -127,10 +127,19 @@ def build_description_jean_levis(
         except Exception:
             comfort_sentence = None
 
-        composition_sentence = _build_composition(
-            features.get("cotton_percent"),
-            features.get("elasthane_percent"),
-        )
+        raw_material = _safe_clean(features.get("material"))
+        clean_material = _clean_carhartt_material_segment(raw_material) or raw_material
+        if clean_material:
+            composition_sentence = f"Composition (étiquette) : {clean_material.rstrip('.')}."
+            logger.info(
+                "build_description_jean_levis: composition complète retenue (%s)",
+                clean_material,
+            )
+        else:
+            composition_sentence = _build_composition(
+                features.get("cotton_percent"),
+                features.get("elasthane_percent"),
+            )
 
         closure_sentence = "Fermeture zippée + bouton gravé Levi’s."
         state_sentence = _build_state_sentence(ai_defects or features.get("defects"))
