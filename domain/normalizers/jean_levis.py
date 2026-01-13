@@ -16,6 +16,7 @@ from domain.normalizers.text_extractors import (
     extract_sizes_from_text,
     normalize_fit_label,
     normalize_sku_value,
+    extract_gender_from_sku_prefix,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,13 +91,6 @@ def build_features_for_jean_levis(
     rise_cm = raw_features.get("rise_cm") or ai_data.get("rise_cm")
     rise_type = raw_features.get("rise_type") or ai_data.get("rise_type")
 
-    # --- Genre -------------------------------------------------------------
-    gender = (
-        ui_data.get("gender")
-        or raw_features.get("gender")
-        or ai_data.get("gender")
-    )
-
     # --- SKU ---------------------------------------------------------------
     raw_sku = ui_data.get("sku") or raw_features.get("sku") or ai_data.get("sku")
     sku = normalize_sku_value(raw_sku)
@@ -118,6 +112,46 @@ def build_features_for_jean_levis(
             "build_features_for_jean_levis: SKU ignoré (placeholder/invalid) raw=%r",
             raw_sku,
         )
+
+    # --- Genre -------------------------------------------------------------
+    # Priorité : UI > IA > SKU prefix
+    ai_gender = (
+        ui_data.get("gender")
+        or raw_features.get("gender")
+        or ai_data.get("gender")
+    )
+
+    # Extraire le genre depuis le préfixe du SKU (JLF=femme, JLH=homme)
+    sku_gender = extract_gender_from_sku_prefix(sku)
+
+    # Validation de cohérence SKU ↔ genre IA
+    if sku_gender and ai_gender:
+        ai_gender_normalized = ai_gender.strip().lower()
+        if ai_gender_normalized != sku_gender:
+            logger.warning(
+                "build_features_for_jean_levis: INCOHÉRENCE genre IA (%s) vs SKU (%s) - "
+                "utilisation du genre SKU (%s)",
+                ai_gender,
+                sku,
+                sku_gender,
+            )
+            gender = sku_gender
+        else:
+            gender = ai_gender
+    elif sku_gender:
+        # Le SKU indique le genre, l'IA n'a rien détecté
+        logger.info(
+            "build_features_for_jean_levis: genre déduit du SKU %s -> %s",
+            sku,
+            sku_gender,
+        )
+        gender = sku_gender
+    elif ai_gender:
+        # L'IA a détecté le genre, pas de SKU pour valider
+        gender = ai_gender
+    else:
+        # Aucune information sur le genre
+        gender = None
 
     features: Dict[str, Any] = {
         "brand": brand,

@@ -84,6 +84,32 @@ def normalize_sku_value(value: Any) -> Optional[str]:
     return s
 
 
+def extract_gender_from_sku_prefix(sku: Optional[str]) -> Optional[str]:
+    """
+    Extrait le genre depuis le préfixe du SKU pour les jeans Levi's.
+
+    Convention:
+      - JLF = Jean Levi's Femme -> "femme"
+      - JLH = Jean Levi's Homme -> "homme"
+
+    Retourne None si le SKU ne correspond pas à ces préfixes.
+    """
+    if not sku:
+        return None
+    try:
+        s = str(sku).strip().upper()
+        if s.startswith("JLF"):
+            logger.debug("extract_gender_from_sku_prefix: SKU %s -> femme", sku)
+            return "femme"
+        if s.startswith("JLH"):
+            logger.debug("extract_gender_from_sku_prefix: SKU %s -> homme", sku)
+            return "homme"
+        return None
+    except Exception as exc:
+        logger.debug("extract_gender_from_sku_prefix: extraction impossible (%s)", exc)
+        return None
+
+
 def normalize_jcr_sku(raw: Optional[Any]) -> Optional[str]:
     """Normalise un SKU Carhartt interne de type JCR + digits."""
     try:
