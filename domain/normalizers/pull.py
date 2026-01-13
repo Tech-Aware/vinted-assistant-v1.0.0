@@ -174,6 +174,9 @@ def build_features_for_pull(
         if is_vintage:
             logger.info("build_features_for_pull: pull unbranded detecte -> vintage")
 
+        # Order ID
+        order_id = ui_data.get("order_id")
+
         features: Dict[str, Any] = {
             "brand": normalized_brand,
             "is_vintage": is_vintage,
@@ -191,6 +194,7 @@ def build_features_for_pull(
             "measurement_mode": measurement_mode,
             "sku": sku,
             "sku_status": sku_status,
+            "order_id": order_id,
         }
 
         # Detection du coton Pima dans la description IA ou l'etiquette

@@ -153,6 +153,9 @@ def build_features_for_jean_levis(
         # Aucune information sur le genre
         gender = None
 
+    # --- Order ID ----------------------------------------------------------
+    order_id = ui_data.get("order_id")
+
     features: Dict[str, Any] = {
         "brand": brand,
         "model": model,
@@ -168,6 +171,7 @@ def build_features_for_jean_levis(
         "gender": gender,
         "sku": sku,
         "sku_status": sku_status,
+        "order_id": order_id,
     }
 
     logger.debug("build_features_for_jean_levis: features=%s", features)

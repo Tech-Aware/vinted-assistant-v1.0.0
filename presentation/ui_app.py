@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import re
@@ -18,19 +17,11 @@ from tkinter import filedialog, messagebox
 
 from domain.ai_provider import AIProviderName, AIListingProvider
 from domain.models import VintedListing
+from domain.pricing import calculate_recommended_price_jean_levis
 from domain.templates import AnalysisProfileName, AnalysisProfile, ALL_PROFILES
 from domain.title_builder import SKU_PREFIX, build_pull_title, build_pull_tommy_title
 
 from presentation.image_preview import ImagePreview  # <- widget réutilisé depuis l'ancienne app
-
-# Import du browser bridge pour communication avec l'extension Chrome
-try:
-    from infrastructure.browser_bridge import get_bridge
-    BROWSER_BRIDGE_AVAILABLE = True
-except ImportError:
-    BROWSER_BRIDGE_AVAILABLE = False
-    logger = logging.getLogger(__name__)
-    logger.warning("Browser bridge non disponible - fonctionnalité d'envoi vers Vinted désactivée")
 
 logger = logging.getLogger(__name__)
 
@@ -63,18 +54,6 @@ class VintedAIApp(ctk.CTk):
         self._main_mousewheel_bind_ids: dict[str, str] = {}
         self._main_mousewheel_target: Optional[ctk.CTkBaseClass] = None
 
-        # Browser bridge pour communication avec extension Chrome
-        self.browser_bridge = None
-        self.bridge_server_running = False
-        self.bridge_ready_event = threading.Event()
-        if BROWSER_BRIDGE_AVAILABLE:
-            try:
-                self.browser_bridge = get_bridge()
-                # Démarrer le serveur en arrière-plan
-                threading.Thread(target=self._start_bridge_server_async, daemon=True).start()
-            except Exception as exc:
-                logger.error("Impossible d'initialiser le browser bridge: %s", exc, exc_info=True)
-
         self.providers = providers
         self.gemini_provider: Optional[AIListingProvider] = providers.get(AIProviderName.GEMINI)
         if not self.gemini_provider:
@@ -89,6 +68,7 @@ class VintedAIApp(ctk.CTk):
 
         self.size_fr_var = ctk.StringVar(value="")
         self.size_us_var = ctk.StringVar(value="")
+        self.order_id_var = ctk.StringVar(value="")
         self.measure_mode_var = ctk.StringVar(value="etiquette")
 
         # Gestion des images
@@ -545,6 +525,38 @@ class VintedAIApp(ctk.CTk):
             )
             self.size_hint.grid(row=0, column=4, sticky="w", padx=(12, 0))
 
+            # Champ ID de commande (pour tous les articles)
+            order_id_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
+            order_id_row.pack(anchor="w", pady=(4, 2))
+
+            order_id_label = ctk.CTkLabel(
+                order_id_row,
+                text="ID Commande :",
+                text_color=self.palette.get("text_primary"),
+            )
+            order_id_label.grid(row=0, column=0, sticky="w", padx=(0, 6))
+
+            order_id_entry = ctk.CTkEntry(
+                order_id_row,
+                textvariable=self.order_id_var,
+                fg_color=self.palette.get("input_bg"),
+                border_color=self.palette.get("border"),
+                text_color=self.palette.get("text_primary"),
+                width=78,
+                placeholder_text="ex: 20",
+            )
+            order_id_entry.grid(row=0, column=1, sticky="w", padx=(0, 10))
+
+            order_id_hint = ctk.CTkLabel(
+                order_id_row,
+                text="Numéro de commande (sera ajouté aux hashtags)",
+                font=self.fonts.get("small"),
+                text_color=self.palette.get("text_muted"),
+                justify="left",
+                anchor="w",
+            )
+            order_id_hint.grid(row=0, column=2, sticky="w", padx=(12, 0))
+
             self.measure_mode_frame = ctk.CTkFrame(
                 size_controls_frame,
                 fg_color="transparent",
@@ -614,6 +626,23 @@ class VintedAIApp(ctk.CTk):
                 text_color=self.palette.get("text_primary"),
             )
             result_label.pack(anchor="w", pady=(10, 0), padx=10)
+
+            # Label prix conseillé (affiché uniquement pour les jeans Levi's)
+            self.recommended_price_frame = ctk.CTkFrame(
+                right_scrollable,
+                fg_color=self.palette.get("card_bg"),
+                corner_radius=10,
+            )
+            # Masqué par défaut, affiché après génération pour les jeans
+            self.recommended_price_frame.pack_forget()
+
+            self.recommended_price_label = ctk.CTkLabel(
+                self.recommended_price_frame,
+                text="",
+                font=self.fonts.get("heading"),
+                text_color="#1dd8a6",  # Vert pour le prix
+            )
+            self.recommended_price_label.pack(padx=12, pady=8)
 
             # Carte Titre
             title_card = self._create_card(right_scrollable)
@@ -708,22 +737,6 @@ class VintedAIApp(ctk.CTk):
                 command=self._copy_description_to_clipboard,
             )
             description_copy_btn.pack(side="left")
-
-            # NOUVEAU: Bouton "Envoyer vers Vinted" (si bridge disponible)
-            if BROWSER_BRIDGE_AVAILABLE:
-                self.send_vinted_btn = ctk.CTkButton(
-                    description_controls,
-                    text="📤 Vinted",
-                    width=90,
-                    height=32,
-                    corner_radius=10,
-                    fg_color=self.palette.get("accent_gradient_start"),
-                    hover_color=self.palette.get("accent_gradient_end"),
-                    text_color="white",
-                    command=self._send_to_vinted_clicked,
-                )
-                self.send_vinted_btn.pack(side="left", padx=(6, 0))
-                logger.info("Bouton 'Envoyer vers Vinted' ajouté à l'interface")
 
             self.description_text = ctk.CTkTextbox(
                 description_card,
@@ -1318,13 +1331,18 @@ class VintedAIApp(ctk.CTk):
                 profile.name.value
             )
 
+            # Récupérer l'ID de commande (commun à tous les profils)
+            order_id_input = self.order_id_var.get().strip()
+            order_id = order_id_input if order_id_input else None
+
             if profile_requires_measure:
                 measurement_mode = self.measure_mode_var.get()
-                ui_data = {"measurement_mode": measurement_mode}
+                ui_data = {"measurement_mode": measurement_mode, "order_id": order_id}
                 logger.info(
-                    "Mode de relevé sélectionné pour le profil %s: %s",
+                    "Mode de relevé sélectionné pour le profil %s: %s, order_id: %s",
                     profile.name.value,
                     measurement_mode,
+                    order_id,
                 )
             else:
                 size_fr_input = self.size_fr_var.get().strip()
@@ -1346,11 +1364,13 @@ class VintedAIApp(ctk.CTk):
                 ui_data = {
                     "size_fr": size_fr,
                     "size_us": size_us,
+                    "order_id": order_id,
                 }
                 logger.info(
-                    "Tailles fournies (FR=%s, US=%s) pour le profil %s",
+                    "Tailles fournies (FR=%s, US=%s, order_id=%s) pour le profil %s",
                     size_fr,
                     size_us,
+                    order_id,
                     profile.name.value,
                 )
 
@@ -1449,6 +1469,9 @@ class VintedAIApp(ctk.CTk):
             self._prompt_composition_if_needed(listing)
 
             self._update_result_fields(listing)
+
+            # Afficher le prix conseillé pour les jeans Levi's
+            self._update_recommended_price(listing)
 
             if self._needs_manual_sku(listing):
                 self._prompt_for_sku(listing)
@@ -1997,6 +2020,49 @@ class VintedAIApp(ctk.CTk):
         except Exception as exc:
             logger.error("_update_result_fields: erreur %s", exc, exc_info=True)
 
+    def _update_recommended_price(self, listing: VintedListing) -> None:
+        """
+        Calcule et affiche le prix conseillé pour les jeans Levi's.
+        Masque le label pour les autres types d'articles.
+        """
+        try:
+            if not hasattr(self, "recommended_price_frame") or not self.recommended_price_frame:
+                return
+
+            # Vérifier si c'est un jean Levi's
+            profile = self._get_selected_profile()
+            if not profile or profile.name != AnalysisProfileName.JEAN_LEVIS:
+                # Masquer le prix conseillé pour les autres articles
+                self.recommended_price_frame.pack_forget()
+                return
+
+            # Récupérer les features du listing
+            features = listing.features or {}
+            defects = listing.defects
+
+            # Calculer le prix conseillé
+            price, explanation = calculate_recommended_price_jean_levis(features, defects)
+
+            if price is not None:
+                # Afficher le prix conseillé
+                self.recommended_price_label.configure(
+                    text=f"Prix conseillé : {price:.0f}€  |  {explanation}"
+                )
+                self.recommended_price_frame.pack(fill="x", padx=10, pady=(5, 5))
+                logger.info(
+                    "_update_recommended_price: prix conseillé %.0f€ affiché (%s)",
+                    price,
+                    explanation,
+                )
+            else:
+                self.recommended_price_frame.pack_forget()
+                logger.warning("_update_recommended_price: calcul du prix impossible")
+
+        except Exception as exc:
+            logger.error("_update_recommended_price: erreur %s", exc, exc_info=True)
+            if hasattr(self, "recommended_price_frame"):
+                self.recommended_price_frame.pack_forget()
+
     def _set_description_variants(self, listing: VintedListing) -> None:
         try:
             variants: List[Dict[str, str]] = []
@@ -2305,121 +2371,3 @@ class VintedAIApp(ctk.CTk):
         except Exception as exc:
             logger.error("Erreur lors de l'affichage de la saisie SKU: %s", exc, exc_info=True)
 
-    # ------------------------------------------------------------------
-    # Browser Bridge - Envoi vers Vinted (NOUVEAU)
-    # ------------------------------------------------------------------
-
-    def _start_bridge_server_async(self) -> None:
-        """Démarre le serveur HTTP du bridge de manière asynchrone"""
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.browser_bridge.start_server())
-            self.bridge_server_running = True
-            self.bridge_ready_event.set()  # Signaler que le serveur est prêt
-            logger.info("Serveur browser bridge démarré avec succès")
-        except Exception as exc:
-            logger.error("Erreur lors du démarrage du serveur bridge: %s", exc, exc_info=True)
-            self.bridge_server_running = False
-            # Ne pas set() l'event en cas d'erreur
-
-    def _send_to_vinted_clicked(self) -> None:
-        """
-        NOUVEAU: Callback pour le bouton "Envoyer vers Vinted"
-        Envoie le titre et la description générés vers le brouillon Vinted
-        """
-        try:
-            if not self.bridge_server_running or not self.browser_bridge:
-                messagebox.showwarning(
-                    "Bridge non disponible",
-                    "Le serveur de communication avec l'extension Chrome n'est pas démarré.\n"
-                    "Utilisez le copier-coller manuel."
-                )
-                return
-
-            # Attendre que le serveur soit prêt (max 5 secondes)
-            if not self.bridge_ready_event.wait(timeout=5):
-                messagebox.showerror(
-                    "Serveur non prêt",
-                    "Le serveur HTTP n'a pas démarré correctement.\n\n"
-                    "Solutions:\n"
-                    "- Relancez l'application\n"
-                    "- Vérifiez que le port 8765 est disponible"
-                )
-                logger.error("Timeout lors de l'attente du démarrage du serveur bridge")
-                return
-
-            if not self.current_listing:
-                messagebox.showwarning(
-                    "Pas de fiche générée",
-                    "Veuillez d'abord générer une fiche avant d'envoyer vers Vinted."
-                )
-                return
-
-            title = self.title_text.get("1.0", "end").strip() if self.title_text else ""
-            description = self.description_text.get("1.0", "end").strip() if self.description_text else ""
-
-            if not title or not description:
-                messagebox.showwarning(
-                    "Données incomplètes",
-                    "Le titre ou la description est vide. Générez d'abord une fiche complète."
-                )
-                return
-
-            # Message instructif pour guider l'utilisateur
-            user_ready = messagebox.askyesno(
-                "📌 Action requise",
-                "AVANT de continuer, vérifiez que :\n\n"
-                "✅ Chrome est ouvert\n"
-                "✅ Vous êtes sur Vinted\n"
-                "✅ Un brouillon est ouvert en mode édition\n"
-                "   (L'URL doit contenir: /items/.../edit)\n\n"
-                "⚠️ Si le brouillon N'EST PAS ouvert, l'envoi échouera !\n\n"
-                "Le brouillon Vinted est-il ouvert maintenant ?",
-                icon='question'
-            )
-
-            if not user_ready:
-                logger.info("Utilisateur a annulé l'envoi - brouillon non ouvert")
-                return
-
-            # Envoyer de manière asynchrone dans un thread séparé
-            def _send_async():
-                try:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    success = loop.run_until_complete(
-                        self.browser_bridge.send_to_vinted(title, description)
-                    )
-
-                    if success:
-                        self.after(0, lambda: messagebox.showinfo(
-                            "Succès",
-                            "✅ Titre et description envoyés vers le brouillon Vinted!\n\n"
-                            "Vérifiez le brouillon dans votre navigateur et complétez les champs restants."
-                        ))
-                    else:
-                        self.after(0, lambda: messagebox.showerror(
-                            "Échec",
-                            "❌ L'envoi vers Vinted a échoué.\n\n"
-                            "Vérifications:\n"
-                            "- Un brouillon Vinted est-il ouvert dans Chrome?\n"
-                            "- L'extension est-elle installée et activée?\n"
-                            "- Le port forwarding est-il configuré (Chromebook)?"
-                        ))
-                except Exception as exc_send:
-                    logger.error("Erreur lors de l'envoi vers Vinted: %s", exc_send, exc_info=True)
-                    self.after(0, lambda: messagebox.showerror(
-                        "Erreur",
-                        f"Une erreur est survenue:\n{exc_send}"
-                    ))
-
-            threading.Thread(target=_send_async, daemon=True).start()
-            logger.info("Envoi vers Vinted lancé en arrière-plan")
-
-        except Exception as exc:
-            logger.error("Erreur dans _send_to_vinted_clicked: %s", exc, exc_info=True)
-            messagebox.showerror(
-                "Erreur",
-                f"Impossible d'envoyer vers Vinted:\n{exc}"
-            )
