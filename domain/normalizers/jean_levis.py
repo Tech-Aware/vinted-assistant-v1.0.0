@@ -7,7 +7,7 @@ Builder de features pour le profil JEAN_LEVIS.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from domain.normalizers.text_extractors import (
     extract_model_from_text,
@@ -86,6 +86,7 @@ def build_features_for_jean_levis(
     # --- Composition -------------------------------------------------------
     cotton_percent = raw_features.get("cotton_percent") or ai_data.get("cotton_percent")
     elasthane_percent = raw_features.get("elasthane_percent") or ai_data.get("elasthane_percent")
+    material = raw_features.get("material") or ai_data.get("material")
 
     # --- Rise --------------------------------------------------------------
     rise_cm = raw_features.get("rise_cm") or ai_data.get("rise_cm")
@@ -112,6 +113,63 @@ def build_features_for_jean_levis(
             "build_features_for_jean_levis: SKU ignoré (placeholder/invalid) raw=%r",
             raw_sku,
         )
+
+    # --- OCR structuré (fallback SKU + composition) -----------------------
+    ocr_structured = ui_data.get("ocr_structured") if isinstance(ui_data, dict) else None
+    ocr_sku_candidates = ai_data.get("_ocr_sku_candidates")
+    if not isinstance(ocr_sku_candidates, list):
+        ocr_sku_candidates = []
+
+    if ocr_structured and isinstance(ocr_structured, dict):
+        ocr_candidates_from_structured = ocr_structured.get("sku_candidates") or []
+        if isinstance(ocr_candidates_from_structured, list):
+            ocr_sku_candidates.extend(ocr_candidates_from_structured)
+        else:
+            logger.warning(
+                "build_features_for_jean_levis: sku_candidates OCR structuré invalide (%r)",
+                type(ocr_candidates_from_structured),
+            )
+
+        if not material:
+            material = _build_material_from_ocr(ocr_structured)
+            if material:
+                logger.info(
+                    "build_features_for_jean_levis: composition OCR structurée retenue (%s)",
+                    material,
+                )
+            else:
+                logger.debug(
+                    "build_features_for_jean_levis: composition OCR structurée absente ou illisible."
+                )
+
+        if cotton_percent is None or elasthane_percent is None:
+            ocr_cotton, ocr_elasthane = _extract_cotton_elasthane(ocr_structured)
+            if cotton_percent is None and ocr_cotton is not None:
+                cotton_percent = ocr_cotton
+                logger.info(
+                    "build_features_for_jean_levis: coton OCR structuré retenu (%s%%)",
+                    cotton_percent,
+                )
+            if elasthane_percent is None and ocr_elasthane is not None:
+                elasthane_percent = ocr_elasthane
+                logger.info(
+                    "build_features_for_jean_levis: élasthanne OCR structuré retenu (%s%%)",
+                    elasthane_percent,
+                )
+    elif ocr_structured:
+        logger.warning(
+            "build_features_for_jean_levis: ocr_structured ignoré (format inattendu=%r)",
+            type(ocr_structured),
+        )
+
+    if sku is None:
+        sku = _pick_sku_from_ocr_candidates(ocr_sku_candidates)
+        if sku:
+            sku_status = "ok"
+            logger.info(
+                "build_features_for_jean_levis: SKU OCR structuré retenu (%s)",
+                sku,
+            )
 
     # --- Genre -------------------------------------------------------------
     # Priorité : UI > IA > SKU prefix
@@ -172,7 +230,100 @@ def build_features_for_jean_levis(
         "sku": sku,
         "sku_status": sku_status,
         "order_id": order_id,
+        "material": material,
     }
 
     logger.debug("build_features_for_jean_levis: features=%s", features)
     return features
+
+
+def _pick_sku_from_ocr_candidates(candidates: List[Any]) -> Optional[str]:
+    if not candidates:
+        return None
+    for raw in candidates:
+        candidate = normalize_sku_value(raw)
+        if candidate:
+            logger.debug(
+                "_pick_sku_from_ocr_candidates: SKU OCR candidat accepté (%r -> %s)",
+                raw,
+                candidate,
+            )
+            return candidate
+        logger.debug(
+            "_pick_sku_from_ocr_candidates: SKU OCR candidat rejeté (%r)",
+            raw,
+        )
+    return None
+
+
+def _extract_cotton_elasthane(ocr_structured: Dict[str, Any]) -> tuple[Optional[int], Optional[int]]:
+    items = ocr_structured.get("composition_items") or []
+    if not isinstance(items, list):
+        logger.warning(
+            "_extract_cotton_elasthane: composition_items invalide (%r)",
+            type(items),
+        )
+        return None, None
+
+    cotton = None
+    elasthane = None
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        material = str(item.get("material") or "").strip().lower()
+        percent = item.get("percent")
+        try:
+            percent_value = int(percent) if percent is not None else None
+        except (TypeError, ValueError):
+            logger.debug(
+                "_extract_cotton_elasthane: pourcentage illisible (%r)",
+                percent,
+            )
+            percent_value = None
+
+        if percent_value is None:
+            continue
+
+        if material == "coton":
+            cotton = percent_value
+        elif material in {"élasthanne", "elasthanne", "elastane", "élasthane", "elasthane"}:
+            elasthane = percent_value
+
+    return cotton, elasthane
+
+
+def _build_material_from_ocr(ocr_structured: Dict[str, Any]) -> Optional[str]:
+    items = ocr_structured.get("composition_items") or []
+    if not isinstance(items, list):
+        logger.warning(
+            "_build_material_from_ocr: composition_items invalide (%r)",
+            type(items),
+        )
+        return None
+
+    parts: List[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        material = str(item.get("material") or "").strip().lower()
+        percent = item.get("percent")
+        if not material:
+            continue
+        try:
+            percent_value = int(percent) if percent is not None else None
+        except (TypeError, ValueError):
+            logger.debug(
+                "_build_material_from_ocr: pourcentage illisible (%r) pour %r",
+                percent,
+                material,
+            )
+            percent_value = None
+        if percent_value is not None:
+            parts.append(f"{percent_value}% {material}")
+        else:
+            parts.append(material)
+
+    if not parts:
+        return None
+
+    return ", ".join(parts)
