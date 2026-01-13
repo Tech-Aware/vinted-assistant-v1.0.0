@@ -74,6 +74,7 @@ class VintedAIApp(ctk.CTk):
         # Gestion des images
         self.selected_images: List[Path] = []
         self.ocr_flags: Dict[Path, tk.BooleanVar] = {}
+        self.defect_flags: Dict[Path, tk.BooleanVar] = {}
         self._image_directories: set[Path] = set()
         self.image_paths: Optional[List[Path]] = None  # compat avec le reste du code
         self.thumbnail_images: List[ctk.CTkImage] = []  # encore utilisé pour les aperçus plein écran
@@ -592,11 +593,13 @@ class VintedAIApp(ctk.CTk):
             )
             measures_radio.grid(row=0, column=2, sticky="w")
 
-            # Zone de preview réutilisée depuis l’ancienne app
+            # Zone de preview réutilisée depuis l'ancienne app
             self.preview_frame = ImagePreview(
                 gallery_wrapper,
                 on_remove=self._remove_image,
                 get_ocr_var=lambda p: self.ocr_flags.get(p),
+                get_defect_var=lambda p: self.defect_flags.get(p),
+                on_defect_change=self._on_defect_flag_change,
             )
             self.preview_frame.configure(fg_color=self.palette.get("bg_end"))
             self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
@@ -962,6 +965,7 @@ class VintedAIApp(ctk.CTk):
                     self.selected_images.append(path_obj)
                     self._image_directories.add(path_obj.parent)
                     self.ocr_flags[path_obj] = tk.BooleanVar(value=False)
+                    self.defect_flags[path_obj] = tk.BooleanVar(value=False)
                     logger.info("Image ajoutée: %s", path_obj)
 
             # Garder image_paths cohérent pour le reste du code
@@ -984,6 +988,7 @@ class VintedAIApp(ctk.CTk):
             if image_path in self.selected_images:
                 self.selected_images.remove(image_path)
                 self.ocr_flags.pop(image_path, None)
+                self.defect_flags.pop(image_path, None)
             else:
                 logger.warning("Impossible de supprimer %s: image inconnue", image_path)
                 return
@@ -1017,6 +1022,7 @@ class VintedAIApp(ctk.CTk):
             self.image_paths = []
             self._image_directories.clear()
             self.ocr_flags.clear()
+            self.defect_flags.clear()
 
             if self.preview_frame:
                 self.preview_frame.update_images([])
@@ -1092,7 +1098,11 @@ class VintedAIApp(ctk.CTk):
         if hasattr(self, "current_listing"):
             self.current_listing = None
 
-        # 7) Mettre à jour l’affichage du bouton reset (si tu actives la logique show/hide)
+        # 7) Masquer le prix conseillé
+        if hasattr(self, "recommended_price_frame") and self.recommended_price_frame:
+            self.recommended_price_frame.pack_forget()
+
+        # 8) Mettre à jour l'affichage du bouton reset (si tu actives la logique show/hide)
         if hasattr(self, "_update_reset_button_visibility"):
             self._update_reset_button_visibility()
 
@@ -1570,6 +1580,8 @@ class VintedAIApp(ctk.CTk):
                 width=240,
                 height=260,
                 get_ocr_var=lambda p: self.ocr_flags.get(p),
+                get_defect_var=lambda p: self.defect_flags.get(p),
+                on_defect_change=self._on_defect_flag_change,
             )
             gallery.set_removal_enabled(False)
             gallery.update_images(self.selected_images)
@@ -2020,10 +2032,19 @@ class VintedAIApp(ctk.CTk):
         except Exception as exc:
             logger.error("_update_result_fields: erreur %s", exc, exc_info=True)
 
+    def _on_defect_flag_change(self) -> None:
+        """
+        Appelé quand un flag défaut est modifié sur une image.
+        Recalcule le prix conseillé si un listing est déjà généré.
+        """
+        if self.current_listing:
+            self._update_recommended_price(self.current_listing)
+
     def _update_recommended_price(self, listing: VintedListing) -> None:
         """
         Calcule et affiche le prix conseillé pour les jeans Levi's.
         Masque le label pour les autres types d'articles.
+        Prend en compte les flags défaut manuels sur les images.
         """
         try:
             if not hasattr(self, "recommended_price_frame") or not self.recommended_price_frame:
@@ -2038,7 +2059,15 @@ class VintedAIApp(ctk.CTk):
 
             # Récupérer les features du listing
             features = listing.features or {}
-            defects = features.get("defects")
+            defects = features.get("defects") or ""
+
+            # Vérifier si au moins une image a le flag défaut coché
+            has_manual_defect = any(
+                flag.get() for flag in self.defect_flags.values()
+            )
+            if has_manual_defect and "défaut" not in defects.lower():
+                # Ajouter un indicateur de défaut manuel si pas déjà présent
+                defects = f"{defects} (défaut signalé)".strip() if defects else "défaut signalé"
 
             # Calculer le prix conseillé
             price, explanation = calculate_recommended_price_jean_levis(features, defects)
