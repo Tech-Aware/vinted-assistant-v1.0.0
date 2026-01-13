@@ -70,11 +70,11 @@ class VintedAIApp(ctk.CTk):
         self.size_us_var = ctk.StringVar(value="")
         self.order_id_var = ctk.StringVar(value="")
         self.measure_mode_var = ctk.StringVar(value="etiquette")
+        self.has_defect_var = tk.BooleanVar(value=False)
 
         # Gestion des images
         self.selected_images: List[Path] = []
         self.ocr_flags: Dict[Path, tk.BooleanVar] = {}
-        self.defect_flags: Dict[Path, tk.BooleanVar] = {}
         self._image_directories: set[Path] = set()
         self.image_paths: Optional[List[Path]] = None  # compat avec le reste du code
         self.thumbnail_images: List[ctk.CTkImage] = []  # encore utilisé pour les aperçus plein écran
@@ -558,6 +558,22 @@ class VintedAIApp(ctk.CTk):
             )
             order_id_hint.grid(row=0, column=2, sticky="w", padx=(12, 0))
 
+            # Checkbox défaut
+            defect_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
+            defect_row.pack(anchor="w", pady=(4, 2))
+
+            self.defect_checkbox = ctk.CTkCheckBox(
+                defect_row,
+                text="Présence de défaut (tâche, usure, etc.)",
+                variable=self.has_defect_var,
+                corner_radius=10,
+                fg_color="#d9534f",
+                hover_color="#c33c37",
+                text_color=self.palette.get("text_primary"),
+                command=self._on_defect_flag_change,
+            )
+            self.defect_checkbox.pack(side="left")
+
             self.measure_mode_frame = ctk.CTkFrame(
                 size_controls_frame,
                 fg_color="transparent",
@@ -598,8 +614,6 @@ class VintedAIApp(ctk.CTk):
                 gallery_wrapper,
                 on_remove=self._remove_image,
                 get_ocr_var=lambda p: self.ocr_flags.get(p),
-                get_defect_var=lambda p: self.defect_flags.get(p),
-                on_defect_change=self._on_defect_flag_change,
             )
             self.preview_frame.configure(fg_color=self.palette.get("bg_end"))
             self.preview_frame.pack(fill="both", expand=True, padx=8, pady=(4, 0))
@@ -965,7 +979,6 @@ class VintedAIApp(ctk.CTk):
                     self.selected_images.append(path_obj)
                     self._image_directories.add(path_obj.parent)
                     self.ocr_flags[path_obj] = tk.BooleanVar(value=False)
-                    self.defect_flags[path_obj] = tk.BooleanVar(value=False)
                     logger.info("Image ajoutée: %s", path_obj)
 
             # Garder image_paths cohérent pour le reste du code
@@ -988,7 +1001,6 @@ class VintedAIApp(ctk.CTk):
             if image_path in self.selected_images:
                 self.selected_images.remove(image_path)
                 self.ocr_flags.pop(image_path, None)
-                self.defect_flags.pop(image_path, None)
             else:
                 logger.warning("Impossible de supprimer %s: image inconnue", image_path)
                 return
@@ -1022,7 +1034,6 @@ class VintedAIApp(ctk.CTk):
             self.image_paths = []
             self._image_directories.clear()
             self.ocr_flags.clear()
-            self.defect_flags.clear()
 
             if self.preview_frame:
                 self.preview_frame.update_images([])
@@ -1098,11 +1109,15 @@ class VintedAIApp(ctk.CTk):
         if hasattr(self, "current_listing"):
             self.current_listing = None
 
-        # 7) Masquer le prix conseillé
+        # 7) Reset checkbox défaut
+        if hasattr(self, "has_defect_var"):
+            self.has_defect_var.set(False)
+
+        # 8) Masquer le prix conseillé
         if hasattr(self, "recommended_price_frame") and self.recommended_price_frame:
             self.recommended_price_frame.pack_forget()
 
-        # 8) Mettre à jour l'affichage du bouton reset (si tu actives la logique show/hide)
+        # 9) Mettre à jour l'affichage du bouton reset (si tu actives la logique show/hide)
         if hasattr(self, "_update_reset_button_visibility"):
             self._update_reset_button_visibility()
 
@@ -1580,8 +1595,6 @@ class VintedAIApp(ctk.CTk):
                 width=240,
                 height=260,
                 get_ocr_var=lambda p: self.ocr_flags.get(p),
-                get_defect_var=lambda p: self.defect_flags.get(p),
-                on_defect_change=self._on_defect_flag_change,
             )
             gallery.set_removal_enabled(False)
             gallery.update_images(self.selected_images)
@@ -2061,10 +2074,8 @@ class VintedAIApp(ctk.CTk):
             features = listing.features or {}
             defects = features.get("defects") or ""
 
-            # Vérifier si au moins une image a le flag défaut coché
-            has_manual_defect = any(
-                flag.get() for flag in self.defect_flags.values()
-            )
+            # Vérifier si la checkbox défaut est cochée
+            has_manual_defect = self.has_defect_var.get()
             if has_manual_defect and "défaut" not in defects.lower():
                 # Ajouter un indicateur de défaut manuel si pas déjà présent
                 defects = f"{defects} (défaut signalé)".strip() if defects else "défaut signalé"

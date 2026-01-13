@@ -35,8 +35,6 @@ class ImagePreview(ctk.CTkFrame):
         height: int = 320,
         on_remove: Optional[Callable[[Path], None]] = None,
         get_ocr_var: Optional[Callable[[Path], Optional[tk.BooleanVar]]] = None,
-        get_defect_var: Optional[Callable[[Path], Optional[tk.BooleanVar]]] = None,
-        on_defect_change: Optional[Callable[[], None]] = None,
     ) -> None:
         super().__init__(master)
         self._thumb_min_width = width
@@ -58,10 +56,7 @@ class ImagePreview(ctk.CTkFrame):
         self._remove_buttons: List[ctk.CTkButton] = []
         self._removal_enabled = True
         self._get_ocr_var = get_ocr_var
-        self._get_defect_var = get_defect_var
-        self._on_defect_change = on_defect_change
         self._ocr_checkboxes: List[ctk.CTkCheckBox] = []
-        self._defect_checkboxes: List[ctk.CTkCheckBox] = []
 
         self._scroll_frame = ctk.CTkScrollableFrame(
             self,
@@ -117,7 +112,6 @@ class ImagePreview(ctk.CTkFrame):
         self._pil_images.clear()
         self._remove_buttons.clear()
         self._ocr_checkboxes.clear()
-        self._defect_checkboxes.clear()
         self._image_paths = list(paths)
 
         for widget in self._gallery_container.winfo_children():
@@ -191,7 +185,6 @@ class ImagePreview(ctk.CTkFrame):
         self._labels.clear()
         self._preview_images.clear()
         self._ocr_checkboxes.clear()
-        self._defect_checkboxes.clear()
 
         column_count = self._calculate_columns()
         for column in range(column_count):
@@ -259,27 +252,6 @@ class ImagePreview(ctk.CTkFrame):
                     )
                     checkbox.place(relx=0.0, rely=0.0, anchor="nw", x=6, y=6)
                     self._ocr_checkboxes.append(checkbox)
-
-            if self._get_defect_var is not None:
-                try:
-                    defect_var = self._get_defect_var(path)
-                except Exception as exc:
-                    logger.warning("Impossible de récupérer le flag défaut pour %s: %s", path, exc)
-                    defect_var = None
-
-                if defect_var is not None:
-                    defect_checkbox = ctk.CTkCheckBox(
-                        card,
-                        text="Défaut",
-                        variable=defect_var,
-                        corner_radius=10,
-                        fg_color="#d9534f",
-                        hover_color="#c33c37",
-                        text_color="white",
-                        command=self._on_defect_checkbox_change,
-                    )
-                    defect_checkbox.place(relx=0.0, rely=0.0, anchor="nw", x=6, y=32)
-                    self._defect_checkboxes.append(defect_checkbox)
 
         self._gallery_container.update_idletasks()
 
@@ -400,11 +372,3 @@ class ImagePreview(ctk.CTkFrame):
             return
         logger.info("Suppression demandée pour %s", path)
         self._on_remove(path)
-
-    def _on_defect_checkbox_change(self) -> None:
-        """Appelé quand une checkbox défaut change d'état."""
-        if self._on_defect_change is not None:
-            try:
-                self._on_defect_change()
-            except Exception as exc:
-                logger.warning("Erreur lors du callback on_defect_change: %s", exc)
