@@ -107,6 +107,7 @@ def _build_hashtags(
     gender: str,
     rise_label: str,
     durin_tag: str,
+    sku_order_tag: str = "",
 ) -> str:
     try:
         tokens: List[str] = []
@@ -199,6 +200,9 @@ def _build_hashtags(
 
         if durin_tag:
             add(durin_tag)
+
+        if sku_order_tag:
+            add(sku_order_tag)
 
         return " ".join(tokens)
     except Exception as exc:  # pragma: no cover - defensive
@@ -611,6 +615,7 @@ def build_jean_levis_description(
         length = _safe_clean(features.get("length"))
         gender = _safe_clean(features.get("gender")) or "femme"
         sku = _safe_clean(features.get("sku"))
+        order_id = _safe_clean(features.get("order_id"))
         rise_label = _format_rise_label(features.get("rise_type"), features.get("rise_cm"))
 
         title_intro_parts = ["Jean", brand]
@@ -659,12 +664,21 @@ def build_jean_levis_description(
         shipping_sentence = "📦 Envoi rapide et soigné"
 
         cta_lot_sentence = (
-            "💡 Pensez à un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !"
+            "💡 Pensez à un lot pour profiter d'une réduction supplémentaire et économiser des frais d'envoi !"
         )
         durin_tag = f"#durin31fr{(size_fr or 'nc').lower()}"
         cta_durin_sentence = (
-            f"✨ Retrouvez tous mes articles Levi’s à votre taille ici 👉 {durin_tag}"
+            f"✨ Retrouvez tous mes articles Levi's à votre taille ici 👉 {durin_tag}"
         )
+
+        # Hashtag SKU + Order ID (format: #durin31jlf345_20)
+        sku_order_tag = ""
+        if sku:
+            sku_clean = sku.lower().replace(" ", "")
+            if order_id:
+                sku_order_tag = f"#durin31{sku_clean}_{order_id}"
+            else:
+                sku_order_tag = f"#durin31{sku_clean}"
 
         hashtags = _build_hashtags(
             brand=brand,
@@ -677,6 +691,7 @@ def build_jean_levis_description(
             gender=gender,
             rise_label=rise_label,
             durin_tag=durin_tag,
+            sku_order_tag=sku_order_tag,
         )
 
         paragraphs = [
@@ -739,6 +754,8 @@ def build_pull_description(
         size_source = (_safe_clean(features.get("size_source")) or "").lower()
         measurement_mode = (_safe_clean(features.get("measurement_mode")) or "").lower()
         defects = ai_defects or features.get("defects")
+        sku = _safe_clean(features.get("sku"))
+        order_id = _safe_clean(features.get("order_id"))
 
         colors = ""
         try:
@@ -864,6 +881,14 @@ def build_pull_description(
                     clean_color = color_token.strip().lower().replace(" ", "")
                     if clean_color:
                         _add_tag(f"#{clean_color}")
+
+            # Hashtag SKU + Order ID (format: #durin31ptf123_20)
+            if sku:
+                sku_clean = sku.lower().replace(" ", "")
+                if order_id:
+                    _add_tag(f"#durin31{sku_clean}_{order_id}")
+                else:
+                    _add_tag(f"#durin31{sku_clean}")
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("build_pull_description: hashtags réduits (%s)", exc)
 
@@ -965,6 +990,8 @@ def build_jacket_carhart_description(
         collar = _safe_clean(features.get("collar"))
         zip_material = _safe_clean(features.get("zip_material"))
         origin_country = _safe_clean(features.get("origin_country"))
+        sku = _safe_clean(features.get("sku"))
+        order_id = _safe_clean(features.get("order_id"))
 
         # --- 1) Phrase produit -------------------------------------------------
         product_sentence_parts: List[str] = [f"Veste {brand}"]
@@ -1133,13 +1160,22 @@ def build_jacket_carhart_description(
         size_tag = f"{general_tag}{size_token}" if size_token else "#durin31jcnc"
         color_tag = f"#{color.lower().replace(' ', '')}" if color else ""
 
+        # Hashtag SKU + Order ID (format: #durin31jcr123_20)
+        sku_order_tag = ""
+        if sku:
+            sku_clean = sku.lower().replace(" ", "")
+            if order_id:
+                sku_order_tag = f"#durin31{sku_clean}_{order_id}"
+            else:
+                sku_order_tag = f"#durin31{sku_clean}"
+
         logistics_sentence = "📏 Mesures détaillées visibles en photo pour plus de précisions."
         shipping_sentence = "📦 Envoi rapide et soigné."
         cta_sentence = (
             f"✨ Retrouvez toutes mes vestes Carhartt ici 👉 {general_tag} et à votre taille 👉 {size_tag}"
         )
         bundle_sentence = (
-            "💡 Pensez à faire un lot pour bénéficier d’une réduction et économiser sur les frais d’envoi."
+            "💡 Pensez à faire un lot pour bénéficier d'une réduction et économiser sur les frais d'envoi."
         )
 
         hashtags = " ".join(
@@ -1156,6 +1192,7 @@ def build_jacket_carhart_description(
                 "#durin31",
                 size_tag,
                 color_tag,
+                sku_order_tag,
             ]
             if token
         ).strip()

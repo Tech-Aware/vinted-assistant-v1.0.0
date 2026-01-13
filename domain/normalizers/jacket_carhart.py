@@ -241,6 +241,9 @@ def build_features_for_jacket_carhart(
         elif sleeve_inter and not sleeve_lining:
             sleeve_lining = sleeve_inter
 
+        # Order ID
+        order_id = ui_data.get("order_id")
+
         features: Dict[str, Any] = {
             "brand": brand,
             "model": model,
@@ -263,6 +266,7 @@ def build_features_for_jacket_carhart(
             "is_new_york": is_new_york,
             "sku": sku,
             "sku_status": sku_status,
+            "order_id": order_id,
         }
 
         logger.debug("build_features_for_jacket_carhart: features=%s", features)
