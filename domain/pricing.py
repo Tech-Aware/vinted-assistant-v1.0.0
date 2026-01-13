@@ -137,7 +137,7 @@ def calculate_recommended_price_jean_levis(
             multiplier = 4.0
             quality_label = "premium sans défaut"
         elif is_premium and has_defects_flag:
-            multiplier = 3.5
+            multiplier = 3
             quality_label = "premium avec défaut"
         elif not is_premium and not has_defects_flag:
             multiplier = 3.5
