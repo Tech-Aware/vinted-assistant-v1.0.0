@@ -2038,7 +2038,7 @@ class VintedAIApp(ctk.CTk):
 
             # Récupérer les features du listing
             features = listing.features or {}
-            defects = listing.defects
+            defects = features.get("defects")
 
             # Calculer le prix conseillé
             price, explanation = calculate_recommended_price_jean_levis(features, defects)
