@@ -70,6 +70,7 @@ class VintedAIApp(ctk.CTk):
         self.size_us_var = ctk.StringVar(value="")
         self.order_id_var = ctk.StringVar(value="")
         self.measure_mode_var = ctk.StringVar(value="etiquette")
+        self.has_defect_var = tk.BooleanVar(value=False)
 
         # Gestion des images
         self.selected_images: List[Path] = []
@@ -557,6 +558,22 @@ class VintedAIApp(ctk.CTk):
             )
             order_id_hint.grid(row=0, column=2, sticky="w", padx=(12, 0))
 
+            # Checkbox défaut
+            defect_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
+            defect_row.pack(anchor="w", pady=(4, 2))
+
+            self.defect_checkbox = ctk.CTkCheckBox(
+                defect_row,
+                text="Présence de défaut (tâche, usure, etc.)",
+                variable=self.has_defect_var,
+                corner_radius=10,
+                fg_color="#d9534f",
+                hover_color="#c33c37",
+                text_color=self.palette.get("text_primary"),
+                command=self._on_defect_flag_change,
+            )
+            self.defect_checkbox.pack(side="left")
+
             self.measure_mode_frame = ctk.CTkFrame(
                 size_controls_frame,
                 fg_color="transparent",
@@ -592,7 +609,7 @@ class VintedAIApp(ctk.CTk):
             )
             measures_radio.grid(row=0, column=2, sticky="w")
 
-            # Zone de preview réutilisée depuis l’ancienne app
+            # Zone de preview réutilisée depuis l'ancienne app
             self.preview_frame = ImagePreview(
                 gallery_wrapper,
                 on_remove=self._remove_image,
@@ -1092,7 +1109,15 @@ class VintedAIApp(ctk.CTk):
         if hasattr(self, "current_listing"):
             self.current_listing = None
 
-        # 7) Mettre à jour l’affichage du bouton reset (si tu actives la logique show/hide)
+        # 7) Reset checkbox défaut
+        if hasattr(self, "has_defect_var"):
+            self.has_defect_var.set(False)
+
+        # 8) Masquer le prix conseillé
+        if hasattr(self, "recommended_price_frame") and self.recommended_price_frame:
+            self.recommended_price_frame.pack_forget()
+
+        # 9) Mettre à jour l'affichage du bouton reset (si tu actives la logique show/hide)
         if hasattr(self, "_update_reset_button_visibility"):
             self._update_reset_button_visibility()
 
@@ -2020,10 +2045,19 @@ class VintedAIApp(ctk.CTk):
         except Exception as exc:
             logger.error("_update_result_fields: erreur %s", exc, exc_info=True)
 
+    def _on_defect_flag_change(self) -> None:
+        """
+        Appelé quand un flag défaut est modifié sur une image.
+        Recalcule le prix conseillé si un listing est déjà généré.
+        """
+        if self.current_listing:
+            self._update_recommended_price(self.current_listing)
+
     def _update_recommended_price(self, listing: VintedListing) -> None:
         """
         Calcule et affiche le prix conseillé pour les jeans Levi's.
         Masque le label pour les autres types d'articles.
+        Prend en compte les flags défaut manuels sur les images.
         """
         try:
             if not hasattr(self, "recommended_price_frame") or not self.recommended_price_frame:
@@ -2038,7 +2072,13 @@ class VintedAIApp(ctk.CTk):
 
             # Récupérer les features du listing
             features = listing.features or {}
-            defects = features.get("defects")
+            defects = features.get("defects") or ""
+
+            # Vérifier si la checkbox défaut est cochée
+            has_manual_defect = self.has_defect_var.get()
+            if has_manual_defect and "défaut" not in defects.lower():
+                # Ajouter un indicateur de défaut manuel si pas déjà présent
+                defects = f"{defects} (défaut signalé)".strip() if defects else "défaut signalé"
 
             # Calculer le prix conseillé
             price, explanation = calculate_recommended_price_jean_levis(features, defects)
