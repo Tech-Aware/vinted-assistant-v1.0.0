@@ -42,6 +42,7 @@ def build_description_jean_levis(
         length = _safe_clean(features.get("length"))
         gender = _safe_clean(features.get("gender")) or "femme"
         sku = _safe_clean(features.get("sku"))
+        order_id = _safe_clean(features.get("order_id"))
         rise_label = _format_rise_label(features.get("rise_type"), features.get("rise_cm"))
 
         # --- Fit effectif (doit matcher le titre) ---
@@ -137,9 +138,18 @@ def build_description_jean_levis(
         logistics_sentence = "📏 Mesures visibles en photo."
         shipping_sentence = "📦 Envoi rapide et soigné."
 
-        cta_lot_sentence = "💡 Pensez à un lot pour profiter d’une réduction supplémentaire et économiser des frais d’envoi !"
+        cta_lot_sentence = "💡 Pensez à un lot pour profiter d'une réduction supplémentaire et économiser des frais d'envoi !"
         durin_tag = f"#durin31fr{(size_fr or 'nc').lower()}"
-        cta_durin_sentence = f"✨ Retrouvez tous mes articles Levi’s à votre taille ici 👉 {durin_tag}"
+        cta_durin_sentence = f"✨ Retrouvez tous mes articles Levi's à votre taille ici 👉 {durin_tag}"
+
+        # Hashtag SKU + Order ID (format: #durin31jlf345_20)
+        sku_order_tag = ""
+        if sku:
+            sku_clean = sku.lower().replace(" ", "")
+            if order_id:
+                sku_order_tag = f"#durin31{sku_clean}_{order_id}"
+            else:
+                sku_order_tag = f"#durin31{sku_clean}"
 
         # IMPORTANT: passer fit_effective au builder hashtags pour éviter incohérences (#skinnyjean vs bootcut)
         hashtags = _build_hashtags(
@@ -153,6 +163,7 @@ def build_description_jean_levis(
             gender=gender,
             rise_label=rise_label,
             durin_tag=durin_tag,
+            sku_order_tag=sku_order_tag,
         )
 
         paragraphs = [
