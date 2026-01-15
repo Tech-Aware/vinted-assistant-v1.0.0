@@ -22,6 +22,7 @@ from domain.templates import AnalysisProfileName, AnalysisProfile, ALL_PROFILES
 from domain.title_builder import SKU_PREFIX, build_pull_title, build_pull_tommy_title
 
 from presentation.image_preview import ImagePreview  # <- widget réutilisé depuis l'ancienne app
+from infrastructure.browser_bridge import get_bridge  # <- pont HTTP vers extension Chrome
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,7 @@ class VintedAIApp(ctk.CTk):
         self.description_text: Optional[ctk.CTkTextbox] = None
         self.description_header_label: Optional[ctk.CTkLabel] = None
         self.description_toggle_btn: Optional[ctk.CTkButton] = None
+        self.transfer_btn: Optional[ctk.CTkButton] = None  # Bouton transfert vers Vinted
 
         self.description_variants: List[Dict[str, str]] = []
         self.description_variant_index: int = 0
@@ -753,7 +755,21 @@ class VintedAIApp(ctk.CTk):
                 text_color="white",
                 command=self._copy_description_to_clipboard,
             )
-            description_copy_btn.pack(side="left")
+            description_copy_btn.pack(side="left", padx=(0, 6))
+
+            # Bouton de transfert vers Vinted (via extension Chrome)
+            self.transfer_btn = ctk.CTkButton(
+                description_controls,
+                text="Vinted",
+                width=70,
+                height=32,
+                corner_radius=10,
+                fg_color="#09B1BA",  # Couleur Vinted turquoise
+                hover_color="#078A91",
+                text_color="white",
+                command=self._transfer_to_vinted,
+            )
+            self.transfer_btn.pack(side="left")
 
             self.description_text = ctk.CTkTextbox(
                 description_card,
@@ -2194,6 +2210,112 @@ class VintedAIApp(ctk.CTk):
             logger.info("Description courante copiée dans le presse-papiers.")
         except Exception as exc:
             logger.error("_copy_description_to_clipboard: erreur %s", exc, exc_info=True)
+
+    def _transfer_to_vinted(self) -> None:
+        """
+        Transfère le titre et la description vers Vinted via l'extension Chrome.
+
+        Architecture inspirée de Clem's :
+        - Les données sont stockées dans un buffer HTTP (localhost:8765)
+        - L'extension Chrome fait du polling et récupère les données
+        - L'extension remplit les champs avec simulation de frappe humaine
+        - Le transfert est confirmé automatiquement par l'extension
+        """
+        try:
+            # Récupérer le titre
+            title = ""
+            if self.title_text:
+                title = self.title_text.get("1.0", "end").strip()
+
+            # Récupérer la description
+            description = ""
+            if self.description_text:
+                description = self.description_text.get("1.0", "end").strip()
+
+            # Vérifier qu'il y a des données à transférer
+            if not title and not description:
+                messagebox.showwarning(
+                    "Transfert impossible",
+                    "Aucune donnée à transférer.\n"
+                    "Merci de générer une fiche avant de transférer vers Vinted.",
+                )
+                return
+
+            # Envoyer les données au bridge HTTP
+            bridge = get_bridge()
+
+            if not bridge.is_running():
+                messagebox.showerror(
+                    "Serveur non démarré",
+                    "Le serveur de communication n'est pas actif.\n"
+                    "Veuillez redémarrer l'application.",
+                )
+                return
+
+            bridge.set_transfer_data(title, description)
+
+            # Feedback visuel
+            if self.transfer_btn:
+                original_text = self.transfer_btn.cget("text")
+                self.transfer_btn.configure(text="Envoyé", fg_color="#22c55e")
+
+                # Restaurer le bouton après 3 secondes
+                def restore_button():
+                    try:
+                        if self.transfer_btn:
+                            self.transfer_btn.configure(
+                                text=original_text,
+                                fg_color="#09B1BA"
+                            )
+                    except Exception:
+                        pass
+
+                self.after(3000, restore_button)
+
+            logger.info(
+                "Données de transfert envoyées au bridge HTTP "
+                "(titre: %d chars, description: %d chars)",
+                len(title), len(description)
+            )
+
+            # Message d'instruction
+            messagebox.showinfo(
+                "Transfert prêt",
+                "Les données sont prêtes pour le transfert.\n\n"
+                "Instructions :\n"
+                "1. Ouvrez votre brouillon sur vinted.fr\n"
+                "2. L'extension Chrome remplira automatiquement les champs\n"
+                "3. Vérifiez et validez l'annonce\n\n"
+                "Conseil : gardez cette fenêtre ouverte pendant le transfert.",
+            )
+
+        except Exception as exc:
+            logger.error("_transfer_to_vinted: erreur %s", exc, exc_info=True)
+            messagebox.showerror(
+                "Erreur de transfert",
+                f"Une erreur est survenue lors du transfert :\n{exc}",
+            )
+
+    def _on_transfer_complete(self) -> None:
+        """
+        Callback appelé quand l'extension Chrome confirme le transfert.
+        """
+        try:
+            logger.info("Transfert vers Vinted confirmé par l'extension Chrome")
+
+            # Feedback visuel optionnel
+            if self.status_label:
+                self.status_label.configure(
+                    text="Transfert vers Vinted confirmé",
+                    text_color=self.palette.get("accent_gradient_start", "#1cc59c"),
+                )
+
+            # Restaurer le bouton
+            if self.transfer_btn:
+                self.transfer_btn.configure(text="Vinted", fg_color="#09B1BA")
+
+        except Exception as exc:
+            logger.error("_on_transfer_complete: erreur %s", exc, exc_info=True)
 
     # ------------------------------------------------------------------
     # Format
