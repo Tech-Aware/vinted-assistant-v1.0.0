@@ -44,145 +44,182 @@ def build_description_jean_levis(
         sku = _safe_clean(features.get("sku"))
         order_id = _safe_clean(features.get("order_id"))
         rise_label = _format_rise_label(features.get("rise_type"), features.get("rise_cm"))
+        defects = ai_defects or features.get("defects")
+
+        cotton_percent = _format_percent(features.get("cotton_percent"))
+        elasthane_percent = _format_percent(features.get("elasthane_percent"))
+        composition_materials = features.get("composition_materials") or []
+        composition_status = features.get("composition_status")
 
         # --- Fit effectif (doit matcher le titre) ---
         fit_effective = fit
         model_low = (model or "").lower()
 
-        # règle métier: Demi Curve => Bootcut/Évasé
-        # (on évite de forcer Bootcut dès qu'on voit "curve" seul si tu as d'autres modèles "Curve")
         if "demi" in model_low and "curve" in model_low:
             fit_effective = "Bootcut/Évasé"
         elif "curve" in model_low and not fit_effective:
-            # fallback doux si l'IA n'a rien mis dans fit
             fit_effective = "Bootcut/Évasé"
 
-        title_intro_parts = ["Jean", brand]
-        if model:
-            title_intro_parts.append(model)
-        title_intro = " ".join(title_intro_parts)
+        # --- Déterminer le compte Vinted selon le SKU ---
+        sku_upper = (sku or "").upper()
+        is_homme = "JLH" in sku_upper
 
-        intro_sentence = f"{title_intro} pour {gender}."
-
-        # --- Phrase taille / coupe / rise ---
-        size_sentence_parts: List[str] = []
-
-        if size_us and size_fr:
-            size_sentence_parts.append(f"Taille {size_us} US (équivalent {size_fr} FR)")
-        elif size_fr:
-            size_sentence_parts.append(f"Taille {size_fr} FR")
-        elif size_us:
-            size_sentence_parts.append(f"Taille {size_us} US")
-
-        if fit_effective:
-            size_sentence_parts.append(f"coupe {fit_effective}")
-
-        if rise_label:
-            size_sentence_parts.append(f"à {rise_label}")
-
-        if size_sentence_parts:
-            size_sentence_parts.append("pour une silhouette ajustée et confortable")
-
-        size_sentence = ", ".join(size_sentence_parts).strip()
-        size_sentence = f"{size_sentence}." if size_sentence else "Taille non précisée."
-
-        # --- Couleur ---
-        color_has_fade = "lavé" in color.lower() if color else False
-        if color:
-            nuance = " légèrement délavé" if not color_has_fade else ""
-            color_sentence = f"Coloris {color}{nuance}, très polyvalent et facile à assortir."
+        if is_homme:
+            vinted_account_tag = "#gentlemen_corner"
+            size_tag_prefix = "#GC_fr"
         else:
-            color_sentence = "Coloris non précisé, se référer aux photos pour les nuances."
+            vinted_account_tag = "#ladies_and_gentlemen"
+            size_tag_prefix = "#LG_fr"
 
-        # --- Prose / sensation (prudente, dérivée des features) ---
-        comfort_sentence = None
-        try:
-            # On ne "promet" pas : juste des formulations non risquées
-            elas_val = _format_percent(features.get("elasthane_percent"))
+        size_tag = f"{size_tag_prefix}{(size_fr or 'nc').lower()}"
 
-            base = "Denim agréable à porter"
+        # --- Construction du libellé de coupe pour la phrase d'intro ---
+        fit_low = (fit_effective or "").lower()
+        if "boot" in fit_low or "évas" in fit_low or "evas" in fit_low or "flare" in fit_low:
+            fit_label = "évasés"
+            fit_hashtag = "évasé"
+        elif "skinny" in fit_low or "slim" in fit_low:
+            fit_label = "skinny"
+            fit_hashtag = "skinny"
+        elif "straight" in fit_low or "droit" in fit_low:
+            fit_label = "droits"
+            fit_hashtag = "droit"
+        else:
+            fit_label = ""
+            fit_hashtag = ""
 
-            # "stretch" uniquement si > 2%
-            if elas_val is not None and elas_val > 2:
-                base += ", stretch pour plus de confort"
+        # --- Libellé taille (rise) ---
+        rise_low = (rise_label or "").lower()
+        if "basse" in rise_low:
+            rise_intro = "de taille basse"
+            rise_hashtag = "lowrise"
+        elif "haute" in rise_low:
+            rise_intro = "de taille haute"
+            rise_hashtag = "highrise"
+        else:
+            rise_intro = "de taille moyenne"
+            rise_hashtag = "midrise"
 
-            # fit
-            fit_low = (fit_effective or "").lower()
-            if "boot" in fit_low or "évas" in fit_low or "evas" in fit_low or "flare" in fit_low:
-                base += ", avec une jambe qui s’évase subtilement en bas"
-            elif "skinny" in fit_low:
-                base += ", coupe près du corps"
+        # --- Phrase d'introduction adaptée selon la coupe ---
+        if fit_label == "évasés":
+            silhouette_phrase = "équilibre la silhouette et allonge la jambe"
+        elif fit_label == "skinny":
+            silhouette_phrase = "épouse la silhouette et affine la jambe"
+        elif fit_label == "droits":
+            silhouette_phrase = "offre une coupe classique et intemporelle"
+        else:
+            silhouette_phrase = "offre un style polyvalent"
 
-            '''# rise
-            if rise_label:
-                rl = rise_label.lower()
-                if "basse" in rl:
-                    base += ", taille basse"
-                elif "haute" in rl:
-                    base += ", taille haute"
-                elif "moyenne" in rl or "mi-haute" in rl or "mi haute" in rl:
-                    base += ", taille mi-haute"'''
+        # Construire "Ces Jeans évasés Levi's pour femme de taille moyenne..."
+        if fit_label:
+            intro_sentence = f"Ces Jeans {fit_label} {brand} pour {gender} {rise_intro} {silhouette_phrase}."
+        else:
+            intro_sentence = f"Ces Jeans {brand} pour {gender} {rise_intro} {silhouette_phrase}."
 
-            comfort_sentence = base.strip().rstrip(".") + "."
-        except Exception:
-            comfort_sentence = None
+        # --- Phrase composition ---
+        # Utiliser composition_materials (liste des matériaux sans pourcentages)
+        if composition_materials and isinstance(composition_materials, list) and len(composition_materials) > 0:
+            composition_text = ", ".join(composition_materials)
+            composition_sentence = f"Celui-ci est composé de {composition_text} disposant ainsi d'une toile de denim souple, bien tenue et confortable."
+        else:
+            # Fallback sur les pourcentages si pas de liste
+            composition_parts: List[str] = []
+            if cotton_percent:
+                composition_parts.append("Coton")
+            if elasthane_percent and elasthane_percent > 0:
+                composition_parts.append("Élasthanne")
 
-        composition_sentence = _build_composition(
-            features.get("cotton_percent"),
-            features.get("elasthane_percent"),
-        )
+            if composition_parts:
+                composition_text = ", ".join(composition_parts)
+                composition_sentence = f"Celui-ci est composé de {composition_text} disposant ainsi d'une toile de denim souple, bien tenue et confortable."
+            else:
+                composition_sentence = "Toile de denim souple, bien tenue et confortable."
 
-        closure_sentence = "Fermeture zippée + bouton gravé Levi’s."
-        state_sentence = _build_state_sentence(ai_defects or features.get("defects"))
+        # --- Phrase couleur ---
+        if color:
+            color_sentence = f"Sa couleur {color.lower()}, intemporelle, s'intègre facilement à une garde-robe."
+        else:
+            color_sentence = "Sa couleur intemporelle s'intègre facilement à une garde-robe."
 
-        logistics_sentence = "📏 Mesures visibles en photo."
-        shipping_sentence = "📦 Envoi rapide et soigné."
+        # --- Phrase fermeture ---
+        closure_sentence = f"Il est doté d'une fermeture zippée et bouton gravé {brand}."
 
-        cta_lot_sentence = "💡 Pensez à un lot pour profiter d'une réduction supplémentaire et économiser des frais d'envoi !"
-        durin_tag = f"#durin31fr{(size_fr or 'nc').lower()}"
-        cta_durin_sentence = f"✨ Retrouvez tous mes articles Levi's à votre taille ici 👉 {durin_tag}"
+        # --- Bloc taille ---
+        if size_fr and size_us:
+            size_line = f"👖 Taille FR{size_fr} équivalent US {size_us}"
+        elif size_fr:
+            size_line = f"👖 Taille FR{size_fr}"
+        elif size_us:
+            size_line = f"👖 Taille US {size_us}"
+        else:
+            size_line = "👖 Taille : voir photos"
 
-        # Hashtag SKU + Order ID (format: #durin31jlf345_20)
-        sku_order_tag = ""
+        size_note = "*Les variations et écarts de mesure entre les tailles US et FR sont dus aux différentes proportions d'élasthanne et/ou viscose présentes dans le tissu."
+
+        # --- Bloc état ---
+        defects_clean = _normalize_defects(defects)
+        if not defects_clean:
+            state_line = "👍 Très bon état : article impeccable !"
+        else:
+            state_line = f"👍 Très bon état : {defects_clean}"
+
+        # --- Bloc mesures ---
+        measures_line = "🔎 Consultez les photos pour obtenir les mesures précises et la composition détaillée."
+
+        # --- Bloc envoi ---
+        shipping_line = "📦 Envoi rapide et soigné"
+
+        # --- CTA ---
+        cta_size_line = f"✨ Retrouvez tous mes articles Levi's à votre taille ici 👉 {size_tag}"
+        cta_lot_line = "💡 Jusqu'à 20% de réduction sur les lots, pensez y !"
+
+        # --- Hashtags dynamiques ---
+        hashtag_tokens: List[str] = ["#vintage", "#levis", "#jeanlevis", "#jeandenim"]
+
+        # Genre
+        if gender.lower() == "femme":
+            hashtag_tokens.append("#levisfemme")
+        else:
+            hashtag_tokens.append("#levishomme")
+
+        # Rise
+        if rise_hashtag:
+            hashtag_tokens.append(f"#{rise_hashtag}")
+
+        # Coupe
+        if fit_hashtag:
+            hashtag_tokens.append(f"#{fit_hashtag}")
+            hashtag_tokens.append(f"#jean{fit_hashtag}")
+
+        # Couleur
+        if color:
+            color_clean = color.lower().replace(" ", "")
+            hashtag_tokens.append(f"#jean{color_clean}")
+
+        # Tag taille
+        hashtag_tokens.append(size_tag)
+
+        # Tag SKU + Order ID
         if sku:
             sku_clean = sku.lower().replace(" ", "")
             if order_id:
-                sku_order_tag = f"#durin31{sku_clean}_{order_id}"
+                hashtag_tokens.append(f"#{order_id}{sku_clean}")
             else:
-                sku_order_tag = f"#durin31{sku_clean}"
+                hashtag_tokens.append(f"#{sku_clean}")
 
-        # IMPORTANT: passer fit_effective au builder hashtags pour éviter incohérences (#skinnyjean vs bootcut)
-        hashtags = _build_hashtags(
-            brand=brand,
-            model=model,
-            fit=fit_effective,  # <-- ici
-            color=color,
-            size_fr=size_fr,
-            size_us=size_us,
-            length=length,
-            gender=gender,
-            rise_label=rise_label,
-            durin_tag=durin_tag,
-            sku_order_tag=sku_order_tag,
-        )
+        hashtags = " ".join(hashtag_tokens)
 
-        paragraphs = [
-            intro_sentence,
-            size_sentence,
-            color_sentence,
-            comfort_sentence,
-            composition_sentence,
-            closure_sentence,
-            state_sentence,
-            logistics_sentence,
-            shipping_sentence,
-            cta_durin_sentence,
-            cta_lot_sentence,
-            hashtags,
-        ]
+        # --- Assemblage final ---
+        # Paragraphe 1: intro + composition + couleur + fermeture
+        paragraph1 = f"{intro_sentence} {composition_sentence} {color_sentence} {closure_sentence}"
 
-        description = "\n\n".join(part for part in paragraphs if part)
-        description = _strip_footer_lines(description)
+        # Bloc infos
+        info_block = "\n".join([size_line, size_note, state_line, measures_line])
+
+        # Footer
+        footer_block = "\n".join([shipping_line, "", cta_size_line, cta_lot_line, "", hashtags])
+
+        description = f"{paragraph1}\n\n{info_block}\n\n{footer_block}"
         logger.debug("build_description_jean_levis: description générée = %s", description)
         return description
 

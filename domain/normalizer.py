@@ -96,7 +96,20 @@ def _build_dynamic_footer(
             rise_label = (context.get("rise_type") or "").strip()
 
             size_token = (size_fr or size_us or "nc").lower().replace(" ", "")
-            durin_tag = f"#durin31fr{size_token}"
+            sku = (context.get("sku") or "").strip()
+
+            # Déterminer le compte Vinted et les tags selon le SKU (JLH = homme, JLF = femme)
+            sku_upper = sku.upper()
+            is_homme = "JLH" in sku_upper
+
+            if is_homme:
+                vinted_account_tag = "#gentlemen_corner"
+                size_tag_prefix = "#GC_fr"
+            else:
+                vinted_account_tag = "#ladies_and_gentlemen"
+                size_tag_prefix = "#LG_fr"
+
+            size_tag = f"{size_tag_prefix}{size_token}"
 
             hashtags = _build_hashtags(
                 brand=brand,
@@ -108,13 +121,14 @@ def _build_dynamic_footer(
                 length=length,
                 gender=gender,
                 rise_label=rise_label,
-                durin_tag=durin_tag,
+                size_tag=size_tag,
+                vinted_account_tag=vinted_account_tag,
             )
 
             footer_lines = [
                 "📏 Mesures détaillées visibles en photo pour plus de précisions.",
                 "📦 Envoi rapide et soigné.",
-                f"✨ Retrouvez tous mes articles Levi's à votre taille ici 👉 {durin_tag}",
+                f"✨ Retrouvez tous mes articles Levi's à votre taille ici 👉 {size_tag}",
                 "💡 Pensez à faire un lot pour profiter d'une réduction supplémentaire et économiser des frais d'envoi !",
                 hashtags,
             ]

@@ -371,11 +371,19 @@ class GeminiListingClient(AIListingProvider):
                     missing,
                     reason,
                 )
-                return self._build_fallback_listing(
-                    reason=f"IA status={ai_status} missing={missing} reason={reason}",
-                    raw_text=raw_text,
-                    ai_status=AIResultStatus.FALLBACK_USED,
-                )
+                # Pour needs_user_input, on continue le traitement car les données
+                # manquantes peuvent être complétées par l'UI (taille, composition, etc.)
+                if ai_status != "needs_user_input":
+                    return self._build_fallback_listing(
+                        reason=f"IA status={ai_status} missing={missing} reason={reason}",
+                        raw_text=raw_text,
+                        ai_status=AIResultStatus.FALLBACK_USED,
+                    )
+                else:
+                    logger.info(
+                        "IA needs_user_input (profil=%s): continuation du traitement avec données partielles",
+                        profile.name.value,
+                    )
 
             if not parsed:
                 logger.warning(

@@ -68,9 +68,13 @@ class VintedAIApp(ctk.CTk):
 
         self.size_fr_var = ctk.StringVar(value="")
         self.size_us_var = ctk.StringVar(value="")
+        self.length_var = ctk.StringVar(value="")  # Longueur entrejambe (L32, L34, etc.)
         self.order_id_var = ctk.StringVar(value="")
         self.measure_mode_var = ctk.StringVar(value="etiquette")
         self.has_defect_var = tk.BooleanVar(value=False)
+        self.jean_fit_var = ctk.StringVar(value="")  # Coupe du jean: droite, evasee, skinny
+        self.jean_rise_var = ctk.StringVar(value="")  # Taille: haute, moyenne, basse
+        self.composition_var = ctk.StringVar(value="")  # Composition manuelle (ex: "Coton, Élasthanne")
 
         # Gestion des images
         self.selected_images: List[Path] = []
@@ -513,7 +517,25 @@ class VintedAIApp(ctk.CTk):
                 text_color=self.palette.get("text_primary"),
                 width=78,
             )
-            us_entry.grid(row=0, column=3, sticky="w")
+            us_entry.grid(row=0, column=3, sticky="w", padx=(0, 10))
+
+            length_label = ctk.CTkLabel(
+                size_row,
+                text="L (optionnel) :",
+                text_color=self.palette.get("text_primary"),
+            )
+            length_label.grid(row=0, column=4, sticky="w", padx=(0, 6))
+
+            length_entry = ctk.CTkEntry(
+                size_row,
+                textvariable=self.length_var,
+                fg_color=self.palette.get("input_bg"),
+                border_color=self.palette.get("border"),
+                text_color=self.palette.get("text_primary"),
+                width=50,
+                placeholder_text="32",
+            )
+            length_entry.grid(row=0, column=5, sticky="w")
 
             self.size_hint = ctk.CTkLabel(
                 size_row,
@@ -524,7 +546,7 @@ class VintedAIApp(ctk.CTk):
                 wraplength=220,
                 anchor="w",
             )
-            self.size_hint.grid(row=0, column=4, sticky="w", padx=(12, 0))
+            self.size_hint.grid(row=0, column=6, sticky="w", padx=(12, 0))
 
             # Champ ID de commande (pour tous les articles)
             order_id_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
@@ -558,9 +580,121 @@ class VintedAIApp(ctk.CTk):
             )
             order_id_hint.grid(row=0, column=2, sticky="w", padx=(12, 0))
 
+            # Boutons radio pour la coupe du jean
+            fit_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
+            fit_row.pack(anchor="w", pady=(8, 2))
+
+            fit_label = ctk.CTkLabel(
+                fit_row,
+                text="Coupe :",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            fit_label.grid(row=0, column=0, sticky="w", padx=(0, 12))
+
+            fit_droite_radio = ctk.CTkRadioButton(
+                fit_row,
+                text="Droite",
+                variable=self.jean_fit_var,
+                value="droite",
+                text_color=self.palette.get("text_primary"),
+            )
+            fit_droite_radio.grid(row=0, column=1, sticky="w", padx=(0, 12))
+
+            fit_evasee_radio = ctk.CTkRadioButton(
+                fit_row,
+                text="Évasée",
+                variable=self.jean_fit_var,
+                value="evasee",
+                text_color=self.palette.get("text_primary"),
+            )
+            fit_evasee_radio.grid(row=0, column=2, sticky="w", padx=(0, 12))
+
+            fit_skinny_radio = ctk.CTkRadioButton(
+                fit_row,
+                text="Skinny",
+                variable=self.jean_fit_var,
+                value="skinny",
+                text_color=self.palette.get("text_primary"),
+            )
+            fit_skinny_radio.grid(row=0, column=3, sticky="w")
+
+            # Boutons radio pour la taille (rise) du jean
+            rise_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
+            rise_row.pack(anchor="w", pady=(8, 2))
+
+            rise_label = ctk.CTkLabel(
+                rise_row,
+                text="Taille :",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            rise_label.grid(row=0, column=0, sticky="w", padx=(0, 12))
+
+            rise_haute_radio = ctk.CTkRadioButton(
+                rise_row,
+                text="Haute",
+                variable=self.jean_rise_var,
+                value="haute",
+                text_color=self.palette.get("text_primary"),
+            )
+            rise_haute_radio.grid(row=0, column=1, sticky="w", padx=(0, 12))
+
+            rise_moyenne_radio = ctk.CTkRadioButton(
+                rise_row,
+                text="Moyenne",
+                variable=self.jean_rise_var,
+                value="moyenne",
+                text_color=self.palette.get("text_primary"),
+            )
+            rise_moyenne_radio.grid(row=0, column=2, sticky="w", padx=(0, 12))
+
+            rise_basse_radio = ctk.CTkRadioButton(
+                rise_row,
+                text="Basse",
+                variable=self.jean_rise_var,
+                value="basse",
+                text_color=self.palette.get("text_primary"),
+            )
+            rise_basse_radio.grid(row=0, column=3, sticky="w")
+
+            # Champ composition (optionnel, si l'IA ne détecte pas)
+            composition_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
+            composition_row.pack(anchor="w", pady=(8, 2))
+
+            composition_label = ctk.CTkLabel(
+                composition_row,
+                text="Composition :",
+                font=self.fonts.get("heading"),
+                text_color=self.palette.get("text_primary"),
+            )
+            composition_label.grid(row=0, column=0, sticky="w", padx=(0, 8))
+
+            composition_entry = ctk.CTkEntry(
+                composition_row,
+                textvariable=self.composition_var,
+                font=self.fonts.get("body"),
+                fg_color=self.palette.get("input_bg"),
+                border_color=self.palette.get("border"),
+                text_color=self.palette.get("text_primary"),
+                width=200,
+                placeholder_text="ex: Coton, Élasthanne",
+            )
+            composition_entry.grid(row=0, column=1, sticky="w", padx=(0, 10))
+
+            composition_hint = ctk.CTkLabel(
+                composition_row,
+                text="(optionnel, si non détecté sur étiquette)",
+                font=self.fonts.get("small"),
+                text_color=self.palette.get("text_muted"),
+                justify="left",
+                anchor="w",
+            )
+            composition_hint.grid(row=0, column=2, sticky="w", padx=(0, 0))
+
             # Checkbox défaut
             defect_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
-            defect_row.pack(anchor="w", pady=(4, 2))
+            defect_row.pack(anchor="w", pady=(8, 2))
 
             self.defect_checkbox = ctk.CTkCheckBox(
                 defect_row,
@@ -1386,16 +1520,28 @@ class VintedAIApp(ctk.CTk):
                     )
                     return
 
+                jean_fit = self.jean_fit_var.get().strip() or None
+                jean_rise = self.jean_rise_var.get().strip() or None
+                composition_input = self.composition_var.get().strip() or None
+                length_input = self.length_var.get().strip() or None
                 ui_data = {
                     "size_fr": size_fr,
                     "size_us": size_us,
+                    "length": length_input,
                     "order_id": order_id,
+                    "fit": jean_fit,
+                    "rise_type": jean_rise,
+                    "composition": composition_input,
                 }
                 logger.info(
-                    "Tailles fournies (FR=%s, US=%s, order_id=%s) pour le profil %s",
+                    "Tailles fournies (FR=%s, US=%s, L=%s, order_id=%s, fit=%s, rise=%s, composition=%s) pour le profil %s",
                     size_fr,
                     size_us,
+                    length_input,
                     order_id,
+                    jean_fit,
+                    jean_rise,
+                    composition_input,
                     profile.name.value,
                 )
 

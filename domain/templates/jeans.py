@@ -43,8 +43,26 @@ JEAN_LISTING_SCHEMA["properties"].update(
                 "length": {"type": ["string", "null"]},
                 "cotton_percent": {"type": ["number", "null"]},
                 "elasthane_percent": {"type": ["number", "null"]},
+                "composition_materials": {
+                    "type": ["array", "null"],
+                    "items": {"type": "string"},
+                    "description": "Liste des matériaux détectés sur l'étiquette (ex: ['Coton', 'Élasthanne'])",
+                },
+                "composition_status": {
+                    "type": ["string", "null"],
+                    "enum": ["ok", "uncertain", "missing", None],
+                    "description": "Statut de la détection: ok=lisible, uncertain=partiellement lisible, missing=non visible",
+                },
                 "rise_type": {"type": ["string", "null"]},
                 "rise_cm": {"type": ["number", "null"]},
+                "thigh_width_cm": {
+                    "type": ["number", "null"],
+                    "description": "Largeur cuisse à plat en cm (depuis annotations photo)",
+                },
+                "ankle_width_cm": {
+                    "type": ["number", "null"],
+                    "description": "Largeur cheville/bas de jambe à plat en cm (depuis annotations photo)",
+                },
                 "gender": {"type": ["string", "null"]},
                 "sku": {"type": ["string", "null"]},
                 "sku_status": {
@@ -123,32 +141,44 @@ IMPORTANT RULES (MUST FOLLOW):
    - Never invent a model. If no model is visible: model = null.
 
 3) FIT (CUT):
-   - If visible on label: use that label (slim, straight, bootcut, etc.)
-   - If visible from full-body silhouette: use it.
-   - Common mapping:
-     - slim => skinny
-     - straight => straight/droits
-     - bootcut => bootcut/évasé
-   - If unclear: fit = null.
+   - The fit/cut is provided by the user via the UI.
+   - DO NOT try to detect or analyze the fit from photos.
+   - Always set fit = null (it will be filled by user input).
 
-4) LENGTH:
+4) MEASUREMENTS (THIGH & ANKLE):
+   - One photo may show the jean laid flat with annotated measurements (cotes).
+   - Look for measurement annotations with arrows/lines showing widths in cm.
+   - Extract:
+     - thigh_width_cm: width at thigh level (cuisse) in cm
+     - ankle_width_cm: width at ankle/hem level (cheville/bas) in cm
+   - If no measurement annotations visible: thigh_width_cm = null, ankle_width_cm = null
+
+5) LENGTH:
    - Only if clearly visible from label (L32, L34, etc.).
    - If no label => length = null.
 
-5) MATERIAL:
-   - Read cotton and elasthane % ONLY from composition label.
-   - If cotton ≥ 60%: report percent.
-   - If elasthane ≥ 2%: report percent.
-   - Otherwise: null.
+6) MATERIAL/COMPOSITION:
+   - Read the composition label carefully.
+   - Extract ALL materials mentioned (Coton, Élasthanne, Polyester, Lyocell, etc.)
+   - Fill composition_materials with the list of materials in French:
+     - Example: ["Coton", "Élasthanne"] or ["Coton", "Polyester", "Élasthanne"]
+   - Fill composition_status:
+     - "ok" = label clearly readable, all materials identified
+     - "uncertain" = label partially visible or hard to read
+     - "missing" = no composition label visible
+   - Also extract percentages if visible:
+     - cotton_percent: percentage of cotton (if visible)
+     - elasthane_percent: percentage of elasthane (if visible)
+   - Common materials to look for: Coton, Élasthanne, Polyester, Lyocell, Viscose, Lin
 
-6) GENDER:
+7) GENDER:
    - If obvious: homme or femme.
    - If uncertain: null.
 
-7) COLOR:
+8) COLOR:
    - Dominant visible color: bleu brut, noir, etc.
 
-8) NO INVENTION RULE:
+9) NO INVENTION RULE:
    - If information is not clearly visible → field = null.
    - Do not guess sizes or data.
 

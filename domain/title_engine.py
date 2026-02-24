@@ -37,6 +37,7 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
         model = _sanitize_model_label(raw_model)
         size_fr = _normalize_str(features.get("size_fr"))
         size_us_raw = _normalize_str(features.get("size_us"))
+        length_raw = _normalize_str(features.get("length"))
         fit_source = _normalize_str(features.get("fit"))
         fit = _normalize_fit(fit_source)
         if not fit:
@@ -58,6 +59,7 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
         color = _normalize_str(features.get("color"))
         gender = _normalize_gender(_normalize_str(features.get("gender")))
         sku = _normalize_str(features.get("sku"))
+        order_id = _normalize_str(features.get("order_id"))
 
         cotton_raw = features.get("cotton_percent")
         elas_raw = features.get("elasthane_percent")
@@ -88,27 +90,64 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning("build_title_jean_levis: rise_type illisible (%s)", exc)
 
-        def _is_low_rise_label(raw: Optional[str]) -> bool:
+        def _get_rise_label(raw: Optional[str]) -> Optional[str]:
+            """Retourne le libellé de taille (haute, moyenne, basse) ou None."""
             try:
                 if not raw:
-                    return False
+                    return None
                 normalized = str(raw).strip().lower()
-                return "low" in normalized or "basse" in normalized or "ultra" in normalized
+                if "low" in normalized or "basse" in normalized or "ultra" in normalized:
+                    return "taille basse"
+                elif "high" in normalized or "haute" in normalized:
+                    return "taille haute"
+                elif "mid" in normalized or "moy" in normalized:
+                    return "taille moyenne"
+                return None
             except Exception as exc_inner:  # pragma: no cover - defensive
-                logger.warning("_is_low_rise_label: impossible de déterminer la taille basse (%s)", exc_inner)
-                return False
+                logger.warning("_get_rise_label: impossible de déterminer la taille (%s)", exc_inner)
+                return None
 
-        low_rise = _is_low_rise_label(rise_type)
-        if not low_rise:
+        rise_label = _get_rise_label(rise_type)
+        if not rise_label:
             try:
-                low_rise = _is_low_rise_label(_classify_rise_from_cm(features.get("rise_cm")))
+                rise_label = _get_rise_label(_classify_rise_from_cm(features.get("rise_cm")))
             except Exception as exc:  # pragma: no cover - defensive
-                logger.debug("build_title_jean_levis: détection taille basse impossible (%s)", exc)
+                logger.debug("build_title_jean_levis: détection taille impossible (%s)", exc)
 
         size_us_display: Optional[str] = None
         if size_us_raw:
             s = size_us_raw.strip().upper()
             size_us_display = s if s.startswith("W") else f"W{s}"
+
+        length_display: Optional[str] = None
+        if length_raw:
+            l = length_raw.strip().upper().replace("L", "")
+            length_display = f"L{l}"
+
+        # Vérifier cohérence FR/US : FR devrait être égal à US+10 (±1)
+        # Si incohérent, on n'affiche que US dans le titre
+        def _is_fr_us_coherent(fr: Optional[str], us: Optional[str]) -> bool:
+            """Vérifie si FR = US + 10 (±1)."""
+            try:
+                if not fr or not us:
+                    return True  # Pas de comparaison possible, on considère cohérent
+                # Extraire les valeurs numériques
+                fr_num = int("".join(c for c in str(fr) if c.isdigit()))
+                us_clean = str(us).upper().replace("W", "")
+                us_num = int("".join(c for c in us_clean if c.isdigit()))
+                # FR devrait être US + 10 (±1)
+                expected_fr = us_num + 10
+                return abs(fr_num - expected_fr) <= 1
+            except (ValueError, TypeError):
+                return True  # En cas d'erreur, on affiche les deux
+
+        show_fr_in_title = _is_fr_us_coherent(size_fr, size_us_raw)
+        if not show_fr_in_title:
+            logger.info(
+                "build_title_jean_levis: FR=%s et US=%s incohérents (FR ≠ US+10 ±1), affichage US uniquement",
+                size_fr,
+                size_us_raw,
+            )
 
         parts: List[str] = ["Jean"]
 
@@ -119,17 +158,20 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
         if model:
             parts.append(model)
 
-        if size_fr:
+        # Afficher FR uniquement si cohérent avec US
+        if size_fr and show_fr_in_title:
             parts.append(f"FR{size_fr}")
         if size_us_display:
             parts.append(size_us_display)
+        if length_display:
+            parts.append(length_display)
 
-        if fit and low_rise:
-            parts.append(f"coupe {fit} taille basse")
+        if fit and rise_label:
+            parts.append(f"{fit} {rise_label}")
         elif fit:
-            parts.append(f"coupe {fit}")
-        elif low_rise:
-            parts.append("taille basse")
+            parts.append(fit)
+        elif rise_label:
+            parts.append(rise_label)
 
         if cotton_percent is not None and cotton_percent >= 60:
             parts.append(f"{cotton_percent}% coton")
@@ -147,8 +189,10 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
         # --- SKU: n'ajouter AU TITRE que si valide ---
         # NOTE: on passe explicitement le profil (enum) pour éviter les crashes liés à l'ancien appel
         # avec une string, ce qui répond à la signature attendue et garantit une validation cohérente.
+        # Format: order_id + sku sans séparateur (ex: 02JLH0023)
         if sku and is_valid_internal_sku(profile=AnalysisProfileName.JEAN_LEVIS, sku=sku):
-            parts.append(f"{SKU_PREFIX}{sku}")
+            sku_display = f"{order_id}{sku}" if order_id else sku
+            parts.append(f"{SKU_PREFIX}{sku_display}")
         else:
             # Optionnel: log utile pour comprendre les cas rejetés
             if sku:
