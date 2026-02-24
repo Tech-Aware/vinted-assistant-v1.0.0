@@ -19,6 +19,7 @@ import traceback
 from config.log_config import setup_logging
 from config.settings import load_settings
 from infrastructure.ai_factory import build_providers
+from infrastructure.browser_bridge import start_bridge, stop_bridge
 from presentation.ui_app import VintedAIApp
 
 
@@ -111,6 +112,20 @@ def main() -> None:
         sys.exit(1)
 
     # ------------------------------------------------------------------
+    # Serveur HTTP Bridge (communication avec extension Chrome)
+    # ------------------------------------------------------------------
+    try:
+        bridge = start_bridge(port=8765)
+        logger.info("Serveur HTTP Bridge démarré sur http://localhost:8765")
+    except Exception as exc:
+        logger.warning(
+            "Impossible de démarrer le serveur HTTP Bridge: %s. "
+            "Le transfert vers Vinted ne sera pas disponible.",
+            exc,
+        )
+        bridge = None
+
+    # ------------------------------------------------------------------
     # UI
     # ------------------------------------------------------------------
     try:
@@ -119,7 +134,6 @@ def main() -> None:
 
     except KeyboardInterrupt:
         logger.warning("Interruption clavier - fermeture.")
-        sys.exit(0)
 
     except Exception as exc:
         logger.critical(
@@ -127,6 +141,15 @@ def main() -> None:
             traceback.format_exc(),
         )
         sys.exit(1)
+
+    finally:
+        # Arrêt propre du serveur HTTP
+        if bridge:
+            try:
+                stop_bridge()
+                logger.info("Serveur HTTP Bridge arrêté proprement.")
+            except Exception as exc_stop:
+                logger.warning("Erreur lors de l'arrêt du serveur HTTP: %s", exc_stop)
 
 
 if __name__ == "__main__":
