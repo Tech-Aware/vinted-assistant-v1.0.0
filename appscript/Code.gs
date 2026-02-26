@@ -13,15 +13,58 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Vinted Assistant')
-    .addItem('Lancer l\'assistant', 'showAssistant')
+    .addItem('Lancer l\'assistant', 'launchAssistant')
+    .addSeparator()
+    .addItem('Configurer le lien de l\'assistant', 'configureWebAppUrl')
     .addToUi();
 }
 
-function showAssistant() {
-  var html = HtmlService.createHtmlOutputFromFile('WebApp')
-    .setWidth(940)
-    .setHeight(700);
+/**
+ * Ouvre la web app dans un nouvel onglet du navigateur.
+ * Affiche un petit dialog avec le lien cliquable.
+ */
+function launchAssistant() {
+  var url = Config.getWebAppUrl();
+  if (!url) {
+    SpreadsheetApp.getUi().alert(
+      'Lien non configure',
+      'Le lien vers la web app n\'est pas encore configure.\n\n' +
+      'Allez dans : Vinted Assistant > Configurer le lien de l\'assistant',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+    return;
+  }
+  var html = HtmlService.createHtmlOutput(
+    '<html><body>' +
+    '<p style="font-family:Google Sans,Roboto,sans-serif;font-size:14px;">' +
+    'Ouverture de Vinted Assistant...' +
+    '</p>' +
+    '<script>window.open("' + url + '", "_blank");google.script.host.close();</script>' +
+    '</body></html>'
+  ).setWidth(300).setHeight(80);
   SpreadsheetApp.getUi().showModalDialog(html, 'Vinted Assistant');
+}
+
+/**
+ * Dialog pour configurer / mettre a jour le lien de la web app.
+ */
+function configureWebAppUrl() {
+  var currentUrl = Config.getWebAppUrl();
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.prompt(
+    'Configurer le lien Vinted Assistant',
+    'Collez l\'URL de deploiement de la web app :\n' +
+    '(ex: https://script.google.com/macros/s/.../exec)\n\n' +
+    'URL actuelle : ' + (currentUrl || '(non configure)'),
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (response.getSelectedButton() === ui.Button.OK) {
+    var newUrl = response.getResponseText().trim();
+    if (newUrl) {
+      Config.setWebAppUrl(newUrl);
+      ui.alert('Lien mis a jour !', 'Le lien a ete enregistre avec succes.', ui.ButtonSet.OK);
+    }
+  }
 }
 
 // ============================================================

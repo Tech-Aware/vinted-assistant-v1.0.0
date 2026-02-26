@@ -11,7 +11,8 @@ var Config = (function() {
     GEMINI_API_KEY: 'GEMINI_API_KEY',
     GEMINI_MODEL: 'GEMINI_MODEL',
     LOG_SHEET_ID: 'LOG_SHEET_ID',
-    LOG_LEVEL: 'LOG_LEVEL'
+    LOG_LEVEL: 'LOG_LEVEL',
+    WEBAPP_URL: 'WEBAPP_URL'
   };
 
   var DEFAULT_MODEL = 'gemini-2.5-flash';
@@ -54,12 +55,21 @@ var Config = (function() {
       getProps_().setProperty(KEYS.LOG_LEVEL, level);
     },
 
+    getWebAppUrl: function() {
+      return getProps_().getProperty(KEYS.WEBAPP_URL) || '';
+    },
+
+    setWebAppUrl: function(url) {
+      getProps_().setProperty(KEYS.WEBAPP_URL, url);
+    },
+
     getAll: function() {
       return {
         geminiApiKey: this.getGeminiApiKey(),
         geminiModel: this.getGeminiModel(),
         logSheetId: this.getLogSheetId(),
-        logLevel: this.getLogLevel()
+        logLevel: this.getLogLevel(),
+        webAppUrl: this.getWebAppUrl()
       };
     }
   };
