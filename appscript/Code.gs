@@ -250,8 +250,7 @@ function rebuildListing(params) {
 var LOG_HEADERS = [
   'Date', 'Profil', 'Type article', 'Marque', 'Modele',
   'Taille FR', 'Taille US', 'Couleur', 'Matiere', 'Coupe',
-  'Genre', 'Prix', 'Premium', 'SKU', 'Order ID',
-  'Etat', 'Titre', 'Description'
+  'Genre', 'Prix', 'SKU', 'Etat', 'Titre', 'Description'
 ];
 
 /**
@@ -312,9 +311,7 @@ function logGenerationToSheet(result, params) {
       features.fit || '',
       features.gender || '',
       uiData.price || '',
-      uiData.premium ? 'Oui' : 'Non',
       features.sku || result.sku || '',
-      features.order_id || uiData.order_id || '',
       features.condition || '',
       result.title || '',
       result.description || ''
