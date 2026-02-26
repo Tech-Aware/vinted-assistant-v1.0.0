@@ -6,31 +6,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Google Sans', Roboto, Arial, sans-serif; font-size: 14px; color: #202124; background: #f0f2f5; min-height: 100vh; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Google Sans', Roboto, Arial, sans-serif; font-size: 14px; color: #202124; background: #f0f2f5; }
 
-    .header { background: #1a73e8; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .header h1 { font-size: 20px; font-weight: 500; }
-    .btn-icon { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    /* ===== Header ===== */
+    .header { background: #1a73e8; color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: 52px; flex-shrink: 0; }
+    .header h1 { font-size: 18px; font-weight: 500; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-icon { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
     .btn-icon:hover { background: rgba(255,255,255,0.3); }
 
-    .container { max-width: 920px; margin: 0 auto; padding: 20px 16px; }
+    /* ===== Two-column layout ===== */
+    .app-layout { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - 52px); }
+    .panel { overflow-y: auto; padding: 16px; }
+    .panel-left { background: #fff; border-right: 1px solid #e0e0e0; }
+    .panel-right { background: #f8f9fa; }
 
-    .section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-    .section h2 { font-size: 15px; font-weight: 500; color: #1a73e8; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-    .section h2 .step { background: #1a73e8; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+    /* ===== Panel headers ===== */
+    .panel-header { font-size: 15px; font-weight: 600; color: #1a73e8; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 2px solid #e8f0fe; }
+    .panel-header .icon { font-size: 18px; }
 
-    .form-group { margin-bottom: 12px; }
-    .form-group label { display: block; font-size: 12px; font-weight: 500; color: #5f6368; margin-bottom: 4px; }
-    .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+    /* ===== Sections inside panels ===== */
+    .section { margin-bottom: 14px; }
+    .section-title { font-size: 13px; font-weight: 500; color: #5f6368; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .section-title .step { background: #1a73e8; color: #fff; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+
+    /* ===== Forms ===== */
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; font-size: 11px; font-weight: 500; color: #5f6368; margin-bottom: 3px; }
+    .form-group input, .form-group select { width: 100%; padding: 7px 10px; border: 1px solid #dadce0; border-radius: 6px; font-size: 13px; outline: none; transition: border-color 0.2s; }
     .form-group input:focus, .form-group select:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.1); }
-    .form-row { display: flex; gap: 12px; }
+    .form-row { display: flex; gap: 10px; }
     .form-row .form-group { flex: 1; }
 
-    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: #1a73e8; }
-    .checkbox-group label { font-size: 13px; color: #3c4043; margin-bottom: 0; }
+    .checkbox-group { display: flex; align-items: center; gap: 6px; }
+    .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1a73e8; }
+    .checkbox-group label { font-size: 12px; color: #3c4043; margin-bottom: 0; }
 
-    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s, opacity 0.2s; }
+    /* ===== Buttons ===== */
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 9px 18px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s, opacity 0.2s; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: #1a73e8; color: #fff; width: 100%; }
     .btn-primary:hover:not(:disabled) { background: #1557b0; }
@@ -38,51 +52,64 @@
     .btn-secondary:hover:not(:disabled) { background: #d2d6db; }
     .btn-success { background: #0d652d; color: #fff; }
     .btn-success:hover:not(:disabled) { background: #0a5024; }
-    .btn-sm { padding: 6px 14px; font-size: 12px; }
-
-    .upload-zone { border: 2px dashed #dadce0; border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
-    .upload-zone:hover, .upload-zone.dragover { border-color: #1a73e8; background: #e8f0fe; }
-    .upload-zone p { font-size: 13px; color: #5f6368; margin-top: 6px; }
-    .upload-zone .upload-icon { font-size: 32px; color: #1a73e8; }
-
-    .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 12px 0; }
-    .img-item { position: relative; border-radius: 8px; overflow: hidden; border: 3px solid transparent; cursor: pointer; transition: border-color 0.2s, transform 0.1s; }
-    .img-item:hover { transform: scale(1.02); }
-    .img-item.selected { border-color: #1a73e8; }
-    .img-item img { width: 100%; height: 120px; object-fit: cover; display: block; }
-    .img-item .badge { position: absolute; top: 4px; right: 4px; background: #1a73e8; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
-    .img-item .remove-btn { position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
-    .img-item:hover .remove-btn { opacity: 1; }
-    .img-name { font-size: 10px; text-align: center; padding: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(0,0,0,0.04); }
-
-    .status-bar { font-size: 12px; color: #5f6368; text-align: center; padding: 6px; }
-
-    .result-box { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 12px; padding: 16px; margin-top: 16px; }
-    .result-box h3 { color: #2e7d32; font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
-    .result-title { font-size: 16px; font-weight: 500; color: #1b5e20; margin: 8px 0; word-break: break-word; }
-    .result-desc { font-size: 13px; color: #33691e; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; line-height: 1.5; }
-    .result-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-
-    .error-box { background: #fce4ec; border: 1px solid #ef9a9a; border-radius: 12px; padding: 16px; margin-top: 16px; color: #b71c1c; }
-
-    .correction-section { background: #fff; border: 1px solid #dadce0; border-radius: 12px; padding: 16px; margin-top: 12px; }
-    .correction-section h3 { font-size: 14px; font-weight: 500; color: #1a73e8; margin-bottom: 12px; }
-    .correction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
-    .correction-grid .form-group { margin-bottom: 4px; }
-    .correction-grid .form-group label { font-size: 11px; }
-    .correction-grid .form-group input,
-    .correction-grid .form-group select { padding: 6px 10px; font-size: 12px; }
-    .correction-grid .full-width { grid-column: 1 / -1; }
-    .correction-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
     .btn-warning { background: #e8a100; color: #fff; }
     .btn-warning:hover:not(:disabled) { background: #c68900; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
 
-    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+    /* ===== Upload zone (compact) ===== */
+    .upload-zone { border: 2px dashed #dadce0; border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+    .upload-zone:hover, .upload-zone.dragover { border-color: #1a73e8; background: #e8f0fe; }
+    .upload-zone p { font-size: 12px; color: #5f6368; margin-top: 4px; }
+    .upload-zone .upload-icon { font-size: 24px; color: #1a73e8; }
+
+    /* ===== Images grid (compact) ===== */
+    .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; margin: 8px 0; }
+    .img-item { position: relative; border-radius: 6px; overflow: hidden; border: 2px solid transparent; cursor: pointer; transition: border-color 0.2s; }
+    .img-item.selected { border-color: #1a73e8; }
+    .img-item img { width: 100%; height: 70px; object-fit: cover; display: block; }
+    .img-item .badge { position: absolute; top: 2px; right: 2px; background: #1a73e8; color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 500; }
+    .img-item .remove-btn { position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+    .img-item:hover .remove-btn { opacity: 1; }
+    .status-bar { font-size: 11px; color: #5f6368; text-align: center; padding: 4px; }
+
+    /* ===== Correction grid ===== */
+    .correction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+    .correction-grid .form-group { margin-bottom: 2px; }
+    .correction-grid .form-group label { font-size: 11px; }
+    .correction-grid .form-group input,
+    .correction-grid .form-group select { padding: 6px 8px; font-size: 12px; }
+    .correction-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    /* ===== Right panel: result ===== */
+    .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #9aa0a6; text-align: center; }
+    .placeholder .ph-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+    .placeholder p { font-size: 13px; max-width: 260px; line-height: 1.5; }
+
+    .result-box { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 12px; padding: 16px; }
+    .result-box h3 { color: #2e7d32; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+    .result-label { font-size: 11px; font-weight: 500; color: #2e7d32; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; margin-top: 12px; }
+    .result-label:first-of-type { margin-top: 0; }
+    .result-title { font-size: 15px; font-weight: 500; color: #1b5e20; word-break: break-word; background: #fff; border: 1px solid #c8e6c9; border-radius: 6px; padding: 8px 10px; cursor: text; }
+    .result-desc { font-size: 13px; color: #33691e; white-space: pre-wrap; word-break: break-word; line-height: 1.5; background: #fff; border: 1px solid #c8e6c9; border-radius: 6px; padding: 8px 10px; max-height: 45vh; overflow-y: auto; cursor: text; }
+    .result-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+    .copy-btn { background: #fff; border: 1px solid #a5d6a7; border-radius: 4px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: #2e7d32; font-weight: 500; transition: background 0.15s; }
+    .copy-btn:hover { background: #c8e6c9; }
+    .copy-btn.copied { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+
+    .error-box { background: #fce4ec; border: 1px solid #ef9a9a; border-radius: 12px; padding: 16px; color: #b71c1c; }
+
+    .sku-badge { display: inline-block; background: #e3f2fd; color: #1565c0; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; margin-left: 8px; }
+
+    /* ===== Divider ===== */
+    .divider { border: none; border-top: 1px solid #e8eaed; margin: 12px 0; }
+
+    /* ===== Spinner ===== */
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle; }
+    .spinner-dark { border-color: #1a73e8; border-top-color: transparent; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .copy-btn { background: none; border: 1px solid #a5d6a7; border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; color: #2e7d32; }
-    .copy-btn:hover { background: #c8e6c9; }
-
+    /* ===== Config overlay ===== */
     .config-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 100; }
     .config-overlay.open { display: flex; align-items: center; justify-content: center; }
     .config-panel { background: #fff; border-radius: 12px; padding: 24px; width: 90%; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
@@ -94,131 +121,182 @@
     .help-link { font-size: 11px; color: #1a73e8; text-decoration: none; display: inline-block; margin-top: 2px; }
     .help-link:hover { text-decoration: underline; }
 
-    @media (max-width: 600px) {
-      .form-row { flex-direction: column; gap: 0; }
-      .images-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
-      .img-item img { height: 90px; }
-      .container { padding: 12px 8px; }
+    /* ===== Phase visibility ===== */
+    .phase-corrections { display: none; }
+    .phase-corrections.active { display: block; }
+    .phase-params.hidden { display: none; }
+
+    /* ===== Responsive: stack on small screens ===== */
+    @media (max-width: 768px) {
+      html, body { overflow: auto; }
+      .app-layout { grid-template-columns: 1fr; height: auto; }
+      .panel { overflow-y: visible; }
+      .panel-left { border-right: none; border-bottom: 1px solid #e0e0e0; }
     }
   </style>
 </head>
 <body>
 
+  <!-- Header -->
   <div class="header">
     <h1>Vinted Assistant</h1>
-    <button class="btn-icon" onclick="openConfig()" title="Configuration">&#9881;</button>
+    <div class="header-actions">
+      <button class="btn-icon" onclick="openConfig()" title="Configuration">&#9881;</button>
+    </div>
   </div>
 
-  <div class="container">
+  <!-- Two-column layout -->
+  <div class="app-layout">
 
-    <!-- Section 1: Upload images -->
-    <div class="section">
-      <h2><span class="step">1</span> Ajouter les photos</h2>
-      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-        <div class="upload-icon">&#128247;</div>
-        <p><b>Cliquez ici</b> ou glissez-deposez vos photos</p>
-        <p>JPEG, PNG, WebP</p>
-      </div>
-      <input type="file" id="fileInput" multiple accept="image/*" style="display:none;" onchange="handleFiles(this.files)">
-    </div>
+    <!-- ===== LEFT PANEL ===== -->
+    <div class="panel panel-left">
 
-    <!-- Section 2: Images -->
-    <div class="section" id="imagesSection" style="display:none;">
-      <h2><span class="step">2</span> Selectionner les images</h2>
-      <p style="font-size:12px; color:#5f6368; margin-bottom:8px;">
-        Toutes les images sont selectionnees par defaut. Cliquez pour deselectionner.
-      </p>
-      <div class="images-grid" id="imagesGrid"></div>
-      <div class="status-bar" id="imagesStatus"></div>
-    </div>
-
-    <!-- Section 3: Parametres -->
-    <div class="section">
-      <h2><span class="step">3</span> Parametres</h2>
-
-      <div class="form-group">
-        <label>Profil d'analyse</label>
-        <select id="profileName">
-          <option value="jean_levis">Jean Levi's</option>
-          <option value="pull">Pull / Gilet</option>
-          <option value="jacket_carhart">Veste Carhartt</option>
-        </select>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Taille FR</label>
-          <input type="text" id="sizeFr" placeholder="ex: 40">
+      <!-- Phase 1: Parametres (visible par defaut) -->
+      <div class="phase-params" id="phaseParams">
+        <div class="panel-header">
+          <span class="icon">&#9881;</span> Parametres
         </div>
-        <div class="form-group">
-          <label>Taille US</label>
-          <input type="text" id="sizeUs" placeholder="ex: W30">
+
+        <!-- Upload images -->
+        <div class="section">
+          <div class="section-title"><span class="step">1</span> Photos</div>
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">&#128247;</div>
+            <p><b>Cliquez</b> ou glissez-deposez</p>
+            <p style="font-size:11px;">JPEG, PNG, WebP</p>
+          </div>
+          <input type="file" id="fileInput" multiple accept="image/*" style="display:none;" onchange="handleFiles(this.files)">
         </div>
-      </div>
 
-      <div class="form-group">
-        <label>Order ID (optionnel)</label>
-        <input type="text" id="orderId" placeholder="ex: 42">
-      </div>
-
-      <div class="form-group">
-        <label>Composition (manuelle)</label>
-        <input type="text" id="composition" placeholder="ex: Coton, Elasthanne">
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Genre</label>
-          <select id="gender">
-            <option value="">Auto (IA)</option>
-            <option value="femme">Femme</option>
-            <option value="homme">Homme</option>
-          </select>
+        <!-- Images grid -->
+        <div class="section" id="imagesSection" style="display:none;">
+          <div class="images-grid" id="imagesGrid"></div>
+          <div class="status-bar" id="imagesStatus"></div>
         </div>
-        <div class="form-group">
-          <label>Coupe (jean)</label>
-          <select id="fit">
-            <option value="">Auto (IA)</option>
-            <option value="skinny">Skinny</option>
-            <option value="droite">Droite</option>
-            <option value="evasee">Evasee</option>
-          </select>
-        </div>
-      </div>
 
-      <div class="form-group">
-        <label>Taille (rise - jean)</label>
-        <select id="riseType">
-          <option value="">Auto (IA)</option>
-          <option value="basse">Taille basse</option>
-          <option value="moyenne">Taille moyenne</option>
-          <option value="haute">Taille haute</option>
-        </select>
-      </div>
+        <hr class="divider">
 
-      <hr style="margin:16px 0; border:none; border-top:1px solid #e8eaed;">
+        <!-- Parametres -->
+        <div class="section">
+          <div class="section-title"><span class="step">2</span> Reglages</div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Prix (EUR)</label>
-          <input type="number" id="price" placeholder="ex: 25.00" step="0.01" min="0">
-        </div>
-        <div class="form-group" style="display:flex; align-items:flex-end;">
-          <div class="checkbox-group" style="padding-bottom:8px;">
-            <input type="checkbox" id="premium">
-            <label for="premium">Premium</label>
+          <div class="form-group">
+            <label>Profil d'analyse</label>
+            <select id="profileName">
+              <option value="jean_levis">Jean Levi's</option>
+              <option value="pull">Pull / Gilet</option>
+              <option value="jacket_carhart">Veste Carhartt</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Taille FR</label>
+              <input type="text" id="sizeFr" placeholder="ex: 40">
+            </div>
+            <div class="form-group">
+              <label>Taille US</label>
+              <input type="text" id="sizeUs" placeholder="ex: W30">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Order ID</label>
+              <input type="text" id="orderId" placeholder="ex: 42">
+            </div>
+            <div class="form-group">
+              <label>Composition</label>
+              <input type="text" id="composition" placeholder="ex: Coton">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Genre</label>
+              <select id="gender">
+                <option value="">Auto (IA)</option>
+                <option value="femme">Femme</option>
+                <option value="homme">Homme</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Coupe</label>
+              <select id="fit">
+                <option value="">Auto (IA)</option>
+                <option value="skinny">Skinny</option>
+                <option value="droite">Droite</option>
+                <option value="evasee">Evasee</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Taille (rise)</label>
+            <select id="riseType">
+              <option value="">Auto (IA)</option>
+              <option value="basse">Taille basse</option>
+              <option value="moyenne">Taille moyenne</option>
+              <option value="haute">Taille haute</option>
+            </select>
+          </div>
+
+          <hr class="divider">
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Prix (EUR)</label>
+              <input type="number" id="price" placeholder="ex: 25.00" step="0.01" min="0">
+            </div>
+            <div class="form-group" style="display:flex; align-items:flex-end;">
+              <div class="checkbox-group" style="padding-bottom:7px;">
+                <input type="checkbox" id="premium">
+                <label for="premium">Premium</label>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- Bouton generer -->
+        <button class="btn btn-primary" id="btnGenerate" onclick="generate()">
+          Generer l'annonce
+        </button>
+      </div>
+
+      <!-- Phase 2: Corrections (masque par defaut) -->
+      <div class="phase-corrections" id="phaseCorrections">
+        <div class="panel-header">
+          <span class="icon">&#9998;</span> Corriger les champs IA
+          <button class="btn btn-secondary btn-sm" onclick="backToParams()" style="margin-left:auto; font-size:11px;">
+            &#8592; Parametres
+          </button>
+        </div>
+
+        <div class="correction-grid" id="correctionGrid">
+          <!-- Rempli dynamiquement -->
+        </div>
+
+        <div class="correction-actions">
+          <button class="btn btn-warning btn-sm" id="btnApplyCorr" onclick="applyCorrections()">Appliquer les corrections</button>
+        </div>
       </div>
     </div>
 
-    <!-- Bouton generation -->
-    <button class="btn btn-primary" id="btnGenerate" onclick="generate()">
-      Generer l'annonce
-    </button>
+    <!-- ===== RIGHT PANEL ===== -->
+    <div class="panel panel-right">
 
-    <!-- Resultat -->
-    <div id="resultArea"></div>
+      <!-- Placeholder (avant generation) -->
+      <div class="placeholder" id="rightPlaceholder">
+        <div class="ph-icon">&#128196;</div>
+        <p>Ajoutez des photos et cliquez sur <b>Generer l'annonce</b> pour voir le resultat ici.</p>
+      </div>
+
+      <!-- Resultat (apres generation) -->
+      <div id="resultArea" style="display:none;">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
   </div>
 
   <!-- Config overlay -->
@@ -264,7 +342,6 @@
     var MAX_WIDTH = 1024;
     var JPEG_QUALITY = 0.75;
 
-    // allImages: [{name, mimeType, base64, previewUrl}]
     var allImages = [];
     var selectedIndexes = {};
 
@@ -324,7 +401,6 @@
 
     // ==================== Upload & Images ====================
 
-    // Drag & drop
     (function() {
       var zone = document.getElementById('uploadZone');
       zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('dragover'); });
@@ -345,7 +421,6 @@
         promises.push(resizeAndEncode(file));
       }
       Promise.all(promises).then(function(results) {
-        var startIdx = allImages.length;
         for (var i = 0; i < results.length; i++) {
           var idx = allImages.length;
           allImages.push(results[i]);
@@ -391,8 +466,7 @@
         div.innerHTML =
           '<button class="remove-btn" data-idx="' + i + '" title="Supprimer">&times;</button>' +
           '<img src="' + img.previewUrl + '" alt="' + escapeHtml(img.name) + '">' +
-          (selectedIndexes[i] ? '<span class="badge">AI</span>' : '') +
-          '<div class="img-name">' + escapeHtml(img.name) + '</div>';
+          (selectedIndexes[i] ? '<span class="badge">AI</span>' : '');
         div.onclick = (function(idx) {
           return function(e) {
             if (e.target.classList.contains('remove-btn')) return;
@@ -418,7 +492,6 @@
 
     function removeImage(idx) {
       allImages.splice(idx, 1);
-      // Reindex selections
       var newSelected = {};
       for (var key in selectedIndexes) {
         var k = parseInt(key);
@@ -436,6 +509,51 @@
       var count = Object.keys(selectedIndexes).length;
       document.getElementById('imagesStatus').textContent =
         count + ' / ' + allImages.length + ' image(s) selectionnee(s)';
+    }
+
+    // ==================== Phase switching ====================
+
+    function switchToCorrections(result, profile) {
+      var features = result.features || {};
+      var fields = PROFILE_FIELDS[profile] || [];
+      var grid = document.getElementById('correctionGrid');
+      var html = '';
+
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        var val = features[f.key];
+        if (f.isArray && Array.isArray(val)) val = val.join(', ');
+        val = (val != null && val !== false) ? String(val) : '';
+
+        if (f.type === 'select') {
+          html += '<div class="form-group"><label>' + f.label + '</label><select id="corr_' + f.key + '">';
+          for (var j = 0; j < f.options.length; j++) {
+            var optVal = f.options[j][0], optLabel = f.options[j][1];
+            var sel = (val === optVal || val.toLowerCase() === optVal.toLowerCase()) ? ' selected' : '';
+            html += '<option value="' + escapeAttr(optVal) + '"' + sel + '>' + escapeHtml(optLabel) + '</option>';
+          }
+          html += '</select></div>';
+        } else if (f.type === 'checkbox') {
+          var checked = (val === 'true' || val === '1') ? ' checked' : '';
+          html += '<div class="form-group"><label>&nbsp;</label>' +
+            '<div class="checkbox-group" style="margin:0;padding-top:2px;">' +
+            '<input type="checkbox" id="corr_' + f.key + '"' + checked + '>' +
+            '<label for="corr_' + f.key + '">' + f.label + '</label></div></div>';
+        } else {
+          var inputType = f.type === 'number' ? 'number' : 'text';
+          html += '<div class="form-group"><label>' + f.label + '</label>' +
+            '<input type="' + inputType + '" id="corr_' + f.key + '" value="' + escapeAttr(val) + '"></div>';
+        }
+      }
+      grid.innerHTML = html;
+
+      document.getElementById('phaseParams').classList.add('hidden');
+      document.getElementById('phaseCorrections').classList.add('active');
+    }
+
+    function backToParams() {
+      document.getElementById('phaseCorrections').classList.remove('active');
+      document.getElementById('phaseParams').classList.remove('hidden');
     }
 
     // ==================== Generation ====================
@@ -456,7 +574,15 @@
 
       var btn = document.getElementById('btnGenerate');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Generation en cours...';
+      btn.innerHTML = '<span class="spinner"></span> Generation...';
+
+      // Hide placeholder, show result area with loading state
+      document.getElementById('rightPlaceholder').style.display = 'none';
+      var resultArea = document.getElementById('resultArea');
+      resultArea.style.display = 'block';
+      resultArea.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#5f6368;">' +
+        '<div style="text-align:center;"><span class="spinner spinner-dark" style="width:28px;height:28px;border-width:3px;"></span>' +
+        '<p style="margin-top:12px;font-size:13px;">Analyse des images en cours...</p></div></div>';
 
       var params = {
         imageDataArray: imageDataArray,
@@ -541,75 +667,36 @@
     // ==================== Resultats ====================
 
     function showResult(result, params) {
-      var area = document.getElementById('resultArea');
+      var resultArea = document.getElementById('resultArea');
       if (result.error) {
-        area.innerHTML = '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(result.error) + '</div>';
+        resultArea.innerHTML = '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(result.error) + '</div>';
         return;
       }
 
-      // Stocker les donnees pour correction et log
       var paramsLight = { profileName: params.profileName, uiData: params.uiData };
       window._lastResult = result;
       window._lastParams = paramsLight;
 
-      // Construire le HTML du resultat
+      var skuHtml = result.sku ? '<span class="sku-badge">SKU: ' + escapeHtml(result.sku) + '</span>' : '';
+
       var html =
         '<div class="result-box">' +
-          '<h3>Resultat genere' +
-            '<span>' +
-              '<button class="copy-btn" onclick="copyText(\'resultTitle\')">Copier titre</button> ' +
-              '<button class="copy-btn" onclick="copyText(\'resultDesc\')">Copier description</button>' +
-            '</span>' +
-          '</h3>' +
+          '<h3>Annonce generee' + skuHtml + '</h3>' +
+          '<div class="result-label">Titre</div>' +
           '<div class="result-title" id="resultTitle">' + escapeHtml(result.title || '') + '</div>' +
-          '<hr style="margin:10px 0; border-color:#a5d6a7;">' +
+          '<div class="result-label">Description</div>' +
           '<div class="result-desc" id="resultDesc">' + escapeHtml(result.description || '') + '</div>' +
+          '<div class="result-actions">' +
+            '<button class="copy-btn" onclick="copyText(\'resultTitle\', this)">Copier titre</button>' +
+            '<button class="copy-btn" onclick="copyText(\'resultDesc\', this)">Copier description</button>' +
+            '<button class="btn btn-success btn-sm" onclick="saveToSheet()" style="margin-left:auto;">Enregistrer dans le Sheet</button>' +
+          '</div>' +
         '</div>';
 
-      // Section correction des champs
-      var profile = params.profileName || 'jean_levis';
-      var fields = PROFILE_FIELDS[profile] || [];
-      var features = result.features || {};
+      resultArea.innerHTML = html;
 
-      html += '<div class="correction-section">' +
-        '<h3>Corriger les champs detectes par l\'IA</h3>' +
-        '<div class="correction-grid">';
-
-      for (var i = 0; i < fields.length; i++) {
-        var f = fields[i];
-        var val = features[f.key];
-        // Gerer les arrays (main_colors)
-        if (f.isArray && Array.isArray(val)) val = val.join(', ');
-        val = (val != null && val !== false) ? String(val) : '';
-
-        if (f.type === 'select') {
-          html += '<div class="form-group"><label>' + f.label + '</label><select id="corr_' + f.key + '">';
-          for (var j = 0; j < f.options.length; j++) {
-            var optVal = f.options[j][0], optLabel = f.options[j][1];
-            var sel = (val === optVal || val.toLowerCase() === optVal.toLowerCase()) ? ' selected' : '';
-            html += '<option value="' + escapeAttr(optVal) + '"' + sel + '>' + escapeHtml(optLabel) + '</option>';
-          }
-          html += '</select></div>';
-        } else if (f.type === 'checkbox') {
-          var checked = (val === 'true' || val === '1') ? ' checked' : '';
-          html += '<div class="form-group"><label>&nbsp;</label>' +
-            '<div class="checkbox-group" style="margin:0;padding-top:4px;">' +
-            '<input type="checkbox" id="corr_' + f.key + '"' + checked + '>' +
-            '<label for="corr_' + f.key + '">' + f.label + '</label></div></div>';
-        } else {
-          var inputType = f.type === 'number' ? 'number' : 'text';
-          html += '<div class="form-group"><label>' + f.label + '</label>' +
-            '<input type="' + inputType + '" id="corr_' + f.key + '" value="' + escapeAttr(val) + '"></div>';
-        }
-      }
-
-      html += '</div>'; // fin correction-grid
-      html += '<div class="correction-actions">' +
-        '<button class="btn btn-warning btn-sm" onclick="applyCorrections()">Appliquer les corrections</button> ' +
-        '<button class="btn btn-success btn-sm" onclick="saveToSheet()">Enregistrer dans le Sheet</button>' +
-        '</div></div>';
-
-      area.innerHTML = html;
+      // Switch left panel to correction phase
+      switchToCorrections(result, params.profileName);
     }
 
     function applyCorrections() {
@@ -617,11 +704,9 @@
       var fields = PROFILE_FIELDS[profile] || [];
       var features = {};
 
-      // Partir des features actuelles comme base
       var base = (window._lastResult && window._lastResult.features) || {};
       for (var k in base) features[k] = base[k];
 
-      // Appliquer les corrections
       for (var i = 0; i < fields.length; i++) {
         var f = fields[i];
         var el = document.getElementById('corr_' + f.key);
@@ -640,7 +725,7 @@
         }
       }
 
-      var btnCorr = document.querySelector('.correction-actions .btn-warning');
+      var btnCorr = document.getElementById('btnApplyCorr');
       if (btnCorr) { btnCorr.disabled = true; btnCorr.innerHTML = '<span class="spinner"></span> Correction...'; }
 
       google.script.run
@@ -650,10 +735,8 @@
             alert('Erreur: ' + result.error);
             return;
           }
-          // Mettre a jour le titre et la description affiches
           document.getElementById('resultTitle').innerHTML = escapeHtml(result.title || '');
           document.getElementById('resultDesc').innerHTML = escapeHtml(result.description || '');
-          // Mettre a jour les donnees stockees
           window._lastResult.title = result.title;
           window._lastResult.description = result.description;
           window._lastResult.features = result.features;
@@ -671,16 +754,19 @@
     }
 
     function showError(msg) {
-      document.getElementById('resultArea').innerHTML =
-        '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(msg) + '</div>';
+      var resultArea = document.getElementById('resultArea');
+      resultArea.style.display = 'block';
+      resultArea.innerHTML = '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(msg) + '</div>';
     }
 
-    function copyText(elementId) {
+    function copyText(elementId, btn) {
       var el = document.getElementById(elementId);
       if (!el) return;
       var text = el.textContent;
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text);
+        navigator.clipboard.writeText(text).then(function() {
+          if (btn) showCopied(btn);
+        });
       } else {
         var ta = document.createElement('textarea');
         ta.value = text;
@@ -688,7 +774,18 @@
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
+        if (btn) showCopied(btn);
       }
+    }
+
+    function showCopied(btn) {
+      var orig = btn.textContent;
+      btn.textContent = 'Copie !';
+      btn.classList.add('copied');
+      setTimeout(function() {
+        btn.textContent = orig;
+        btn.classList.remove('copied');
+      }, 1200);
     }
 
     function saveToSheet() {
@@ -696,7 +793,7 @@
       google.script.run
         .withSuccessHandler(function(res) {
           if (res.error) alert('Erreur: ' + res.error);
-          else alert('Enregistre a la ligne ' + res.row + ' !');
+          else alert('Enregistre a la ligne ' + res.row + ' !\n\nVous pouvez maintenant faire Ctrl+R pour recommencer.');
         })
         .withFailureHandler(function(err) {
           alert('Erreur: ' + err.message);
