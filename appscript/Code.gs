@@ -37,21 +37,21 @@ function saveConfig(config) {
 // ============================================================
 
 /**
- * Genere une annonce Vinted a partir d'images Google Drive.
+ * Genere une annonce Vinted a partir d'images uploadees.
  *
  * @param {Object} params
- * @param {string[]} params.imageFileIds - IDs des fichiers images dans Drive
+ * @param {Object[]} params.imageDataArray - Images en base64 [{base64, mimeType, name}]
  * @param {string} params.profileName - Nom du profil (jean_levis, pull, jacket_carhart)
  * @param {Object} params.uiData - Donnees saisies manuellement (tailles, SKU, prix, premium, etc.)
  * @returns {Object} Resultat avec title, description, features, etc.
  */
 function generateListing(params) {
   try {
-    var imageFileIds = params.imageFileIds || [];
+    var imageDataArray = params.imageDataArray || [];
     var profileName = params.profileName || 'jean_levis';
     var uiData = params.uiData || {};
 
-    if (imageFileIds.length === 0) {
+    if (imageDataArray.length === 0) {
       return { error: 'Aucune image selectionnee.' };
     }
 
@@ -70,7 +70,7 @@ function generateListing(params) {
     var geminiResult = GeminiClient.generateContent(
       apiKey,
       modelName,
-      imageFileIds,
+      imageDataArray,
       profile,
       uiData
     );
@@ -120,44 +120,6 @@ function generateListing(params) {
   } catch (err) {
     Logger.log('generateListing error: ' + err.message + '\n' + err.stack);
     return { error: 'Erreur inattendue : ' + err.message };
-  }
-}
-
-// ============================================================
-// Utilitaires Drive (appelees depuis le HTML)
-// ============================================================
-
-/**
- * Liste les images d'un dossier Google Drive.
- */
-function listImagesInFolder(folderId) {
-  try {
-    var folder = DriveApp.getFolderById(folderId);
-    var files = folder.getFiles();
-    var images = [];
-    var imageTypes = [
-      MimeType.JPEG, MimeType.PNG, MimeType.GIF, MimeType.BMP,
-      'image/webp'
-    ];
-
-    while (files.hasNext()) {
-      var file = files.next();
-      var mimeType = file.getMimeType();
-      if (imageTypes.indexOf(mimeType) !== -1 || mimeType.indexOf('image/') === 0) {
-        images.push({
-          id: file.getId(),
-          name: file.getName(),
-          mimeType: mimeType,
-          url: file.getUrl(),
-          thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w200'
-        });
-      }
-    }
-
-    images.sort(function(a, b) { return a.name.localeCompare(b.name); });
-    return { success: true, images: images };
-  } catch (err) {
-    return { error: 'Erreur acces dossier : ' + err.message };
   }
 }
 

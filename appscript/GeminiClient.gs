@@ -15,12 +15,12 @@ var GeminiClient = (function() {
    *
    * @param {string} apiKey - Cle API Gemini
    * @param {string} modelName - Nom du modele (ex: gemini-2.5-flash)
-   * @param {string[]} imageFileIds - IDs des fichiers images Drive
+   * @param {Object[]} imageDataArray - Images en base64 [{base64, mimeType, name}]
    * @param {Object} profile - Profil d'analyse (de Templates)
    * @param {Object} uiData - Donnees UI
    * @returns {Object} { text: string } ou { error: string }
    */
-  function generateContent(apiKey, modelName, imageFileIds, profile, uiData) {
+  function generateContent(apiKey, modelName, imageDataArray, profile, uiData) {
     // Construire le prompt
     var fullPrompt = Prompt.getPromptContract() + '\n\n' + profile.promptSuffix;
 
@@ -34,20 +34,16 @@ var GeminiClient = (function() {
     var parts = [];
     parts.push({ text: fullPrompt });
 
-    // Ajouter les images depuis Google Drive
-    for (var i = 0; i < imageFileIds.length; i++) {
-      try {
-        var imageData = getImageDataFromDrive_(imageFileIds[i]);
-        if (imageData) {
-          parts.push({
-            inline_data: {
-              mime_type: imageData.mimeType,
-              data: imageData.base64
-            }
-          });
-        }
-      } catch (imgErr) {
-        Logger.log('GeminiClient: erreur lecture image ' + imageFileIds[i] + ': ' + imgErr.message);
+    // Ajouter les images recues du navigateur (deja en base64)
+    for (var i = 0; i < imageDataArray.length; i++) {
+      var img = imageDataArray[i];
+      if (img && img.base64 && img.mimeType) {
+        parts.push({
+          inline_data: {
+            mime_type: img.mimeType,
+            data: img.base64
+          }
+        });
       }
     }
 
@@ -69,29 +65,6 @@ var GeminiClient = (function() {
       cleaned = cleaned.substring(7);
     }
     return cleaned;
-  }
-
-  /**
-   * Recupere les donnees d'une image depuis Google Drive en base64.
-   */
-  function getImageDataFromDrive_(fileId) {
-    var file = DriveApp.getFileById(fileId);
-    var blob = file.getBlob();
-    var mimeType = blob.getContentType();
-
-    // Valider le type MIME
-    if (mimeType.indexOf('image/') !== 0) {
-      Logger.log('GeminiClient: fichier non-image ignore: ' + file.getName() + ' (' + mimeType + ')');
-      return null;
-    }
-
-    var bytes = blob.getBytes();
-    var base64 = Utilities.base64Encode(bytes);
-
-    return {
-      mimeType: mimeType,
-      base64: base64
-    };
   }
 
   /**

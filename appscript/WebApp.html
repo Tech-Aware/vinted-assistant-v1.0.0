@@ -40,12 +40,19 @@
     .btn-success:hover:not(:disabled) { background: #0a5024; }
     .btn-sm { padding: 6px 14px; font-size: 12px; }
 
+    .upload-zone { border: 2px dashed #dadce0; border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+    .upload-zone:hover, .upload-zone.dragover { border-color: #1a73e8; background: #e8f0fe; }
+    .upload-zone p { font-size: 13px; color: #5f6368; margin-top: 6px; }
+    .upload-zone .upload-icon { font-size: 32px; color: #1a73e8; }
+
     .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 12px 0; }
     .img-item { position: relative; border-radius: 8px; overflow: hidden; border: 3px solid transparent; cursor: pointer; transition: border-color 0.2s, transform 0.1s; }
     .img-item:hover { transform: scale(1.02); }
     .img-item.selected { border-color: #1a73e8; }
     .img-item img { width: 100%; height: 120px; object-fit: cover; display: block; }
     .img-item .badge { position: absolute; top: 4px; right: 4px; background: #1a73e8; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+    .img-item .remove-btn { position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+    .img-item:hover .remove-btn { opacity: 1; }
     .img-name { font-size: 10px; text-align: center; padding: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(0,0,0,0.04); }
 
     .status-bar { font-size: 12px; color: #5f6368; text-align: center; padding: 6px; }
@@ -72,6 +79,8 @@
     .config-status { margin-top: 10px; font-size: 12px; padding: 6px 10px; border-radius: 6px; }
     .config-status.ok { background: #e8f5e9; color: #2e7d32; }
     .config-status.err { background: #fce4ec; color: #b71c1c; }
+    .help-link { font-size: 11px; color: #1a73e8; text-decoration: none; display: inline-block; margin-top: 2px; }
+    .help-link:hover { text-decoration: underline; }
 
     @media (max-width: 600px) {
       .form-row { flex-direction: column; gap: 0; }
@@ -90,23 +99,22 @@
 
   <div class="container">
 
-    <!-- Section 1: Dossier Drive -->
+    <!-- Section 1: Upload images -->
     <div class="section">
-      <h2><span class="step">1</span> Dossier images</h2>
-      <div class="form-group">
-        <label>ID du dossier Google Drive</label>
-        <div style="display:flex; gap:8px;">
-          <input type="text" id="folderId" placeholder="Collez l'ID du dossier Drive ici" style="flex:1;">
-          <button class="btn btn-secondary btn-sm" id="btnLoadImages" onclick="loadImages()">Charger</button>
-        </div>
+      <h2><span class="step">1</span> Ajouter les photos</h2>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">&#128247;</div>
+        <p><b>Cliquez ici</b> ou glissez-deposez vos photos</p>
+        <p>JPEG, PNG, WebP</p>
       </div>
+      <input type="file" id="fileInput" multiple accept="image/*" style="display:none;" onchange="handleFiles(this.files)">
     </div>
 
     <!-- Section 2: Images -->
     <div class="section" id="imagesSection" style="display:none;">
       <h2><span class="step">2</span> Selectionner les images</h2>
       <p style="font-size:12px; color:#5f6368; margin-bottom:8px;">
-        Cliquez sur les images a inclure dans l'analyse IA (bordure bleue = selectionnee)
+        Toutes les images sont selectionnees par defaut. Cliquez pour deselectionner.
       </p>
       <div class="images-grid" id="imagesGrid"></div>
       <div class="status-bar" id="imagesStatus"></div>
@@ -215,6 +223,7 @@
       <div class="form-group">
         <label>Cle API Gemini</label>
         <input type="password" id="cfgGeminiApiKey" placeholder="AIzaSy...">
+        <a class="help-link" href="https://aistudio.google.com/app/apikey" target="_blank">Comment obtenir une cle ?</a>
       </div>
 
       <div class="form-group">
@@ -230,7 +239,8 @@
         <label>ID du Google Sheet de log (optionnel)</label>
         <input type="text" id="cfgLogSheetId" placeholder="ID du spreadsheet pour les logs">
         <small style="font-size:11px; color:#80868b; display:block; margin-top:2px;">
-          Visible dans l'URL du Sheet : docs.google.com/spreadsheets/d/<b>[ID]</b>/edit
+          Ouvrez un Google Sheet, l'ID est dans l'URL :<br>
+          docs.google.com/spreadsheets/d/<b>[ID_ICI]</b>/edit
         </small>
       </div>
 
@@ -244,8 +254,12 @@
   </div>
 
   <script>
-    var selectedImages = {};
+    var MAX_WIDTH = 1500;
+    var JPEG_QUALITY = 0.85;
+
+    // allImages: [{name, mimeType, base64, previewUrl}]
     var allImages = [];
+    var selectedIndexes = {};
 
     // ==================== Config ====================
 
@@ -301,32 +315,63 @@
       el.textContent = msg;
     }
 
-    // ==================== Images ====================
+    // ==================== Upload & Images ====================
 
-    function loadImages() {
-      var folderId = document.getElementById('folderId').value.trim();
-      if (!folderId) { alert('Veuillez entrer un ID de dossier Drive.'); return; }
+    // Drag & drop
+    (function() {
+      var zone = document.getElementById('uploadZone');
+      zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', function() { zone.classList.remove('dragover'); });
+      zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+      });
+    })();
 
-      var btn = document.getElementById('btnLoadImages');
-      btn.disabled = true;
-      btn.textContent = '...';
+    function handleFiles(fileList) {
+      if (!fileList || fileList.length === 0) return;
+      var promises = [];
+      for (var i = 0; i < fileList.length; i++) {
+        var file = fileList[i];
+        if (file.type.indexOf('image/') !== 0) continue;
+        promises.push(resizeAndEncode(file));
+      }
+      Promise.all(promises).then(function(results) {
+        var startIdx = allImages.length;
+        for (var i = 0; i < results.length; i++) {
+          var idx = allImages.length;
+          allImages.push(results[i]);
+          selectedIndexes[idx] = true;
+        }
+        document.getElementById('imagesSection').style.display = 'block';
+        renderImages();
+      });
+    }
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          btn.disabled = false;
-          btn.textContent = 'Charger';
-          if (result.error) { alert(result.error); return; }
-          allImages = result.images || [];
-          selectedImages = {};
-          renderImages();
-          document.getElementById('imagesSection').style.display = 'block';
-        })
-        .withFailureHandler(function(err) {
-          btn.disabled = false;
-          btn.textContent = 'Charger';
-          alert('Erreur: ' + err.message);
-        })
-        .listImagesInFolder(folderId);
+    function resizeAndEncode(file) {
+      return new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var img = new Image();
+          img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var scale = Math.min(1, MAX_WIDTH / img.width);
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            var dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+            resolve({
+              name: file.name,
+              mimeType: 'image/jpeg',
+              base64: dataUrl.split(',')[1],
+              previewUrl: e.target.result
+            });
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
     }
 
     function renderImages() {
@@ -335,42 +380,79 @@
       for (var i = 0; i < allImages.length; i++) {
         var img = allImages[i];
         var div = document.createElement('div');
-        div.className = 'img-item' + (selectedImages[img.id] ? ' selected' : '');
+        div.className = 'img-item' + (selectedIndexes[i] ? ' selected' : '');
         div.innerHTML =
-          '<img src="' + img.thumbnailUrl + '" alt="' + escapeHtml(img.name) + '">' +
-          (selectedImages[img.id] ? '<span class="badge">AI</span>' : '') +
+          '<button class="remove-btn" data-idx="' + i + '" title="Supprimer">&times;</button>' +
+          '<img src="' + img.previewUrl + '" alt="' + escapeHtml(img.name) + '">' +
+          (selectedIndexes[i] ? '<span class="badge">AI</span>' : '') +
           '<div class="img-name">' + escapeHtml(img.name) + '</div>';
-        div.onclick = (function(id) {
-          return function() { toggleImage(id); };
-        })(img.id);
+        div.onclick = (function(idx) {
+          return function(e) {
+            if (e.target.classList.contains('remove-btn')) return;
+            toggleImage(idx);
+          };
+        })(i);
+        div.querySelector('.remove-btn').onclick = (function(idx) {
+          return function(e) {
+            e.stopPropagation();
+            removeImage(idx);
+          };
+        })(i);
         grid.appendChild(div);
       }
       updateImageStatus();
     }
 
-    function toggleImage(id) {
-      if (selectedImages[id]) delete selectedImages[id];
-      else selectedImages[id] = true;
+    function toggleImage(idx) {
+      if (selectedIndexes[idx]) delete selectedIndexes[idx];
+      else selectedIndexes[idx] = true;
       renderImages();
     }
 
+    function removeImage(idx) {
+      allImages.splice(idx, 1);
+      // Reindex selections
+      var newSelected = {};
+      for (var key in selectedIndexes) {
+        var k = parseInt(key);
+        if (k < idx) newSelected[k] = true;
+        else if (k > idx) newSelected[k - 1] = true;
+      }
+      selectedIndexes = newSelected;
+      renderImages();
+      if (allImages.length === 0) {
+        document.getElementById('imagesSection').style.display = 'none';
+      }
+    }
+
     function updateImageStatus() {
-      var count = Object.keys(selectedImages).length;
-      document.getElementById('imagesStatus').textContent = count + ' image(s) selectionnee(s)';
+      var count = Object.keys(selectedIndexes).length;
+      document.getElementById('imagesStatus').textContent =
+        count + ' / ' + allImages.length + ' image(s) selectionnee(s)';
     }
 
     // ==================== Generation ====================
 
     function generate() {
-      var imageFileIds = Object.keys(selectedImages);
-      if (imageFileIds.length === 0) { alert('Selectionnez au moins une image.'); return; }
+      var imageDataArray = [];
+      for (var key in selectedIndexes) {
+        var idx = parseInt(key);
+        if (allImages[idx]) {
+          imageDataArray.push({
+            base64: allImages[idx].base64,
+            mimeType: allImages[idx].mimeType,
+            name: allImages[idx].name
+          });
+        }
+      }
+      if (imageDataArray.length === 0) { alert('Selectionnez au moins une image.'); return; }
 
       var btn = document.getElementById('btnGenerate');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Generation en cours...';
 
       var params = {
-        imageFileIds: imageFileIds,
+        imageDataArray: imageDataArray,
         profileName: document.getElementById('profileName').value,
         uiData: {}
       };
@@ -426,8 +508,10 @@
             '<button class="btn btn-success btn-sm" onclick="saveToSheet()">Enregistrer dans le Sheet de log</button>' +
           '</div>' +
         '</div>';
+      // Ne pas stocker les images base64 dans _lastParams (trop lourd)
+      var paramsLight = { profileName: params.profileName, uiData: params.uiData };
       window._lastResult = result;
-      window._lastParams = params;
+      window._lastParams = paramsLight;
     }
 
     function showError(msg) {
