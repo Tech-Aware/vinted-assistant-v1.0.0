@@ -32,20 +32,24 @@ var Normalizer = (function() {
   }
 
   /**
-   * Normalise un nom de matiere pour jean.
-   * spandex/lycra -> Elasthanne, cotton -> Coton, etc.
+   * Capitalize un nom de matiere sans le normaliser.
+   * Garde le terme reel de l'etiquette (ex: "spandex" -> "Spandex").
    */
-  function normalizeJeanMaterial(raw) {
+  function capitalizeMaterial(raw) {
     if (!raw) return null;
     var trimmed = raw.trim();
     if (!trimmed) return null;
-    var low = trimmed.toLowerCase();
-    if (low === 'coton' || low === 'cotton') return 'Coton';
-    if (low === 'spandex' || low === 'elasthane' || low === 'elasthanne' || low === 'élasthanne' || low === 'lycra') return 'Élasthanne';
-    if (low === 'polyester') return 'Polyester';
-    if (low === 'viscose' || low === 'rayon') return 'Viscose';
-    // Capitalize first letter for unknown materials
-    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  }
+
+  /**
+   * Verifie si un materiau est de type elastique (stretch).
+   */
+  function isElasticMaterial(name) {
+    if (!name) return false;
+    var low = name.toLowerCase();
+    return low === 'spandex' || low === 'élasthanne' || low === 'elasthanne' ||
+           low === 'elastane' || low === 'lycra';
   }
 
   /**
@@ -103,33 +107,24 @@ var Normalizer = (function() {
 
     var cottonPercent = rawFeatures.cotton_percent || aiData.cotton_percent;
     var elasthanePercent = rawFeatures.elasthane_percent || aiData.elasthane_percent;
-    var material = rawFeatures.material || aiData.material;
 
-    // Composition manuelle
-    var uiComposition = uiData.composition;
-    var compositionMaterials, compositionStatus;
-    if (uiComposition) {
-      // Split by comma, or by space if no comma
-      var parts = uiComposition.indexOf(',') !== -1
-        ? uiComposition.split(',')
-        : uiComposition.split(/\s+/);
-      compositionMaterials = parts.map(normalizeJeanMaterial).filter(Boolean);
-      compositionStatus = 'ok';
-    } else {
-      compositionMaterials = rawFeatures.composition_materials || aiData.composition_materials;
-      compositionStatus = rawFeatures.composition_status || aiData.composition_status;
-      if (!compositionMaterials && (cottonPercent || elasthanePercent)) {
-        compositionMaterials = [];
-        if (cottonPercent) compositionMaterials.push('Coton');
-        if (elasthanePercent) compositionMaterials.push('Élasthanne');
-        compositionStatus = 'ok';
+    // Composition : depuis l'IA, noms reels de l'etiquette (pas de normalisation)
+    var compositionMaterials = rawFeatures.composition_materials || aiData.composition_materials;
+    if (compositionMaterials && Array.isArray(compositionMaterials)) {
+      compositionMaterials = compositionMaterials.map(capitalizeMaterial).filter(Boolean);
+    }
+    // Fallback: construire depuis les pourcentages si l'IA n'a pas detecte
+    if (!compositionMaterials || compositionMaterials.length === 0) {
+      compositionMaterials = [];
+      if (cottonPercent) compositionMaterials.push('Coton');
+      if (elasthanePercent) {
+        // Utiliser le terme generique si on n'a que le %
+        compositionMaterials.push('Élasthanne');
       }
     }
 
-    // Build material string from composition if missing
-    if (!material && compositionMaterials && compositionMaterials.length > 0) {
-      material = compositionMaterials.join(', ');
-    }
+    // Material string pour le log
+    var material = compositionMaterials.length > 0 ? compositionMaterials.join(', ') : null;
 
     // Rise
     var riseCm = rawFeatures.rise_cm || aiData.rise_cm;
@@ -176,7 +171,6 @@ var Normalizer = (function() {
       cotton_percent: cottonPercent,
       elasthane_percent: elasthanePercent,
       composition_materials: compositionMaterials,
-      composition_status: compositionStatus,
       rise_type: riseType,
       rise_cm: riseCm,
       gender: gender,
@@ -439,7 +433,8 @@ var Normalizer = (function() {
     coerceProfileName: coerceProfileName,
     normalizeSizes: normalizeSizes,
     zeroPadOrderId: zeroPadOrderId,
-    normalizeJeanMaterial: normalizeJeanMaterial
+    capitalizeMaterial: capitalizeMaterial,
+    isElasticMaterial: isElasticMaterial
   };
 
 })();

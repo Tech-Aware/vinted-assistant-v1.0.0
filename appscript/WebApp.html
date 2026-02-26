@@ -42,6 +42,12 @@
     .checkbox-group { display: flex; align-items: center; gap: 6px; }
     .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1a73e8; }
     .checkbox-group label { font-size: 12px; color: #3c4043; margin-bottom: 0; }
+    .form-group-full { grid-column: 1 / -1; }
+    .multicheck-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .multicheck-item { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #dadce0; border-radius: 16px; font-size: 12px; color: #3c4043; cursor: pointer; transition: all 0.15s; user-select: none; }
+    .multicheck-item:hover { border-color: #1a73e8; background: #e8f0fe; }
+    .multicheck-item.checked { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    .multicheck-item input[type="checkbox"] { display: none; }
 
     /* ===== Buttons ===== */
     .btn { display: inline-flex; align-items: center; justify-content: center; padding: 9px 18px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s, opacity 0.2s; }
@@ -219,8 +225,8 @@
               <input type="text" id="orderId" placeholder="ex: 42">
             </div>
             <div class="form-group">
-              <label>Composition</label>
-              <input type="text" id="composition" placeholder="ex: Coton">
+              <label>Prix (EUR)</label>
+              <input type="number" id="price" placeholder="ex: 25.00" step="0.01" min="0">
             </div>
           </div>
 
@@ -255,11 +261,6 @@
           </div>
 
           <hr class="divider">
-
-          <div class="form-group">
-              <label>Prix (EUR)</label>
-              <input type="number" id="price" placeholder="ex: 25.00" step="0.01" min="0">
-          </div>
         </div>
 
         <!-- Bouton generer -->
@@ -555,7 +556,22 @@
         if (f.isArray && Array.isArray(val)) val = val.join(', ');
         val = (val != null && val !== false) ? String(val) : '';
 
-        if (f.type === 'select') {
+        if (f.type === 'multicheck') {
+          var checkedArr = Array.isArray(features[f.key]) ? features[f.key] : [];
+          var checkedLow = checkedArr.map(function(m) { return m.toLowerCase(); });
+          html += '<div class="form-group form-group-full"><label>' + f.label + '</label>' +
+            '<div class="multicheck-group" id="corr_' + f.key + '">';
+          for (var j = 0; j < f.options.length; j++) {
+            var mat = f.options[j];
+            var isChecked = checkedLow.indexOf(mat.toLowerCase()) !== -1;
+            var cbId = 'corr_' + f.key + '_' + j;
+            html += '<label class="multicheck-item' + (isChecked ? ' checked' : '') + '">' +
+              '<input type="checkbox" value="' + escapeAttr(mat) + '"' + (isChecked ? ' checked' : '') +
+              ' onchange="this.parentElement.classList.toggle(\'checked\', this.checked)">' +
+              escapeHtml(mat) + '</label>';
+          }
+          html += '</div></div>';
+        } else if (f.type === 'select') {
           html += '<div class="form-group"><label>' + f.label + '</label><select id="corr_' + f.key + '">';
           for (var j = 0; j < f.options.length; j++) {
             var optVal = f.options[j][0], optLabel = f.options[j][1];
@@ -614,7 +630,7 @@
 
       var fields = {
         size_fr: 'sizeFr', size_us: 'sizeUs', order_id: 'orderId',
-        composition: 'composition', gender: 'gender', fit: 'fit', rise_type: 'riseType',
+        gender: 'gender', fit: 'fit', rise_type: 'riseType',
         price: 'price'
       };
       for (var key in fields) {
@@ -643,6 +659,8 @@
 
     var CONDITION_OPTIONS = [['', '(non defini)'], ['tres bon etat', 'Tres bon etat'], ['bon etat', 'Bon etat'], ['neuf', 'Neuf'], ['satisfaisant', 'Satisfaisant']];
 
+    var JEAN_MATERIALS = ['Coton', 'Spandex', 'Élasthanne', 'Polyester', 'Viscose', 'Lin', 'Lyocell', 'Nylon'];
+
     var PROFILE_FIELDS = {
       jean_levis: [
         {key: 'brand', label: 'Marque', type: 'text'},
@@ -654,9 +672,7 @@
         {key: 'length', label: 'Longueur', type: 'text'},
         {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
         {key: 'rise_type', label: 'Taille (rise)', type: 'select', options: [['', 'Auto'], ['low', 'Basse'], ['mid', 'Moyenne'], ['high', 'Haute']]},
-        {key: 'material', label: 'Matiere', type: 'text'},
-        {key: 'cotton_percent', label: 'Coton %', type: 'number'},
-        {key: 'elasthane_percent', label: 'Elasthanne %', type: 'number'},
+        {key: 'composition_materials', label: 'Composition', type: 'multicheck', options: JEAN_MATERIALS},
         {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
@@ -739,7 +755,15 @@
         var el = document.getElementById('corr_' + f.key);
         if (!el) continue;
 
-        if (f.type === 'checkbox') {
+        if (f.type === 'multicheck') {
+          var checkboxes = el.querySelectorAll('input[type="checkbox"]');
+          var selected = [];
+          for (var j = 0; j < checkboxes.length; j++) {
+            if (checkboxes[j].checked) selected.push(checkboxes[j].value);
+          }
+          features[f.key] = selected;
+          continue;
+        } else if (f.type === 'checkbox') {
           features[f.key] = el.checked;
         } else if (f.isArray) {
           var raw = el.value.trim();

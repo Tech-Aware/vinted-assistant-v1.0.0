@@ -21,8 +21,6 @@ var DescriptionEngine = (function() {
       var riseLabel = DescriptionBuilder.formatRiseLabel(features.rise_type, features.rise_cm);
       var defects = aiDefects || features.defects;
 
-      var cottonPercent = DescriptionBuilder.formatPercent(features.cotton_percent);
-      var elasthanePercent = DescriptionBuilder.formatPercent(features.elasthane_percent);
       var compositionMaterials = features.composition_materials || [];
 
       // Fit effectif
@@ -63,17 +61,12 @@ var DescriptionEngine = (function() {
         ? 'Ces Jeans ' + fitLabel + ' ' + brand + ' pour ' + gender + ' ' + riseIntro + ' ' + silhouette + '.'
         : 'Ces Jeans ' + brand + ' pour ' + gender + ' ' + riseIntro + ' ' + silhouette + '.';
 
-      // Composition
+      // Composition : utilise les noms reels des materiaux (pas de normalisation)
       var compositionSentence;
       if (Array.isArray(compositionMaterials) && compositionMaterials.length > 0) {
-        compositionSentence = 'Celui-ci est composé de ' + compositionMaterials.join(', ') + " disposant ainsi d'une toile de denim souple, bien tenue et confortable.";
+        compositionSentence = 'Celui-ci est composé de ' + compositionMaterials.join(' et ') + ", disposant ainsi d'une toile de denim souple, bien tenue et confortable.";
       } else {
-        var cp = [];
-        if (cottonPercent) cp.push('Coton');
-        if (elasthanePercent && elasthanePercent > 0) cp.push('Élasthanne');
-        compositionSentence = cp.length > 0
-          ? 'Celui-ci est composé de ' + cp.join(', ') + " disposant ainsi d'une toile de denim souple, bien tenue et confortable."
-          : 'Toile de denim souple, bien tenue et confortable.';
+        compositionSentence = 'Toile de denim souple, bien tenue et confortable.';
       }
 
       var colorSentence = color
@@ -89,7 +82,7 @@ var DescriptionEngine = (function() {
       else if (sizeUs) sizeLine = '👖 Taille US ' + sizeUs;
       else sizeLine = '👖 Taille : voir photos';
 
-      var sizeNote = "*Les variations et écarts de mesure entre les tailles US et FR sont dus aux différentes proportions d'élasthanne et/ou viscose présentes dans le tissu.";
+      var sizeNote = "*Les variations et écarts de mesure entre les tailles US et FR sont dues aux différentes proportions de fibres élastiques présentes dans le tissu.";
 
       // Etat
       var defectsClean = DescriptionBuilder.normalizeDefects(defects);

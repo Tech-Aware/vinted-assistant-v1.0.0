@@ -36,6 +36,13 @@ var TitleEngine = (function() {
       var elasPercent = null;
       try { elasPercent = features.elasthane_percent != null ? parseFloat(features.elasthane_percent) : null; } catch (e) {}
 
+      // Stretch: basé sur materiaux elastiques OU elasthane_percent > 2
+      var compositionMaterials = features.composition_materials || [];
+      var hasElasticMaterial = compositionMaterials.some(function(m) {
+        return Normalizer.isElasticMaterial(m);
+      });
+      var isStretch = hasElasticMaterial || (elasPercent != null && elasPercent > 2);
+
       // Rise
       var riseType = features.rise_type;
       if (!riseType) {
@@ -100,7 +107,7 @@ var TitleEngine = (function() {
       else if (riseLabel) parts.push(riseLabel);
 
       if (cottonPercent != null && cottonPercent >= 60) parts.push(cottonPercent + '% coton');
-      if (elasPercent != null && elasPercent > 2) parts.push('stretch');
+      if (isStretch) parts.push('stretch');
       if (gender) parts.push(gender);
       if (color) parts.push(color);
 
