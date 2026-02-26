@@ -150,12 +150,138 @@
     .phase-corrections.active { display: block; }
     .phase-params.hidden { display: none; }
 
-    /* ===== Responsive: stack on small screens ===== */
+    /* ===== Responsive: tablet & large phones (max 768px) ===== */
     @media (max-width: 768px) {
+      /* --- existing rules --- */
       html, body { overflow: auto; }
-      .app-layout { grid-template-columns: 1fr; height: auto; }
-      .panel { overflow-y: visible; }
+      .app-layout { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 48px); }
+      .panel { overflow-y: visible; padding: 14px; }
       .panel-left { border-right: none; border-bottom: 1px solid #e0e0e0; }
+
+      /* --- header --- */
+      .header { padding: 10px 16px; height: 48px; }
+      .header h1 { font-size: 16px; }
+      .btn-icon { width: 40px; height: 40px; font-size: 18px; }
+
+      /* --- form rows: stack vertically --- */
+      .form-row { flex-direction: column; gap: 6px; }
+
+      /* --- form labels & inputs: touch-friendly --- */
+      .form-group label { font-size: 12px; }
+      .form-group input,
+      .form-group select { padding: 10px 12px; font-size: 14px; }
+
+      /* --- checkboxes --- */
+      .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; }
+      .checkbox-group label { font-size: 13px; }
+
+      /* --- multicheck pills --- */
+      .multicheck-item { padding: 10px 14px; font-size: 13px; min-height: 44px; }
+
+      /* --- correction grid: single column --- */
+      .correction-grid { grid-template-columns: 1fr; }
+      .correction-grid .form-group label { font-size: 12px; }
+      .correction-grid .form-group input,
+      .correction-grid .form-group select { padding: 10px 12px; font-size: 14px; }
+
+      /* --- correction thumbnails --- */
+      .corr-thumb { width: 64px; height: 64px; }
+
+      /* --- correction actions: full-width buttons --- */
+      .correction-actions { flex-direction: column; }
+      .correction-actions .btn { width: 100%; }
+
+      /* --- image gallery --- */
+      .images-grid { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; }
+      .img-item img { height: 72px; }
+      .img-item .remove-btn { opacity: 1; width: 22px; height: 22px; font-size: 12px; }
+      .img-item .zoom-hint { display: none; }
+
+      /* --- lightbox --- */
+      .lightbox img { max-width: 96vw; max-height: 75vh; border-radius: 4px; }
+      .lightbox-close { top: 10px; right: 10px; width: 48px; height: 48px; font-size: 26px; background: rgba(0,0,0,0.5); }
+      .lightbox-nav { width: 48px; height: 48px; font-size: 24px; background: rgba(0,0,0,0.5); }
+      .lightbox-nav.prev { left: 8px; }
+      .lightbox-nav.next { right: 8px; }
+      .lightbox-counter { font-size: 13px; margin-top: 8px; }
+
+      /* --- config panel --- */
+      .config-panel { width: 95%; max-width: none; padding: 20px 16px; border-radius: 10px; max-height: 90vh; overflow-y: auto; }
+      .config-panel h2 { font-size: 16px; margin-bottom: 14px; }
+      .config-actions { flex-direction: column; }
+      .config-actions .btn { width: 100%; padding: 12px; }
+
+      /* --- result actions: full-width buttons --- */
+      .result-box { padding: 14px; border-radius: 10px; }
+      .result-desc { max-height: 50vh; }
+      .result-actions { flex-direction: column; }
+      .result-actions .btn,
+      .result-actions .copy-btn { width: 100%; text-align: center; padding: 10px; }
+      .result-actions .btn[style*="margin-left"] { margin-left: 0 !important; }
+
+      /* --- buttons: touch targets --- */
+      .btn { padding: 12px 18px; font-size: 14px; min-height: 44px; }
+      .btn-sm { padding: 10px 14px; font-size: 13px; min-height: 44px; }
+
+      /* --- upload zone --- */
+      .upload-zone { padding: 18px 14px; }
+      .upload-zone .upload-icon { font-size: 28px; }
+      .upload-zone p { font-size: 13px; }
+
+      /* --- placeholder --- */
+      .placeholder .ph-icon { font-size: 40px; }
+      .placeholder p { font-size: 13px; max-width: 220px; }
+    }
+
+    /* ===== Responsive: small phones (max 480px) ===== */
+    @media (max-width: 480px) {
+      /* --- header: tighter --- */
+      .header { padding: 8px 12px; height: 44px; }
+      .header h1 { font-size: 14px; }
+
+      /* --- panel --- */
+      .panel { padding: 10px; }
+
+      /* --- panel headers --- */
+      .panel-header { font-size: 14px; margin-bottom: 10px; padding-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+
+      /* --- section title --- */
+      .section-title { font-size: 12px; }
+
+      /* --- form inputs: 16px to prevent iOS Safari auto-zoom --- */
+      .form-group input,
+      .form-group select,
+      .correction-grid .form-group input,
+      .correction-grid .form-group select { font-size: 16px; padding: 10px; }
+
+      /* --- image gallery --- */
+      .images-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+      .img-item img { height: 64px; }
+
+      /* --- correction thumbnails --- */
+      .corr-thumb { width: 52px; height: 52px; }
+
+      /* --- lightbox: edges closer --- */
+      .lightbox-nav.prev { left: 4px; }
+      .lightbox-nav.next { right: 4px; }
+      .lightbox img { max-width: 98vw; max-height: 70vh; }
+
+      /* --- config panel: full screen --- */
+      .config-panel { width: 100%; border-radius: 0; padding: 16px 12px; max-height: 100vh; height: 100%; }
+
+      /* --- result box --- */
+      .result-box { padding: 12px; border-radius: 8px; }
+      .result-title { font-size: 14px; padding: 8px; }
+      .result-desc { font-size: 12px; padding: 8px; max-height: 40vh; }
+      .result-label { font-size: 10px; }
+
+      /* --- upload zone compact --- */
+      .upload-zone { padding: 14px 10px; }
+
+      /* --- spacing --- */
+      .divider { margin: 10px 0; }
+      .section { margin-bottom: 10px; }
+      .sku-badge { font-size: 10px; padding: 2px 6px; }
     }
   </style>
 </head>
