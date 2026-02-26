@@ -6,25 +6,23 @@
 
 var DescriptionEngine = (function() {
 
-  var DB = DescriptionBuilder;
-
   function buildDescriptionJeanLevis(features, aiDescription, aiDefects) {
     try {
-      var brand = DB.safeClean(features.brand) || "Levi's";
-      var model = DB.safeClean(features.model);
-      var rawFit = DB.safeClean(features.fit);
-      var fit = DB.normalizeFitDisplay(rawFit, model);
-      var color = DB.safeClean(features.color);
-      var sizeFr = DB.safeClean(features.size_fr);
-      var sizeUs = DB.safeClean(features.size_us);
-      var gender = DB.safeClean(features.gender) || 'femme';
-      var sku = DB.safeClean(features.sku);
-      var orderId = DB.safeClean(features.order_id);
-      var riseLabel = DB.formatRiseLabel(features.rise_type, features.rise_cm);
+      var brand = DescriptionBuilder.safeClean(features.brand) || "Levi's";
+      var model = DescriptionBuilder.safeClean(features.model);
+      var rawFit = DescriptionBuilder.safeClean(features.fit);
+      var fit = DescriptionBuilder.normalizeFitDisplay(rawFit, model);
+      var color = DescriptionBuilder.safeClean(features.color);
+      var sizeFr = DescriptionBuilder.safeClean(features.size_fr);
+      var sizeUs = DescriptionBuilder.safeClean(features.size_us);
+      var gender = DescriptionBuilder.safeClean(features.gender) || 'femme';
+      var sku = DescriptionBuilder.safeClean(features.sku);
+      var orderId = DescriptionBuilder.safeClean(features.order_id);
+      var riseLabel = DescriptionBuilder.formatRiseLabel(features.rise_type, features.rise_cm);
       var defects = aiDefects || features.defects;
 
-      var cottonPercent = DB.formatPercent(features.cotton_percent);
-      var elasthanePercent = DB.formatPercent(features.elasthane_percent);
+      var cottonPercent = DescriptionBuilder.formatPercent(features.cotton_percent);
+      var elasthanePercent = DescriptionBuilder.formatPercent(features.elasthane_percent);
       var compositionMaterials = features.composition_materials || [];
 
       // Fit effectif
@@ -94,7 +92,7 @@ var DescriptionEngine = (function() {
       var sizeNote = "*Les variations et écarts de mesure entre les tailles US et FR sont dus aux différentes proportions d'élasthanne et/ou viscose présentes dans le tissu.";
 
       // Etat
-      var defectsClean = DB.normalizeDefects(defects);
+      var defectsClean = DescriptionBuilder.normalizeDefects(defects);
       var stateLine = !defectsClean ? '👍 Très bon état : article impeccable !' : '👍 Très bon état : ' + defectsClean;
 
       var measuresLine = '🔎 Consultez les photos pour obtenir les mesures précises et la composition détaillée.';
@@ -121,34 +119,34 @@ var DescriptionEngine = (function() {
       return paragraph1 + '\n\n' + infoBlock + '\n\n' + footerBlock;
     } catch (e) {
       Logger.log('buildDescriptionJeanLevis error: ' + e.message);
-      return DB.safeClean(aiDescription);
+      return DescriptionBuilder.safeClean(aiDescription);
     }
   }
 
   function buildDescriptionPull(features, aiDescription, aiDefects) {
     try {
-      var brand = DB.safeClean(features.brand);
+      var brand = DescriptionBuilder.safeClean(features.brand);
       var isVintage = features.is_vintage || false;
       if (!brand) { isVintage = true; brand = 'Vintage'; }
 
-      var garmentType = DB.safeClean(features.garment_type) || 'pull';
-      var gender = DB.safeClean(features.gender) || 'femme';
-      var neckline = DB.safeClean(features.neckline);
-      var pattern = DB.safeClean(features.pattern);
-      var material = DB.safeClean(features.material);
+      var garmentType = DescriptionBuilder.safeClean(features.garment_type) || 'pull';
+      var gender = DescriptionBuilder.safeClean(features.gender) || 'femme';
+      var neckline = DescriptionBuilder.safeClean(features.neckline);
+      var pattern = DescriptionBuilder.safeClean(features.pattern);
+      var material = DescriptionBuilder.safeClean(features.material);
       var cottonPercent = features.cotton_percent;
       var woolPercent = features.wool_percent;
       var colorsRaw = features.main_colors;
-      var size = DB.normalizePullSize(features.size);
-      var sizeSource = (DB.safeClean(features.size_source) || '').toLowerCase();
-      var measurementMode = (DB.safeClean(features.measurement_mode) || '').toLowerCase();
+      var size = DescriptionBuilder.normalizePullSize(features.size);
+      var sizeSource = (DescriptionBuilder.safeClean(features.size_source) || '').toLowerCase();
+      var measurementMode = (DescriptionBuilder.safeClean(features.measurement_mode) || '').toLowerCase();
       var defects = aiDefects || features.defects;
 
       var colors = '';
       if (Array.isArray(colorsRaw)) {
-        colors = colorsRaw.map(function(c) { return DB.safeClean(c); }).filter(Boolean).join(', ');
+        colors = colorsRaw.map(function(c) { return DescriptionBuilder.safeClean(c); }).filter(Boolean).join(', ');
       } else {
-        colors = DB.safeClean(colorsRaw);
+        colors = DescriptionBuilder.safeClean(colorsRaw);
       }
 
       // Neckline
@@ -182,8 +180,8 @@ var DescriptionEngine = (function() {
       var headline = [headlineLine1, headlineLine2].filter(Boolean).join('\n');
 
       // Sensation
-      var cottonVal = DB.formatPercent(cottonPercent);
-      var woolVal = DB.formatPercent(woolPercent);
+      var cottonVal = DescriptionBuilder.formatPercent(cottonPercent);
+      var woolVal = DescriptionBuilder.formatPercent(woolPercent);
       var sensationSentence = null;
       if (woolVal != null) sensationSentence = 'Maille chaude et confortable, agréable à porter par temps frais.';
       else if (cottonVal != null) sensationSentence = 'Maille douce et respirante, confortable pour un usage quotidien.';
@@ -204,7 +202,7 @@ var DescriptionEngine = (function() {
       // Etat
       var stateSentence;
       if (defects) {
-        var d = DB.safeClean(defects).replace(/\.$/, '');
+        var d = DescriptionBuilder.safeClean(defects).replace(/\.$/, '');
         if (d.charAt(0) === d.charAt(0).toUpperCase()) d = d.charAt(0).toLowerCase() + d.slice(1);
         stateSentence = 'Bon état : ' + d + ' (voir photos).';
       } else {
@@ -241,24 +239,24 @@ var DescriptionEngine = (function() {
       return paragraphs.filter(Boolean).join('\n\n');
     } catch (e) {
       Logger.log('buildDescriptionPull error: ' + e.message);
-      return DB.safeClean(aiDescription);
+      return DescriptionBuilder.safeClean(aiDescription);
     }
   }
 
   function buildDescriptionJacketCarhart(features, aiDescription, aiDefects) {
     try {
-      var brand = DB.safeClean(features.brand) || 'Carhartt';
+      var brand = DescriptionBuilder.safeClean(features.brand) || 'Carhartt';
       brand = brand.charAt(0).toUpperCase() + brand.slice(1);
-      var model = DB.safeClean(features.model);
-      var rawSize = DB.safeClean(features.size) || 'NC';
+      var model = DescriptionBuilder.safeClean(features.model);
+      var rawSize = DescriptionBuilder.safeClean(features.size) || 'NC';
       var sizeResult = TitleBuilder.normalizeCarharttSize(rawSize);
       var sizeDisplay = sizeResult[0];
       var sizeToken = sizeResult[1];
-      var color = DB.safeClean(features.color);
-      var gender = DB.safeClean(features.gender) || 'homme';
-      var lining = DB.safeClean(features.lining);
-      var patchMaterial = DB.safeClean(features.patch_material);
-      var originCountry = DB.safeClean(features.origin_country);
+      var color = DescriptionBuilder.safeClean(features.color);
+      var gender = DescriptionBuilder.safeClean(features.gender) || 'homme';
+      var lining = DescriptionBuilder.safeClean(features.lining);
+      var patchMaterial = DescriptionBuilder.safeClean(features.patch_material);
+      var originCountry = DescriptionBuilder.safeClean(features.origin_country);
 
       // Product sentence
       var productParts = ['Veste ' + brand];
@@ -290,8 +288,8 @@ var DescriptionEngine = (function() {
       }
 
       // State
-      var defects = DB.safeClean(features.defects || aiDefects);
-      var normalizedDefects = DB.normalizeDefects(defects);
+      var defects = DescriptionBuilder.safeClean(features.defects || aiDefects);
+      var normalizedDefects = DescriptionBuilder.normalizeDefects(defects);
       var stateSentence = !normalizedDefects
         ? 'Très bon état, aucun défaut majeur visible. Veste propre et bien conservée (voir photos).'
         : 'Très bon état, ' + normalizedDefects + '. Veste propre et bien conservée (voir photos).';
@@ -313,7 +311,7 @@ var DescriptionEngine = (function() {
       return paragraphs.filter(Boolean).join('\n\n');
     } catch (e) {
       Logger.log('buildDescriptionJacketCarhart error: ' + e.message);
-      return DB.safeClean(aiDescription);
+      return DescriptionBuilder.safeClean(aiDescription);
     }
   }
 

@@ -6,21 +6,19 @@
 
 var TitleEngine = (function() {
 
-  var TB = TitleBuilder;
-
   function buildTitleJeanLevis(features) {
     try {
-      var brand = TB.normalizeStr(features.brand);
-      var rawModel = TB.normalizeStr(features.model);
-      var model = TB.sanitizeModelLabel(rawModel);
-      var sizeFr = TB.normalizeStr(features.size_fr);
-      var sizeUsRaw = TB.normalizeStr(features.size_us);
-      var lengthRaw = TB.normalizeStr(features.length);
-      var fitSource = TB.normalizeStr(features.fit);
-      var fit = TB.normalizeFit(fitSource);
+      var brand = TitleBuilder.normalizeStr(features.brand);
+      var rawModel = TitleBuilder.normalizeStr(features.model);
+      var model = TitleBuilder.sanitizeModelLabel(rawModel);
+      var sizeFr = TitleBuilder.normalizeStr(features.size_fr);
+      var sizeUsRaw = TitleBuilder.normalizeStr(features.size_us);
+      var lengthRaw = TitleBuilder.normalizeStr(features.length);
+      var fitSource = TitleBuilder.normalizeStr(features.fit);
+      var fit = TitleBuilder.normalizeFit(fitSource);
 
       if (!fit) {
-        fit = TB.normalizeFit(rawModel);
+        fit = TitleBuilder.normalizeFit(rawModel);
       } else {
         var rawModelLow = (rawModel || '').toLowerCase();
         if (fit === 'Skinny' && rawModelLow && ['boot', 'flare', 'évas', 'evase', 'curve', 'curvy'].some(function(m) { return rawModelLow.indexOf(m) !== -1; })) {
@@ -28,10 +26,10 @@ var TitleEngine = (function() {
         }
       }
 
-      var color = TB.normalizeStr(features.color);
-      var gender = TB.normalizeGender(TB.normalizeStr(features.gender));
-      var sku = TB.normalizeStr(features.sku);
-      var orderId = TB.normalizeStr(features.order_id);
+      var color = TitleBuilder.normalizeStr(features.color);
+      var gender = TitleBuilder.normalizeGender(TitleBuilder.normalizeStr(features.gender));
+      var sku = TitleBuilder.normalizeStr(features.sku);
+      var orderId = TitleBuilder.normalizeStr(features.order_id);
 
       var cottonPercent = null;
       try { cottonPercent = features.cotton_percent != null ? parseInt(features.cotton_percent) : null; } catch (e) {}
@@ -41,7 +39,7 @@ var TitleEngine = (function() {
       // Rise
       var riseType = features.rise_type;
       if (!riseType) {
-        riseType = TB.classifyRiseFromCm(features.rise_cm);
+        riseType = TitleBuilder.classifyRiseFromCm(features.rise_cm);
       } else {
         var normalized = riseType.trim().toLowerCase();
         if (normalized.indexOf('basse') !== -1 || normalized.indexOf('low') !== -1) riseType = 'low';
@@ -60,7 +58,7 @@ var TitleEngine = (function() {
 
       var riseLabel = getRiseLabel(riseType);
       if (!riseLabel) {
-        riseLabel = getRiseLabel(TB.classifyRiseFromCm(features.rise_cm));
+        riseLabel = getRiseLabel(TitleBuilder.classifyRiseFromCm(features.rise_cm));
       }
 
       var sizeUsDisplay = null;
@@ -108,10 +106,10 @@ var TitleEngine = (function() {
 
       if (sku && Validator.isValidInternalSku('jean_levis', sku)) {
         var skuDisplay = orderId ? orderId + sku : sku;
-        parts.push(TB.SKU_PREFIX + skuDisplay);
+        parts.push(TitleBuilder.SKU_PREFIX + skuDisplay);
       }
 
-      return TB.safeJoin(parts);
+      return TitleBuilder.safeJoin(parts);
     } catch (e) {
       Logger.log('buildTitleJeanLevis error: ' + e.message);
       return 'Jean Levi\'s';
@@ -120,12 +118,12 @@ var TitleEngine = (function() {
 
   function buildTitlePull(features) {
     try {
-      var brand = TB.normalizeStr(features.brand);
+      var brand = TitleBuilder.normalizeStr(features.brand);
       var isVintage = features.is_vintage || false;
       if (!brand && !isVintage) isVintage = true;
 
-      var garmentType = TB.normalizeGarmentType(features.garment_type) || 'Pull';
-      var rawGender = TB.normalizeGender(TB.normalizeStr(features.gender));
+      var garmentType = TitleBuilder.normalizeGarmentType(features.garment_type) || 'Pull';
+      var rawGender = TitleBuilder.normalizeGender(TitleBuilder.normalizeStr(features.gender));
       var gender = 'femme';
       if (rawGender && rawGender.toLowerCase() !== 'femme') {
         // force femme
@@ -133,20 +131,20 @@ var TitleEngine = (function() {
         gender = rawGender;
       }
 
-      var size = TB.normalizePullSize(TB.normalizeStr(features.size));
-      var neckline = TB.formatNeckline(TB.normalizeStr(features.neckline));
-      var pattern = TB.normalizeStr(features.pattern);
-      var material = TB.formatMaterialSegment(
-        TB.normalizeStr(features.material),
+      var size = TitleBuilder.normalizePullSize(TitleBuilder.normalizeStr(features.size));
+      var neckline = TitleBuilder.formatNeckline(TitleBuilder.normalizeStr(features.neckline));
+      var pattern = TitleBuilder.normalizeStr(features.pattern);
+      var material = TitleBuilder.formatMaterialSegment(
+        TitleBuilder.normalizeStr(features.material),
         features.cotton_percent,
         features.wool_percent
       );
 
       var colorsInput = features.main_colors || features.colors;
-      var colorsSegment = TB.formatColorsSegment(colorsInput);
+      var colorsSegment = TitleBuilder.formatColorsSegment(colorsInput);
 
-      var sku = TB.normalizeStr(features.sku);
-      var skuStatus = TB.normalizeStr(features.sku_status);
+      var sku = TitleBuilder.normalizeStr(features.sku);
+      var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
 
       var parts = [garmentType];
 
@@ -168,10 +166,10 @@ var TitleEngine = (function() {
       if (neckline) parts.push(neckline);
 
       if (sku && skuStatus && skuStatus.toLowerCase() === 'ok') {
-        parts.push(TB.SKU_PREFIX + sku);
+        parts.push(TitleBuilder.SKU_PREFIX + sku);
       }
 
-      return TB.safeJoin(parts);
+      return TitleBuilder.safeJoin(parts);
     } catch (e) {
       Logger.log('buildTitlePull error: ' + e.message);
       return 'Pull Vintage';
@@ -180,20 +178,20 @@ var TitleEngine = (function() {
 
   function buildTitleJacketCarhart(features) {
     try {
-      var brand = TB.normalizeStr(features.brand) || 'Carhartt';
-      var model = TB.normalizeStr(features.model);
-      var rawSize = TB.normalizeStr(features.size);
-      var sizeResult = TB.normalizeCarharttSize(rawSize);
+      var brand = TitleBuilder.normalizeStr(features.brand) || 'Carhartt';
+      var model = TitleBuilder.normalizeStr(features.model);
+      var rawSize = TitleBuilder.normalizeStr(features.size);
+      var sizeResult = TitleBuilder.normalizeCarharttSize(rawSize);
       var size = sizeResult[0];
-      var color = TB.normalizeStr(features.color);
-      var gender = TB.normalizeStr(features.gender) || 'homme';
+      var color = TitleBuilder.normalizeStr(features.color);
+      var gender = TitleBuilder.normalizeStr(features.gender) || 'homme';
       var hasHood = features.has_hood;
       var isCamouflage = features.is_camouflage;
       var isRealtree = features.is_realtree;
       var isNewYork = features.is_new_york;
-      var pattern = TB.normalizeStr(features.pattern);
-      var sku = TB.normalizeStr(features.sku);
-      var skuStatus = TB.normalizeStr(features.sku_status);
+      var pattern = TitleBuilder.normalizeStr(features.pattern);
+      var sku = TitleBuilder.normalizeStr(features.sku);
+      var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
 
       var prefix = hasHood ? 'Veste à capuche Carhartt' : 'Veste Carhartt';
       var parts = [prefix];
@@ -219,10 +217,10 @@ var TitleEngine = (function() {
       if (gender) parts.push(gender);
 
       if (sku && skuStatus && skuStatus.toLowerCase() === 'ok') {
-        parts.push(TB.SKU_PREFIX + sku);
+        parts.push(TitleBuilder.SKU_PREFIX + sku);
       }
 
-      return TB.safeJoin(parts);
+      return TitleBuilder.safeJoin(parts);
     } catch (e) {
       Logger.log('buildTitleJacketCarhart error: ' + e.message);
       return 'Veste Carhartt';

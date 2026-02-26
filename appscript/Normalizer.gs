@@ -6,8 +6,6 @@
 
 var Normalizer = (function() {
 
-  var TE = TextExtractors;
-
   // =====================================================
   // Normalisation de base
   // =====================================================
@@ -46,7 +44,7 @@ var Normalizer = (function() {
 
     var brand = rawFeatures.brand || aiData.brand;
     var model = rawFeatures.model || aiData.model;
-    if (!model) model = TE.extractModelFromText(fullText);
+    if (!model) model = TextExtractors.extractModelFromText(fullText);
 
     // Fit : priorite UI > IA > texte
     var fit;
@@ -56,22 +54,22 @@ var Normalizer = (function() {
       if (uiFitLow === 'droite') fit = 'Straight/Droit';
       else if (uiFitLow === 'evasee') fit = 'Bootcut/Évasé';
       else if (uiFitLow === 'skinny') fit = 'Skinny';
-      else fit = TE.normalizeFitLabel(uiFit);
+      else fit = TextExtractors.normalizeFitLabel(uiFit);
     } else {
       fit = rawFeatures.fit || aiData.fit;
-      fit = TE.normalizeFitLabel(fit);
-      if (!fit) fit = TE.extractFitFromText(fullText);
+      fit = TextExtractors.normalizeFitLabel(fit);
+      if (!fit) fit = TextExtractors.extractFitFromText(fullText);
     }
 
     var color = rawFeatures.color || aiData.color;
-    if (!color) color = TE.extractColorFromText(fullText);
+    if (!color) color = TextExtractors.extractColorFromText(fullText);
 
     var sizeFr = uiData.size_fr || rawFeatures.size_fr || aiData.size_fr;
     var sizeUs = uiData.size_us || rawFeatures.size_us || aiData.size_us;
     var length = uiData.length || rawFeatures.length || aiData.length;
 
     if (!sizeUs || !length) {
-      var inferred = TE.extractSizesFromText(fullText);
+      var inferred = TextExtractors.extractSizesFromText(fullText);
       if (!sizeUs && inferred[0]) sizeUs = inferred[0];
       if (!length && inferred[1]) length = inferred[1];
     }
@@ -113,12 +111,12 @@ var Normalizer = (function() {
 
     // SKU
     var rawSku = uiData.sku || rawFeatures.sku || aiData.sku;
-    var sku = TE.normalizeSkuValue(rawSku);
+    var sku = TextExtractors.normalizeSkuValue(rawSku);
     var skuStatus = sku ? 'ok' : (rawSku ? 'invalid' : 'missing');
 
     // Genre
     var aiGender = uiData.gender || rawFeatures.gender || aiData.gender;
-    var skuGender = TE.extractGenderFromSkuPrefix(sku);
+    var skuGender = TextExtractors.extractGenderFromSkuPrefix(sku);
     var gender;
     if (skuGender && aiGender) {
       gender = (aiGender.trim().toLowerCase() !== skuGender) ? skuGender : aiGender;
@@ -245,39 +243,39 @@ var Normalizer = (function() {
 
     var brand = rawFeatures.brand || aiData.brand || 'Carhartt';
     var model = rawFeatures.model || aiData.model;
-    model = TE.normalizeCarharttModel(model, fullText);
-    if (!model) model = TE.extractCarharttModelFromText(fullText);
+    model = TextExtractors.normalizeCarharttModel(model, fullText);
+    if (!model) model = TextExtractors.extractCarharttModelFromText(fullText);
 
     var size = uiData.size_fr || uiData.size || rawFeatures.size || aiData.size;
     var color = rawFeatures.color || aiData.color;
-    if (!color) color = TE.extractColorFromText(fullText);
+    if (!color) color = TextExtractors.extractColorFromText(fullText);
 
     var gender = uiData.gender || rawFeatures.gender || aiData.gender;
     var hasHood = rawFeatures.has_hood;
-    if (hasHood == null) hasHood = TE.detectFlagFromText(fullText, ['capuche', 'hood']);
+    if (hasHood == null) hasHood = TextExtractors.detectFlagFromText(fullText, ['capuche', 'hood']);
     var pattern = rawFeatures.pattern || aiData.pattern;
 
     var lining = rawFeatures.lining || aiData.lining;
-    if (!lining) lining = TE.extractLiningFromText(fullText);
+    if (!lining) lining = TextExtractors.extractLiningFromText(fullText);
     var closure = rawFeatures.closure || aiData.closure;
     var patchMaterial = rawFeatures.patch_material || aiData.patch_material;
     var collar = rawFeatures.collar || aiData.collar;
     var zipMaterial = rawFeatures.zip_material || aiData.zip_material;
     var originCountry = rawFeatures.origin_country || aiData.origin_country;
-    if (!originCountry) originCountry = TE.extractOriginCountryFromText(fullText);
+    if (!originCountry) originCountry = TextExtractors.extractOriginCountryFromText(fullText);
 
     var exterior = rawFeatures.exterior || aiData.exterior;
     var sleeveLining = rawFeatures.sleeve_lining || aiData.sleeve_lining;
 
     var isCamouflage = rawFeatures.is_camouflage;
     if (isCamouflage == null && pattern) isCamouflage = pattern.toLowerCase() === 'camouflage';
-    if (isCamouflage == null) isCamouflage = TE.detectFlagFromText(fullText, ['camouflage']);
+    if (isCamouflage == null) isCamouflage = TextExtractors.detectFlagFromText(fullText, ['camouflage']);
 
     var isRealtree = rawFeatures.is_realtree;
-    if (isRealtree == null) isRealtree = TE.detectFlagFromText(fullText, ['realtree']);
+    if (isRealtree == null) isRealtree = TextExtractors.detectFlagFromText(fullText, ['realtree']);
 
     var isNewYork = rawFeatures.is_new_york;
-    if (isNewYork == null) isNewYork = TE.detectFlagFromText(fullText, ['new york', ' ny']);
+    if (isNewYork == null) isNewYork = TextExtractors.detectFlagFromText(fullText, ['new york', ' ny']);
 
     // SKU (Carhartt JCR)
     var skuFromUi = uiData.sku;
@@ -287,10 +285,10 @@ var Normalizer = (function() {
 
     var sku = null;
     if (skuFromUi) {
-      sku = TE.normalizeJcrSku(skuFromUi);
+      sku = TextExtractors.normalizeJcrSku(skuFromUi);
       skuStatus = sku ? 'ok' : 'low_confidence';
     } else {
-      var normalizedAiSku = TE.normalizeJcrSku(skuFromAi);
+      var normalizedAiSku = TextExtractors.normalizeJcrSku(skuFromAi);
       if (normalizedAiSku) { sku = normalizedAiSku; skuStatus = 'ok'; }
       else { sku = null; skuStatus = 'missing'; }
     }
