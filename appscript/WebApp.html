@@ -152,97 +152,97 @@
 
     /* ===== Mobile layout (class set by JS to bypass GAS iframe issues) ===== */
     /* -- Global mobile reset -- */
-    body.is-mobile { overflow: auto; font-size: 18px; -webkit-text-size-adjust: 100%; }
+    body.is-mobile { overflow: auto; font-size: 36px; -webkit-text-size-adjust: 100%; }
     body.is-mobile .app-layout { grid-template-columns: 1fr; height: auto; }
-    body.is-mobile .panel { overflow-y: visible; padding: 18px; }
-    body.is-mobile .panel-left { border-right: none; border-bottom: 1px solid #e0e0e0; }
+    body.is-mobile .panel { overflow-y: visible; padding: 36px; }
+    body.is-mobile .panel-left { border-right: none; border-bottom: 2px solid #e0e0e0; }
 
     /* -- Header -- */
-    body.is-mobile .header { padding: 12px 18px; height: 54px; }
-    body.is-mobile .header h1 { font-size: 20px; }
-    body.is-mobile .btn-icon { width: 42px; height: 42px; font-size: 20px; }
+    body.is-mobile .header { padding: 24px 36px; height: 108px; }
+    body.is-mobile .header h1 { font-size: 40px; }
+    body.is-mobile .btn-icon { width: 84px; height: 84px; font-size: 40px; }
 
     /* -- Sections & titles -- */
-    body.is-mobile .section { margin-bottom: 18px; }
-    body.is-mobile .panel-header { font-size: 20px; margin-bottom: 16px; padding-bottom: 10px; flex-wrap: wrap; gap: 8px; }
-    body.is-mobile .section-title { font-size: 17px; margin-bottom: 12px; }
-    body.is-mobile .section-title .step { width: 24px; height: 24px; font-size: 13px; }
+    body.is-mobile .section { margin-bottom: 36px; }
+    body.is-mobile .panel-header { font-size: 40px; margin-bottom: 32px; padding-bottom: 20px; flex-wrap: wrap; gap: 16px; }
+    body.is-mobile .section-title { font-size: 34px; margin-bottom: 24px; }
+    body.is-mobile .section-title .step { width: 48px; height: 48px; font-size: 26px; }
 
     /* -- Forms: inputs, selects, labels -- */
     body.is-mobile .form-row { flex-direction: column; gap: 0; }
-    body.is-mobile .form-group { margin-bottom: 16px; }
-    body.is-mobile .form-group label { font-size: 16px; margin-bottom: 6px; font-weight: 500; }
+    body.is-mobile .form-group { margin-bottom: 32px; }
+    body.is-mobile .form-group label { font-size: 32px; margin-bottom: 12px; font-weight: 500; }
     body.is-mobile .form-group input,
     body.is-mobile .form-group select {
-      padding: 14px 16px; font-size: 18px; border-radius: 10px;
+      padding: 28px 32px; font-size: 36px; border-radius: 20px;
       -webkit-appearance: none;
     }
 
     /* -- Checkboxes & multi-check pills -- */
-    body.is-mobile .checkbox-group input[type="checkbox"] { width: 24px; height: 24px; }
-    body.is-mobile .checkbox-group label { font-size: 17px; }
-    body.is-mobile .multicheck-item { padding: 12px 16px; font-size: 17px; min-height: 48px; border-radius: 24px; }
+    body.is-mobile .checkbox-group input[type="checkbox"] { width: 48px; height: 48px; }
+    body.is-mobile .checkbox-group label { font-size: 34px; }
+    body.is-mobile .multicheck-item { padding: 24px 32px; font-size: 34px; min-height: 96px; border-radius: 48px; }
 
     /* -- Correction grid: single column for readability -- */
-    body.is-mobile .correction-grid { grid-template-columns: 1fr; gap: 2px; }
-    body.is-mobile .correction-grid .form-group { margin-bottom: 12px; }
-    body.is-mobile .correction-grid .form-group label { font-size: 15px; margin-bottom: 5px; }
+    body.is-mobile .correction-grid { grid-template-columns: 1fr; gap: 4px; }
+    body.is-mobile .correction-grid .form-group { margin-bottom: 24px; }
+    body.is-mobile .correction-grid .form-group label { font-size: 30px; margin-bottom: 10px; }
     body.is-mobile .correction-grid .form-group input,
-    body.is-mobile .correction-grid .form-group select { padding: 12px 14px; font-size: 18px; border-radius: 10px; }
-    body.is-mobile .corr-thumb { width: 56px; height: 56px; }
-    body.is-mobile .correction-actions { flex-direction: column; gap: 10px; }
+    body.is-mobile .correction-grid .form-group select { padding: 24px 28px; font-size: 36px; border-radius: 20px; }
+    body.is-mobile .corr-thumb { width: 112px; height: 112px; }
+    body.is-mobile .correction-actions { flex-direction: column; gap: 20px; }
     body.is-mobile .correction-actions .btn { width: 100%; }
 
     /* -- Buttons -- */
-    body.is-mobile .btn { padding: 14px 22px; font-size: 18px; min-height: 52px; border-radius: 12px; }
-    body.is-mobile .btn-sm { padding: 12px 18px; font-size: 16px; min-height: 48px; }
+    body.is-mobile .btn { padding: 28px 44px; font-size: 36px; min-height: 104px; border-radius: 24px; }
+    body.is-mobile .btn-sm { padding: 24px 36px; font-size: 32px; min-height: 96px; }
 
     /* -- Upload zone -- */
-    body.is-mobile .upload-zone { padding: 26px 18px; border-radius: 14px; }
-    body.is-mobile .upload-zone .upload-icon { font-size: 36px; }
-    body.is-mobile .upload-zone p { font-size: 17px; }
+    body.is-mobile .upload-zone { padding: 52px 36px; border-radius: 28px; }
+    body.is-mobile .upload-zone .upload-icon { font-size: 72px; }
+    body.is-mobile .upload-zone p { font-size: 34px; }
 
     /* -- Images grid -- */
-    body.is-mobile .images-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; }
-    body.is-mobile .img-item img { height: 80px; }
-    body.is-mobile .img-item .remove-btn { opacity: 1; width: 26px; height: 26px; font-size: 15px; }
+    body.is-mobile .images-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+    body.is-mobile .img-item img { height: 160px; }
+    body.is-mobile .img-item .remove-btn { opacity: 1; width: 52px; height: 52px; font-size: 30px; }
     body.is-mobile .img-item .zoom-hint { display: none; }
-    body.is-mobile .status-bar { font-size: 16px; padding: 8px; }
+    body.is-mobile .status-bar { font-size: 32px; padding: 16px; }
 
     /* -- Lightbox -- */
-    body.is-mobile .lightbox img { max-width: 96vw; max-height: 78vh; border-radius: 6px; }
-    body.is-mobile .lightbox-close { top: 12px; right: 12px; width: 48px; height: 48px; font-size: 26px; background: rgba(0,0,0,0.5); }
-    body.is-mobile .lightbox-nav { width: 48px; height: 48px; font-size: 24px; background: rgba(0,0,0,0.5); }
-    body.is-mobile .lightbox-nav.prev { left: 8px; }
-    body.is-mobile .lightbox-nav.next { right: 8px; }
+    body.is-mobile .lightbox img { max-width: 96vw; max-height: 78vh; border-radius: 12px; }
+    body.is-mobile .lightbox-close { top: 24px; right: 24px; width: 96px; height: 96px; font-size: 52px; background: rgba(0,0,0,0.5); }
+    body.is-mobile .lightbox-nav { width: 96px; height: 96px; font-size: 48px; background: rgba(0,0,0,0.5); }
+    body.is-mobile .lightbox-nav.prev { left: 16px; }
+    body.is-mobile .lightbox-nav.next { right: 16px; }
 
     /* -- Config panel -- */
-    body.is-mobile .config-panel { width: 96%; max-width: none; padding: 24px 20px; border-radius: 16px; max-height: 92vh; overflow-y: auto; }
-    body.is-mobile .config-panel h2 { font-size: 20px; }
-    body.is-mobile .config-actions { flex-direction: column; gap: 10px; }
+    body.is-mobile .config-panel { width: 96%; max-width: none; padding: 48px 40px; border-radius: 32px; max-height: 92vh; overflow-y: auto; }
+    body.is-mobile .config-panel h2 { font-size: 40px; }
+    body.is-mobile .config-actions { flex-direction: column; gap: 20px; }
     body.is-mobile .config-actions .btn { width: 100%; }
 
     /* -- Result area -- */
-    body.is-mobile .result-box { padding: 18px; border-radius: 14px; }
-    body.is-mobile .result-box h3 { font-size: 19px; }
-    body.is-mobile .result-label { font-size: 14px; }
-    body.is-mobile .result-title { font-size: 18px; padding: 12px 14px; }
-    body.is-mobile .result-desc { font-size: 17px; padding: 12px 14px; max-height: 50vh; line-height: 1.6; }
-    body.is-mobile .result-actions { flex-direction: column; gap: 10px; }
+    body.is-mobile .result-box { padding: 36px; border-radius: 28px; }
+    body.is-mobile .result-box h3 { font-size: 38px; }
+    body.is-mobile .result-label { font-size: 28px; }
+    body.is-mobile .result-title { font-size: 36px; padding: 24px 28px; }
+    body.is-mobile .result-desc { font-size: 34px; padding: 24px 28px; max-height: 50vh; line-height: 1.6; }
+    body.is-mobile .result-actions { flex-direction: column; gap: 20px; }
     body.is-mobile .result-actions .btn,
-    body.is-mobile .result-actions .copy-btn { width: 100%; text-align: center; padding: 14px; font-size: 17px; }
+    body.is-mobile .result-actions .copy-btn { width: 100%; text-align: center; padding: 28px; font-size: 34px; }
     body.is-mobile .result-actions .btn[style*="margin-left"] { margin-left: 0 !important; }
-    body.is-mobile .sku-badge { font-size: 13px; padding: 3px 10px; }
+    body.is-mobile .sku-badge { font-size: 26px; padding: 6px 20px; }
 
     /* -- Placeholder -- */
-    body.is-mobile .placeholder .ph-icon { font-size: 48px; }
-    body.is-mobile .placeholder p { font-size: 17px; max-width: 280px; line-height: 1.5; }
+    body.is-mobile .placeholder .ph-icon { font-size: 96px; }
+    body.is-mobile .placeholder p { font-size: 34px; max-width: 560px; line-height: 1.5; }
 
     /* -- Divider -- */
-    body.is-mobile .divider { margin: 16px 0; }
+    body.is-mobile .divider { margin: 32px 0; }
 
     /* -- Error box -- */
-    body.is-mobile .error-box { font-size: 17px; padding: 18px; }
+    body.is-mobile .error-box { font-size: 34px; padding: 36px; }
   </style>
 </head>
 <body>
