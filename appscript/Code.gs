@@ -298,6 +298,21 @@ function logGenerationToSheet(result, params) {
       couleur = features.main_colors.join(', ');
     }
 
+    // SKU avec prefixe Order ID (ex: 01JLF0091)
+    var rawSku = features.sku || result.sku || '';
+    var orderId = features.order_id || '';
+    var skuForLog = rawSku;
+    if (rawSku && orderId) {
+      var pad = ('00' + String(orderId).replace(/\D/g, '')).slice(-2);
+      if (pad !== '00') skuForLog = pad + rawSku;
+    }
+
+    // Matiere : features.material ou construire depuis composition_materials
+    var matiere = features.material || '';
+    if (!matiere && features.composition_materials && features.composition_materials.length > 0) {
+      matiere = features.composition_materials.join(', ');
+    }
+
     var row = [
       new Date(),
       profileName,
@@ -307,11 +322,11 @@ function logGenerationToSheet(result, params) {
       tailleFr,
       tailleUs,
       couleur,
-      features.material || '',
+      matiere,
       features.fit || '',
       features.gender || '',
       uiData.price || '',
-      features.sku || result.sku || '',
+      skuForLog,
       features.condition || '',
       result.title || '',
       result.description || ''

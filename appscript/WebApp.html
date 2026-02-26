@@ -641,6 +641,8 @@
 
     // ==================== Champs editables par profil ====================
 
+    var CONDITION_OPTIONS = [['', '(non defini)'], ['tres bon etat', 'Tres bon etat'], ['bon etat', 'Bon etat'], ['neuf', 'Neuf'], ['satisfaisant', 'Satisfaisant']];
+
     var PROFILE_FIELDS = {
       jean_levis: [
         {key: 'brand', label: 'Marque', type: 'text'},
@@ -652,8 +654,10 @@
         {key: 'length', label: 'Longueur', type: 'text'},
         {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
         {key: 'rise_type', label: 'Taille (rise)', type: 'select', options: [['', 'Auto'], ['low', 'Basse'], ['mid', 'Moyenne'], ['high', 'Haute']]},
+        {key: 'material', label: 'Matiere', type: 'text'},
         {key: 'cotton_percent', label: 'Coton %', type: 'number'},
         {key: 'elasthane_percent', label: 'Elasthanne %', type: 'number'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ],
@@ -668,6 +672,7 @@
         {key: 'size', label: 'Taille', type: 'text'},
         {key: 'cotton_percent', label: 'Coton %', type: 'number'},
         {key: 'wool_percent', label: 'Laine %', type: 'number'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ],
@@ -680,6 +685,7 @@
         {key: 'has_hood', label: 'Capuche', type: 'checkbox'},
         {key: 'lining', label: 'Doublure', type: 'text'},
         {key: 'pattern', label: 'Motif', type: 'text'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ]

@@ -31,6 +31,33 @@ var Normalizer = (function() {
     return features;
   }
 
+  /**
+   * Normalise un nom de matiere pour jean.
+   * spandex/lycra -> Elasthanne, cotton -> Coton, etc.
+   */
+  function normalizeJeanMaterial(raw) {
+    if (!raw) return null;
+    var trimmed = raw.trim();
+    if (!trimmed) return null;
+    var low = trimmed.toLowerCase();
+    if (low === 'coton' || low === 'cotton') return 'Coton';
+    if (low === 'spandex' || low === 'elasthane' || low === 'elasthanne' || low === 'élasthanne' || low === 'lycra') return 'Élasthanne';
+    if (low === 'polyester') return 'Polyester';
+    if (low === 'viscose' || low === 'rayon') return 'Viscose';
+    // Capitalize first letter for unknown materials
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  }
+
+  /**
+   * Zero-pad un orderId sur 2 chiffres.
+   */
+  function zeroPadOrderId(orderId) {
+    if (!orderId) return '';
+    var num = String(orderId).replace(/\D/g, '');
+    if (!num) return '';
+    return ('00' + num).slice(-2);
+  }
+
   // =====================================================
   // Feature builders par profil
   // =====================================================
@@ -82,7 +109,11 @@ var Normalizer = (function() {
     var uiComposition = uiData.composition;
     var compositionMaterials, compositionStatus;
     if (uiComposition) {
-      compositionMaterials = uiComposition.split(',').map(function(m) { return m.trim(); }).filter(Boolean);
+      // Split by comma, or by space if no comma
+      var parts = uiComposition.indexOf(',') !== -1
+        ? uiComposition.split(',')
+        : uiComposition.split(/\s+/);
+      compositionMaterials = parts.map(normalizeJeanMaterial).filter(Boolean);
       compositionStatus = 'ok';
     } else {
       compositionMaterials = rawFeatures.composition_materials || aiData.composition_materials;
@@ -93,6 +124,11 @@ var Normalizer = (function() {
         if (elasthanePercent) compositionMaterials.push('Élasthanne');
         compositionStatus = 'ok';
       }
+    }
+
+    // Build material string from composition if missing
+    if (!material && compositionMaterials && compositionMaterials.length > 0) {
+      material = compositionMaterials.join(', ');
     }
 
     // Rise
@@ -126,6 +162,9 @@ var Normalizer = (function() {
 
     var orderId = uiData.order_id;
 
+    // Condition
+    var condition = uiData.condition || rawFeatures.condition || aiData.condition || null;
+
     var features = {
       brand: brand,
       model: model,
@@ -144,7 +183,8 @@ var Normalizer = (function() {
       sku: sku,
       sku_status: skuStatus,
       order_id: orderId,
-      material: material
+      material: material,
+      condition: condition
     };
 
     return normalizeSizes(features);
@@ -205,6 +245,7 @@ var Normalizer = (function() {
     var isVintage = normalizedBrand == null;
 
     var orderId = uiData.order_id;
+    var condition = uiData.condition || rawFeatures.condition || null;
 
     // Pima cotton detection
     var descText = (aiData.description || '').toLowerCase();
@@ -230,7 +271,8 @@ var Normalizer = (function() {
       sku: sku,
       sku_status: skuStatus,
       order_id: orderId,
-      is_pima: isPima
+      is_pima: isPima,
+      condition: condition
     };
   }
 
@@ -294,6 +336,7 @@ var Normalizer = (function() {
     }
 
     var orderId = uiData.order_id;
+    var condition = uiData.condition || rawFeatures.condition || null;
 
     return {
       brand: brand,
@@ -316,7 +359,8 @@ var Normalizer = (function() {
       is_new_york: isNewYork,
       sku: sku,
       sku_status: skuStatus,
-      order_id: orderId
+      order_id: orderId,
+      condition: condition
     };
   }
 
@@ -393,7 +437,9 @@ var Normalizer = (function() {
     buildFeaturesForJacketCarhart: buildFeaturesForJacketCarhart,
     normalizePullBrand: normalizePullBrand,
     coerceProfileName: coerceProfileName,
-    normalizeSizes: normalizeSizes
+    normalizeSizes: normalizeSizes,
+    zeroPadOrderId: zeroPadOrderId,
+    normalizeJeanMaterial: normalizeJeanMaterial
   };
 
 })();
