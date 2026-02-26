@@ -117,6 +117,21 @@ function generateListing(params) {
       return { error: 'Aucune image selectionnee.' };
     }
 
+    // Valider que les images contiennent effectivement des donnees base64
+    var validImages = [];
+    for (var i = 0; i < imageDataArray.length; i++) {
+      var img = imageDataArray[i];
+      if (img && img.base64 && img.base64.length > 100 && img.mimeType) {
+        validImages.push(img);
+      } else {
+        Logger.log('generateListing: image ' + i + ' ignoree (base64 manquant ou tronque, taille=' + (img && img.base64 ? img.base64.length : 0) + ')');
+      }
+    }
+    if (validImages.length === 0) {
+      return { error: 'Les images ont ete perdues lors du transfert (payload trop volumineux). Reduisez le nombre de photos ou leur resolution, puis reessayez.' };
+    }
+    imageDataArray = validImages;
+
     var apiKey = Config.getGeminiApiKey();
     if (!apiKey) {
       return { error: 'Cle API Gemini non configuree. Ouvrez la configuration (icone engrenage).' };

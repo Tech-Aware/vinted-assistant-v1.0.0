@@ -47,6 +47,13 @@ var GeminiClient = (function() {
       }
     }
 
+    // Log du nombre d'images effectivement ajoutees
+    var imageCount = parts.length - 1; // -1 pour le part texte
+    Logger.log('GeminiClient: ' + imageCount + ' image(s) ajoutee(s) sur ' + imageDataArray.length + ' recue(s)');
+    if (imageCount === 0) {
+      return { error: 'Aucune image valide a envoyer a Gemini. Les donnees base64 sont absentes.' };
+    }
+
     // Appel API avec retry
     var normalizedModel = normalizeModelName_(modelName);
     return callApiWithRetry_(apiKey, normalizedModel, parts);
