@@ -176,12 +176,50 @@ function generateListing(params) {
       features: listing.features,
       sku: listing.sku,
       skuStatus: listing.skuStatus,
+      aiDescription: parsed.description || '',
+      aiDefects: parsed.defects || (parsed.features || {}).defects || null,
       rawText: geminiResult.text
     };
 
   } catch (err) {
     Logger.log('generateListing error: ' + err.message + '\n' + err.stack);
     return { error: 'Erreur inattendue : ' + err.message };
+  }
+}
+
+// ============================================================
+// Correction / reconstruction d'annonce
+// ============================================================
+
+/**
+ * Reconstruit le titre et la description a partir de features corrigees.
+ *
+ * @param {Object} params
+ * @param {string} params.profileName - Profil (jean_levis, pull, jacket_carhart)
+ * @param {Object} params.features - Features corrigees par l'utilisateur
+ * @param {string} params.aiDescription - Description brute de l'IA (pour le template)
+ * @param {string|null} params.aiDefects - Defauts detectes par l'IA
+ * @returns {Object} { success, title, description, features }
+ */
+function rebuildListing(params) {
+  try {
+    var profileName = params.profileName || 'jean_levis';
+    var features = params.features || {};
+    var aiDescription = params.aiDescription || '';
+    var aiDefects = params.aiDefects || null;
+
+    var title = TitleEngine.buildTitle(profileName, features);
+    var description = DescriptionEngine.buildDescription(profileName, features, aiDescription, aiDefects);
+
+    return {
+      success: true,
+      title: title,
+      description: description,
+      features: features
+    };
+  } catch (err) {
+    Logger.log('rebuildListing error: ' + err.message);
+    return { error: 'Erreur reconstruction : ' + err.message };
   }
 }
 

@@ -65,6 +65,18 @@
 
     .error-box { background: #fce4ec; border: 1px solid #ef9a9a; border-radius: 12px; padding: 16px; margin-top: 16px; color: #b71c1c; }
 
+    .correction-section { background: #fff; border: 1px solid #dadce0; border-radius: 12px; padding: 16px; margin-top: 12px; }
+    .correction-section h3 { font-size: 14px; font-weight: 500; color: #1a73e8; margin-bottom: 12px; }
+    .correction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+    .correction-grid .form-group { margin-bottom: 4px; }
+    .correction-grid .form-group label { font-size: 11px; }
+    .correction-grid .form-group input,
+    .correction-grid .form-group select { padding: 6px 10px; font-size: 12px; }
+    .correction-grid .full-width { grid-column: 1 / -1; }
+    .correction-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .btn-warning { background: #e8a100; color: #fff; }
+    .btn-warning:hover:not(:disabled) { background: #c68900; }
+
     .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -144,15 +156,9 @@
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>SKU</label>
-          <input type="text" id="sku" placeholder="ex: JLF123">
-        </div>
-        <div class="form-group">
-          <label>Order ID</label>
-          <input type="text" id="orderId" placeholder="ex: 42">
-        </div>
+      <div class="form-group">
+        <label>Order ID (optionnel)</label>
+        <input type="text" id="orderId" placeholder="ex: 42">
       </div>
 
       <div class="form-group">
@@ -458,7 +464,7 @@
       };
 
       var fields = {
-        size_fr: 'sizeFr', size_us: 'sizeUs', sku: 'sku', order_id: 'orderId',
+        size_fr: 'sizeFr', size_us: 'sizeUs', order_id: 'orderId',
         composition: 'composition', gender: 'gender', fit: 'fit', rise_type: 'riseType',
         price: 'price'
       };
@@ -485,6 +491,52 @@
         .generateListing(params);
     }
 
+    // ==================== Champs editables par profil ====================
+
+    var PROFILE_FIELDS = {
+      jean_levis: [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'model', label: 'Modele', type: 'text'},
+        {key: 'fit', label: 'Coupe', type: 'select', options: [['', 'Auto'], ['Skinny', 'Skinny'], ['Straight/Droit', 'Droite'], ['Bootcut/\u00c9vas\u00e9', 'Evasee']]},
+        {key: 'color', label: 'Couleur', type: 'text'},
+        {key: 'size_fr', label: 'Taille FR', type: 'text'},
+        {key: 'size_us', label: 'Taille US', type: 'text'},
+        {key: 'length', label: 'Longueur', type: 'text'},
+        {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
+        {key: 'rise_type', label: 'Taille (rise)', type: 'select', options: [['', 'Auto'], ['low', 'Basse'], ['mid', 'Moyenne'], ['high', 'Haute']]},
+        {key: 'cotton_percent', label: 'Coton %', type: 'number'},
+        {key: 'elasthane_percent', label: 'Elasthanne %', type: 'number'},
+        {key: 'sku', label: 'SKU', type: 'text'},
+        {key: 'order_id', label: 'Order ID', type: 'text'}
+      ],
+      pull: [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'garment_type', label: 'Type', type: 'select', options: [['Pull', 'Pull'], ['Gilet', 'Gilet']]},
+        {key: 'neckline', label: 'Col', type: 'text'},
+        {key: 'pattern', label: 'Motif', type: 'text'},
+        {key: 'material', label: 'Matiere', type: 'text'},
+        {key: 'main_colors', label: 'Couleurs', type: 'text', isArray: true},
+        {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
+        {key: 'size', label: 'Taille', type: 'text'},
+        {key: 'cotton_percent', label: 'Coton %', type: 'number'},
+        {key: 'wool_percent', label: 'Laine %', type: 'number'},
+        {key: 'sku', label: 'SKU', type: 'text'},
+        {key: 'order_id', label: 'Order ID', type: 'text'}
+      ],
+      jacket_carhart: [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'model', label: 'Modele', type: 'text'},
+        {key: 'size', label: 'Taille', type: 'text'},
+        {key: 'color', label: 'Couleur', type: 'text'},
+        {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
+        {key: 'has_hood', label: 'Capuche', type: 'checkbox'},
+        {key: 'lining', label: 'Doublure', type: 'text'},
+        {key: 'pattern', label: 'Motif', type: 'text'},
+        {key: 'sku', label: 'SKU', type: 'text'},
+        {key: 'order_id', label: 'Order ID', type: 'text'}
+      ]
+    };
+
     // ==================== Resultats ====================
 
     function showResult(result, params) {
@@ -493,7 +545,14 @@
         area.innerHTML = '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(result.error) + '</div>';
         return;
       }
-      area.innerHTML =
+
+      // Stocker les donnees pour correction et log
+      var paramsLight = { profileName: params.profileName, uiData: params.uiData };
+      window._lastResult = result;
+      window._lastParams = paramsLight;
+
+      // Construire le HTML du resultat
+      var html =
         '<div class="result-box">' +
           '<h3>Resultat genere' +
             '<span>' +
@@ -504,14 +563,110 @@
           '<div class="result-title" id="resultTitle">' + escapeHtml(result.title || '') + '</div>' +
           '<hr style="margin:10px 0; border-color:#a5d6a7;">' +
           '<div class="result-desc" id="resultDesc">' + escapeHtml(result.description || '') + '</div>' +
-          '<div class="result-actions">' +
-            '<button class="btn btn-success btn-sm" onclick="saveToSheet()">Enregistrer dans le Sheet de log</button>' +
-          '</div>' +
         '</div>';
-      // Ne pas stocker les images base64 dans _lastParams (trop lourd)
-      var paramsLight = { profileName: params.profileName, uiData: params.uiData };
-      window._lastResult = result;
-      window._lastParams = paramsLight;
+
+      // Section correction des champs
+      var profile = params.profileName || 'jean_levis';
+      var fields = PROFILE_FIELDS[profile] || [];
+      var features = result.features || {};
+
+      html += '<div class="correction-section">' +
+        '<h3>Corriger les champs detectes par l\'IA</h3>' +
+        '<div class="correction-grid">';
+
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        var val = features[f.key];
+        // Gerer les arrays (main_colors)
+        if (f.isArray && Array.isArray(val)) val = val.join(', ');
+        val = (val != null && val !== false) ? String(val) : '';
+
+        if (f.type === 'select') {
+          html += '<div class="form-group"><label>' + f.label + '</label><select id="corr_' + f.key + '">';
+          for (var j = 0; j < f.options.length; j++) {
+            var optVal = f.options[j][0], optLabel = f.options[j][1];
+            var sel = (val === optVal || val.toLowerCase() === optVal.toLowerCase()) ? ' selected' : '';
+            html += '<option value="' + escapeAttr(optVal) + '"' + sel + '>' + escapeHtml(optLabel) + '</option>';
+          }
+          html += '</select></div>';
+        } else if (f.type === 'checkbox') {
+          var checked = (val === 'true' || val === '1') ? ' checked' : '';
+          html += '<div class="form-group"><label>&nbsp;</label>' +
+            '<div class="checkbox-group" style="margin:0;padding-top:4px;">' +
+            '<input type="checkbox" id="corr_' + f.key + '"' + checked + '>' +
+            '<label for="corr_' + f.key + '">' + f.label + '</label></div></div>';
+        } else {
+          var inputType = f.type === 'number' ? 'number' : 'text';
+          html += '<div class="form-group"><label>' + f.label + '</label>' +
+            '<input type="' + inputType + '" id="corr_' + f.key + '" value="' + escapeAttr(val) + '"></div>';
+        }
+      }
+
+      html += '</div>'; // fin correction-grid
+      html += '<div class="correction-actions">' +
+        '<button class="btn btn-warning btn-sm" onclick="applyCorrections()">Appliquer les corrections</button> ' +
+        '<button class="btn btn-success btn-sm" onclick="saveToSheet()">Enregistrer dans le Sheet</button>' +
+        '</div></div>';
+
+      area.innerHTML = html;
+    }
+
+    function applyCorrections() {
+      var profile = (window._lastParams && window._lastParams.profileName) || 'jean_levis';
+      var fields = PROFILE_FIELDS[profile] || [];
+      var features = {};
+
+      // Partir des features actuelles comme base
+      var base = (window._lastResult && window._lastResult.features) || {};
+      for (var k in base) features[k] = base[k];
+
+      // Appliquer les corrections
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        var el = document.getElementById('corr_' + f.key);
+        if (!el) continue;
+
+        if (f.type === 'checkbox') {
+          features[f.key] = el.checked;
+        } else if (f.isArray) {
+          var raw = el.value.trim();
+          features[f.key] = raw ? raw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+        } else if (f.type === 'number') {
+          var num = el.value.trim();
+          features[f.key] = num ? parseFloat(num) : null;
+        } else {
+          features[f.key] = el.value.trim() || null;
+        }
+      }
+
+      var btnCorr = document.querySelector('.correction-actions .btn-warning');
+      if (btnCorr) { btnCorr.disabled = true; btnCorr.innerHTML = '<span class="spinner"></span> Correction...'; }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (btnCorr) { btnCorr.disabled = false; btnCorr.textContent = 'Appliquer les corrections'; }
+          if (result.error) {
+            alert('Erreur: ' + result.error);
+            return;
+          }
+          // Mettre a jour le titre et la description affiches
+          document.getElementById('resultTitle').innerHTML = escapeHtml(result.title || '');
+          document.getElementById('resultDesc').innerHTML = escapeHtml(result.description || '');
+          // Mettre a jour les donnees stockees
+          window._lastResult.title = result.title;
+          window._lastResult.description = result.description;
+          window._lastResult.features = result.features;
+        })
+        .withFailureHandler(function(err) {
+          if (btnCorr) { btnCorr.disabled = false; btnCorr.textContent = 'Appliquer les corrections'; }
+          alert('Erreur: ' + err.message);
+        })
+        .rebuildListing({
+          profileName: profile,
+          features: features,
+          aiDescription: (window._lastResult && window._lastResult.aiDescription) || '',
+          aiDefects: (window._lastResult && window._lastResult.aiDefects) || null
+        });
     }
 
     function showError(msg) {
@@ -554,6 +709,11 @@
       if (!text) return '';
       return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+    }
+
+    function escapeAttr(text) {
+      if (!text) return '';
+      return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
   </script>
 
