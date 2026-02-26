@@ -415,15 +415,23 @@
 
   <script>
     // ==================== Mobile detection (GAS iframe bypass) ====================
+    // window.innerWidth is unreliable inside GAS iframes (reports iframe width,
+    // not device width). Use screen.width + userAgent which reflect the real device.
     (function() {
-      var MOBILE_BREAKPOINT = 768;
-      function checkMobile() {
-        var w = window.innerWidth || document.documentElement.clientWidth || screen.width;
-        document.body.classList.toggle('is-mobile', w <= MOBILE_BREAKPOINT);
+      function isMobileDevice() {
+        var sw = Math.min(screen.width, screen.height);
+        if (sw > 0 && sw <= 768) return true;
+        if (/Mobi|Android|iPhone|iPod/i.test(navigator.userAgent)) return true;
+        return false;
       }
-      if (document.body) checkMobile();
-      else document.addEventListener('DOMContentLoaded', checkMobile);
-      window.addEventListener('resize', checkMobile);
+      function apply() {
+        var mobile = isMobileDevice();
+        document.body.classList.toggle('is-mobile', mobile);
+        document.documentElement.style.overflow = mobile ? 'auto' : '';
+      }
+      if (document.body) apply();
+      else document.addEventListener('DOMContentLoaded', apply);
+      window.addEventListener('resize', apply);
     })();
 
     var MAX_WIDTH = 1024;
