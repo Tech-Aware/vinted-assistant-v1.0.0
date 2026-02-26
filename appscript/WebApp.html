@@ -99,6 +99,11 @@
     .correction-grid .form-group select { padding: 6px 8px; font-size: 12px; }
     .correction-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 
+    /* ===== Correction images strip ===== */
+    .correction-images { display: flex; gap: 6px; padding: 8px 0; overflow-x: auto; border-bottom: 1px solid #e0e0e0; margin-bottom: 10px; }
+    .corr-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s; flex-shrink: 0; }
+    .corr-thumb:hover { border-color: #1a73e8; }
+
     /* ===== Right panel: result ===== */
     .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #9aa0a6; text-align: center; }
     .placeholder .ph-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
@@ -548,7 +553,14 @@
       var features = result.features || {};
       var fields = PROFILE_FIELDS[profile] || [];
       var grid = document.getElementById('correctionGrid');
-      var html = '';
+
+      // Build clickable image strip so user can reference photos while correcting
+      var html = '<div class="correction-images">';
+      for (var j = 0; j < allImages.length; j++) {
+        html += '<img src="' + allImages[j].previewUrl + '" class="corr-thumb" ' +
+          'onclick="openLightbox(' + j + ')" title="' + escapeAttr(allImages[j].name) + '">';
+      }
+      html += '</div>';
 
       for (var i = 0; i < fields.length; i++) {
         var f = fields[i];
