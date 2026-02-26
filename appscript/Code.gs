@@ -2,11 +2,30 @@
  * Vinted Assistant Online - Google Apps Script
  *
  * Point d'entree principal.
- * Deploye en tant que Web App autonome via doGet().
+ * Accessible via le menu Sheets "Vinted Assistant > Lancer l'assistant"
+ * ou en tant que Web App autonome via doGet().
  */
 
 // ============================================================
-// Web App Entry Point
+// Menu Google Sheets
+// ============================================================
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Vinted Assistant')
+    .addItem('Lancer l\'assistant', 'showAssistant')
+    .addToUi();
+}
+
+function showAssistant() {
+  var html = HtmlService.createHtmlOutputFromFile('WebApp')
+    .setWidth(940)
+    .setHeight(700);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Vinted Assistant');
+}
+
+// ============================================================
+// Web App Entry Point (acces par URL)
 // ============================================================
 
 function doGet() {
