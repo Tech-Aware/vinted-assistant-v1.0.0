@@ -10,7 +10,7 @@ var Config = (function() {
   var KEYS = {
     GEMINI_API_KEY: 'GEMINI_API_KEY',
     GEMINI_MODEL: 'GEMINI_MODEL',
-    VISION_API_KEY: 'VISION_API_KEY',
+    LOG_SHEET_ID: 'LOG_SHEET_ID',
     LOG_LEVEL: 'LOG_LEVEL'
   };
 
@@ -38,12 +38,12 @@ var Config = (function() {
       getProps_().setProperty(KEYS.GEMINI_MODEL, model);
     },
 
-    getVisionApiKey: function() {
-      return getProps_().getProperty(KEYS.VISION_API_KEY) || '';
+    getLogSheetId: function() {
+      return getProps_().getProperty(KEYS.LOG_SHEET_ID) || '';
     },
 
-    setVisionApiKey: function(key) {
-      getProps_().setProperty(KEYS.VISION_API_KEY, key);
+    setLogSheetId: function(id) {
+      getProps_().setProperty(KEYS.LOG_SHEET_ID, id);
     },
 
     getLogLevel: function() {
@@ -58,7 +58,7 @@ var Config = (function() {
       return {
         geminiApiKey: this.getGeminiApiKey(),
         geminiModel: this.getGeminiModel(),
-        visionApiKey: this.getVisionApiKey(),
+        logSheetId: this.getLogSheetId(),
         logLevel: this.getLogLevel()
       };
     }

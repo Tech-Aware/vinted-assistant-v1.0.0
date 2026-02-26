@@ -174,14 +174,6 @@ var TextExtractors = (function() {
     return null;
   }
 
-  function extractCarharttCompositionFromOcrStructured(ocrStructured) {
-    return {};
-  }
-
-  function splitCarharttCompositionBlocks(text) {
-    return {};
-  }
-
   return {
     extractModelFromText: extractModelFromText,
     extractFitFromText: extractFitFromText,
@@ -205,9 +197,7 @@ var TextExtractors = (function() {
     extractPatchMaterialFromText: extractPatchMaterialFromText,
     extractCollarFromText: extractCollarFromText,
     extractZipMaterialFromText: extractZipMaterialFromText,
-    extractOriginCountryFromText: extractOriginCountryFromText,
-    extractCarharttCompositionFromOcrStructured: extractCarharttCompositionFromOcrStructured,
-    splitCarharttCompositionBlocks: splitCarharttCompositionBlocks
+    extractOriginCountryFromText: extractOriginCountryFromText
   };
 
 })();

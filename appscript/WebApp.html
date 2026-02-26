@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Google Sans', Roboto, Arial, sans-serif; font-size: 14px; color: #202124; background: #f0f2f5; min-height: 100vh; }
+
+    .header { background: #1a73e8; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header h1 { font-size: 20px; font-weight: 500; }
+    .btn-icon { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .btn-icon:hover { background: rgba(255,255,255,0.3); }
+
+    .container { max-width: 920px; margin: 0 auto; padding: 20px 16px; }
+
+    .section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .section h2 { font-size: 15px; font-weight: 500; color: #1a73e8; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .section h2 .step { background: #1a73e8; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 500; color: #5f6368; margin-bottom: 4px; }
+    .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.1); }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: #1a73e8; }
+    .checkbox-group label { font-size: 13px; color: #3c4043; margin-bottom: 0; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s, opacity 0.2s; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #1a73e8; color: #fff; width: 100%; }
+    .btn-primary:hover:not(:disabled) { background: #1557b0; }
+    .btn-secondary { background: #e8eaed; color: #3c4043; }
+    .btn-secondary:hover:not(:disabled) { background: #d2d6db; }
+    .btn-success { background: #0d652d; color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #0a5024; }
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+    .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 12px 0; }
+    .img-item { position: relative; border-radius: 8px; overflow: hidden; border: 3px solid transparent; cursor: pointer; transition: border-color 0.2s, transform 0.1s; }
+    .img-item:hover { transform: scale(1.02); }
+    .img-item.selected { border-color: #1a73e8; }
+    .img-item img { width: 100%; height: 120px; object-fit: cover; display: block; }
+    .img-item .badge { position: absolute; top: 4px; right: 4px; background: #1a73e8; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+    .img-name { font-size: 10px; text-align: center; padding: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(0,0,0,0.04); }
+
+    .status-bar { font-size: 12px; color: #5f6368; text-align: center; padding: 6px; }
+
+    .result-box { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 12px; padding: 16px; margin-top: 16px; }
+    .result-box h3 { color: #2e7d32; font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+    .result-title { font-size: 16px; font-weight: 500; color: #1b5e20; margin: 8px 0; word-break: break-word; }
+    .result-desc { font-size: 13px; color: #33691e; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; line-height: 1.5; }
+    .result-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    .error-box { background: #fce4ec; border: 1px solid #ef9a9a; border-radius: 12px; padding: 16px; margin-top: 16px; color: #b71c1c; }
+
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .copy-btn { background: none; border: 1px solid #a5d6a7; border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; color: #2e7d32; }
+    .copy-btn:hover { background: #c8e6c9; }
+
+    .config-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 100; }
+    .config-overlay.open { display: flex; align-items: center; justify-content: center; }
+    .config-panel { background: #fff; border-radius: 12px; padding: 24px; width: 90%; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .config-panel h2 { font-size: 18px; font-weight: 500; color: #1a73e8; margin-bottom: 16px; }
+    .config-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+    .config-status { margin-top: 10px; font-size: 12px; padding: 6px 10px; border-radius: 6px; }
+    .config-status.ok { background: #e8f5e9; color: #2e7d32; }
+    .config-status.err { background: #fce4ec; color: #b71c1c; }
+
+    @media (max-width: 600px) {
+      .form-row { flex-direction: column; gap: 0; }
+      .images-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+      .img-item img { height: 90px; }
+      .container { padding: 12px 8px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Vinted Assistant</h1>
+    <button class="btn-icon" onclick="openConfig()" title="Configuration">&#9881;</button>
+  </div>
+
+  <div class="container">
+
+    <!-- Section 1: Dossier Drive -->
+    <div class="section">
+      <h2><span class="step">1</span> Dossier images</h2>
+      <div class="form-group">
+        <label>ID du dossier Google Drive</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="folderId" placeholder="Collez l'ID du dossier Drive ici" style="flex:1;">
+          <button class="btn btn-secondary btn-sm" id="btnLoadImages" onclick="loadImages()">Charger</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Images -->
+    <div class="section" id="imagesSection" style="display:none;">
+      <h2><span class="step">2</span> Selectionner les images</h2>
+      <p style="font-size:12px; color:#5f6368; margin-bottom:8px;">
+        Cliquez sur les images a inclure dans l'analyse IA (bordure bleue = selectionnee)
+      </p>
+      <div class="images-grid" id="imagesGrid"></div>
+      <div class="status-bar" id="imagesStatus"></div>
+    </div>
+
+    <!-- Section 3: Parametres -->
+    <div class="section">
+      <h2><span class="step">3</span> Parametres</h2>
+
+      <div class="form-group">
+        <label>Profil d'analyse</label>
+        <select id="profileName">
+          <option value="jean_levis">Jean Levi's</option>
+          <option value="pull">Pull / Gilet</option>
+          <option value="jacket_carhart">Veste Carhartt</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Taille FR</label>
+          <input type="text" id="sizeFr" placeholder="ex: 40">
+        </div>
+        <div class="form-group">
+          <label>Taille US</label>
+          <input type="text" id="sizeUs" placeholder="ex: W30">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>SKU</label>
+          <input type="text" id="sku" placeholder="ex: JLF123">
+        </div>
+        <div class="form-group">
+          <label>Order ID</label>
+          <input type="text" id="orderId" placeholder="ex: 42">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Composition (manuelle)</label>
+        <input type="text" id="composition" placeholder="ex: Coton, Elasthanne">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Genre</label>
+          <select id="gender">
+            <option value="">Auto (IA)</option>
+            <option value="femme">Femme</option>
+            <option value="homme">Homme</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Coupe (jean)</label>
+          <select id="fit">
+            <option value="">Auto (IA)</option>
+            <option value="skinny">Skinny</option>
+            <option value="droite">Droite</option>
+            <option value="evasee">Evasee</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Taille (rise - jean)</label>
+        <select id="riseType">
+          <option value="">Auto (IA)</option>
+          <option value="basse">Taille basse</option>
+          <option value="moyenne">Taille moyenne</option>
+          <option value="haute">Taille haute</option>
+        </select>
+      </div>
+
+      <hr style="margin:16px 0; border:none; border-top:1px solid #e8eaed;">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Prix (EUR)</label>
+          <input type="number" id="price" placeholder="ex: 25.00" step="0.01" min="0">
+        </div>
+        <div class="form-group" style="display:flex; align-items:flex-end;">
+          <div class="checkbox-group" style="padding-bottom:8px;">
+            <input type="checkbox" id="premium">
+            <label for="premium">Premium</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bouton generation -->
+    <button class="btn btn-primary" id="btnGenerate" onclick="generate()">
+      Generer l'annonce
+    </button>
+
+    <!-- Resultat -->
+    <div id="resultArea"></div>
+  </div>
+
+  <!-- Config overlay -->
+  <div class="config-overlay" id="configOverlay">
+    <div class="config-panel">
+      <h2>Configuration</h2>
+
+      <div class="form-group">
+        <label>Cle API Gemini</label>
+        <input type="password" id="cfgGeminiApiKey" placeholder="AIzaSy...">
+      </div>
+
+      <div class="form-group">
+        <label>Modele Gemini</label>
+        <select id="cfgGeminiModel">
+          <option value="gemini-2.5-flash">gemini-2.5-flash (rapide)</option>
+          <option value="gemini-2.5-pro-preview-05-06">gemini-2.5-pro (precis)</option>
+          <option value="gemini-2.0-flash">gemini-2.0-flash (economique)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>ID du Google Sheet de log (optionnel)</label>
+        <input type="text" id="cfgLogSheetId" placeholder="ID du spreadsheet pour les logs">
+        <small style="font-size:11px; color:#80868b; display:block; margin-top:2px;">
+          Visible dans l'URL du Sheet : docs.google.com/spreadsheets/d/<b>[ID]</b>/edit
+        </small>
+      </div>
+
+      <div id="configStatus"></div>
+
+      <div class="config-actions">
+        <button class="btn btn-secondary btn-sm" onclick="closeConfig()">Annuler</button>
+        <button class="btn btn-primary btn-sm" onclick="saveConfigAction()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var selectedImages = {};
+    var allImages = [];
+
+    // ==================== Config ====================
+
+    function openConfig() {
+      document.getElementById('configOverlay').classList.add('open');
+      google.script.run
+        .withSuccessHandler(function(config) {
+          if (config.geminiApiKey) document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey;
+          if (config.geminiModel) {
+            var sel = document.getElementById('cfgGeminiModel');
+            for (var i = 0; i < sel.options.length; i++) {
+              if (sel.options[i].value === config.geminiModel) { sel.selectedIndex = i; break; }
+            }
+          }
+          if (config.logSheetId) document.getElementById('cfgLogSheetId').value = config.logSheetId;
+        })
+        .getConfig();
+    }
+
+    function closeConfig() {
+      document.getElementById('configOverlay').classList.remove('open');
+      document.getElementById('configStatus').innerHTML = '';
+    }
+
+    function saveConfigAction() {
+      var config = {
+        geminiApiKey: document.getElementById('cfgGeminiApiKey').value.trim(),
+        geminiModel: document.getElementById('cfgGeminiModel').value,
+        logSheetId: document.getElementById('cfgLogSheetId').value.trim()
+      };
+      if (!config.geminiApiKey) {
+        showConfigStatus('Veuillez entrer une cle API Gemini.', 'err');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showConfigStatus('Configuration enregistree !', 'ok');
+            setTimeout(closeConfig, 1200);
+          } else {
+            showConfigStatus('Erreur lors de la sauvegarde.', 'err');
+          }
+        })
+        .withFailureHandler(function(err) {
+          showConfigStatus('Erreur: ' + err.message, 'err');
+        })
+        .saveConfig(config);
+    }
+
+    function showConfigStatus(msg, type) {
+      var el = document.getElementById('configStatus');
+      el.className = 'config-status ' + type;
+      el.textContent = msg;
+    }
+
+    // ==================== Images ====================
+
+    function loadImages() {
+      var folderId = document.getElementById('folderId').value.trim();
+      if (!folderId) { alert('Veuillez entrer un ID de dossier Drive.'); return; }
+
+      var btn = document.getElementById('btnLoadImages');
+      btn.disabled = true;
+      btn.textContent = '...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.textContent = 'Charger';
+          if (result.error) { alert(result.error); return; }
+          allImages = result.images || [];
+          selectedImages = {};
+          renderImages();
+          document.getElementById('imagesSection').style.display = 'block';
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Charger';
+          alert('Erreur: ' + err.message);
+        })
+        .listImagesInFolder(folderId);
+    }
+
+    function renderImages() {
+      var grid = document.getElementById('imagesGrid');
+      grid.innerHTML = '';
+      for (var i = 0; i < allImages.length; i++) {
+        var img = allImages[i];
+        var div = document.createElement('div');
+        div.className = 'img-item' + (selectedImages[img.id] ? ' selected' : '');
+        div.innerHTML =
+          '<img src="' + img.thumbnailUrl + '" alt="' + escapeHtml(img.name) + '">' +
+          (selectedImages[img.id] ? '<span class="badge">AI</span>' : '') +
+          '<div class="img-name">' + escapeHtml(img.name) + '</div>';
+        div.onclick = (function(id) {
+          return function() { toggleImage(id); };
+        })(img.id);
+        grid.appendChild(div);
+      }
+      updateImageStatus();
+    }
+
+    function toggleImage(id) {
+      if (selectedImages[id]) delete selectedImages[id];
+      else selectedImages[id] = true;
+      renderImages();
+    }
+
+    function updateImageStatus() {
+      var count = Object.keys(selectedImages).length;
+      document.getElementById('imagesStatus').textContent = count + ' image(s) selectionnee(s)';
+    }
+
+    // ==================== Generation ====================
+
+    function generate() {
+      var imageFileIds = Object.keys(selectedImages);
+      if (imageFileIds.length === 0) { alert('Selectionnez au moins une image.'); return; }
+
+      var btn = document.getElementById('btnGenerate');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Generation en cours...';
+
+      var params = {
+        imageFileIds: imageFileIds,
+        profileName: document.getElementById('profileName').value,
+        uiData: {}
+      };
+
+      var fields = {
+        size_fr: 'sizeFr', size_us: 'sizeUs', sku: 'sku', order_id: 'orderId',
+        composition: 'composition', gender: 'gender', fit: 'fit', rise_type: 'riseType',
+        price: 'price'
+      };
+      for (var key in fields) {
+        var val = document.getElementById(fields[key]).value.trim();
+        if (val) params.uiData[key] = val;
+      }
+      if (params.uiData.price) {
+        params.uiData.price = parseFloat(params.uiData.price) || 0;
+      }
+      params.uiData.premium = document.getElementById('premium').checked;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.innerHTML = 'Generer l\'annonce';
+          showResult(result, params);
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          btn.innerHTML = 'Generer l\'annonce';
+          showError('Erreur: ' + err.message);
+        })
+        .generateListing(params);
+    }
+
+    // ==================== Resultats ====================
+
+    function showResult(result, params) {
+      var area = document.getElementById('resultArea');
+      if (result.error) {
+        area.innerHTML = '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(result.error) + '</div>';
+        return;
+      }
+      area.innerHTML =
+        '<div class="result-box">' +
+          '<h3>Resultat genere' +
+            '<span>' +
+              '<button class="copy-btn" onclick="copyText(\'resultTitle\')">Copier titre</button> ' +
+              '<button class="copy-btn" onclick="copyText(\'resultDesc\')">Copier description</button>' +
+            '</span>' +
+          '</h3>' +
+          '<div class="result-title" id="resultTitle">' + escapeHtml(result.title || '') + '</div>' +
+          '<hr style="margin:10px 0; border-color:#a5d6a7;">' +
+          '<div class="result-desc" id="resultDesc">' + escapeHtml(result.description || '') + '</div>' +
+          '<div class="result-actions">' +
+            '<button class="btn btn-success btn-sm" onclick="saveToSheet()">Enregistrer dans le Sheet de log</button>' +
+          '</div>' +
+        '</div>';
+      window._lastResult = result;
+      window._lastParams = params;
+    }
+
+    function showError(msg) {
+      document.getElementById('resultArea').innerHTML =
+        '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(msg) + '</div>';
+    }
+
+    function copyText(elementId) {
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      var text = el.textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    }
+
+    function saveToSheet() {
+      if (!window._lastResult) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.error) alert('Erreur: ' + res.error);
+          else alert('Enregistre a la ligne ' + res.row + ' !');
+        })
+        .withFailureHandler(function(err) {
+          alert('Erreur: ' + err.message);
+        })
+        .logGenerationToSheet(window._lastResult, window._lastParams);
+    }
+
+    // ==================== Utils ====================
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+    }
+  </script>
+
+</body>
+</html>

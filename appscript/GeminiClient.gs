@@ -18,13 +18,11 @@ var GeminiClient = (function() {
    * @param {string[]} imageFileIds - IDs des fichiers images Drive
    * @param {Object} profile - Profil d'analyse (de Templates)
    * @param {Object} uiData - Donnees UI
-   * @param {string} ocrText - Texte OCR (optionnel)
    * @returns {Object} { text: string } ou { error: string }
    */
-  function generateContent(apiKey, modelName, imageFileIds, profile, uiData, ocrText) {
+  function generateContent(apiKey, modelName, imageFileIds, profile, uiData) {
     // Construire le prompt
-    var promptTemplate = Prompt.getPromptContract() + '\n\n' + profile.promptSuffix;
-    var fullPrompt = promptTemplate.replace('{OCR_TEXT}', ocrText || '');
+    var fullPrompt = Prompt.getPromptContract() + '\n\n' + profile.promptSuffix;
 
     // Ajouter le mode de mesure si fourni
     var measurementMode = (uiData || {}).measurement_mode || (uiData || {}).measurementMode;

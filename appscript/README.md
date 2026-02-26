@@ -1,13 +1,13 @@
 # Vinted Assistant Online - Google Apps Script
 
-Version Google Apps Script de Vinted Assistant. Fonctionne directement depuis Google Sheets, sans installation locale.
+Application web autonome pour generer des annonces Vinted a partir de photos. Deployee via Google Apps Script, accessible par un simple lien URL partageable.
 
 ## Architecture
 
 ```
 appscript/
-  appsscript.json          # Manifeste Apps Script
-  Code.gs                  # Point d'entree, menu, fonctions globales
+  appsscript.json          # Manifeste Apps Script (webapp + scopes)
+  Code.gs                  # Point d'entree doGet(), generation, logging
   Config.gs                # Configuration via Script Properties
   GeminiClient.gs          # Client API Gemini (UrlFetchApp)
   Prompt.gs                # Contrat de prompt IA
@@ -21,61 +21,121 @@ appscript/
   TextExtractors.gs        # Extraction de texte (modele, coupe, couleur, etc.)
   Validator.gs             # Validation SKU et listings
   JsonUtils.gs             # Parsing JSON robuste
-  OCR.gs                   # OCR via Google Cloud Vision REST API
-  Sidebar.html             # Interface utilisateur (panneau lateral)
-  ConfigDialog.html        # Dialogue de configuration
+  WebApp.html              # Interface utilisateur (page web complete)
 ```
 
-## Installation
+## Installation et deploiement
 
 ### 1. Creer le projet Apps Script
 
-1. Ouvrez un Google Sheets
-2. Menu **Extensions > Apps Script**
-3. Supprimez le contenu par defaut de `Code.gs`
+1. Allez sur [script.google.com](https://script.google.com/)
+2. Cliquez **Nouveau projet**
+3. Renommez-le "Vinted Assistant"
 
 ### 2. Copier les fichiers
 
-Copiez le contenu de chaque fichier `.gs` dans un nouveau fichier Apps Script :
-- Cliquez sur **+** a cote de "Fichiers" dans l'editeur Apps Script
-- Selectionnez **Script** pour les fichiers `.gs`
-- Selectionnez **HTML** pour les fichiers `.html`
-- Nommez chaque fichier comme dans ce dossier (sans l'extension `.gs`)
+Copiez le contenu de chaque fichier dans un nouveau fichier Apps Script :
 
-Fichiers a creer :
-- **Scripts (.gs)** : Code, Config, GeminiClient, Prompt, Models, Templates, Normalizer, TitleEngine, TitleBuilder, DescriptionEngine, DescriptionBuilder, TextExtractors, Validator, JsonUtils, OCR
-- **HTML** : Sidebar, ConfigDialog
+**Scripts (.gs)** — Cliquez **+** > **Script** pour chacun :
+
+| # | Nom (sans .gs) | Fichier source |
+|---|----------------|----------------|
+| 1 | `Code` | Code.gs (remplacer le contenu existant) |
+| 2 | `Config` | Config.gs |
+| 3 | `GeminiClient` | GeminiClient.gs |
+| 4 | `Prompt` | Prompt.gs |
+| 5 | `Models` | Models.gs |
+| 6 | `Templates` | Templates.gs |
+| 7 | `Normalizer` | Normalizer.gs |
+| 8 | `TitleEngine` | TitleEngine.gs |
+| 9 | `TitleBuilder` | TitleBuilder.gs |
+| 10 | `DescriptionEngine` | DescriptionEngine.gs |
+| 11 | `DescriptionBuilder` | DescriptionBuilder.gs |
+| 12 | `TextExtractors` | TextExtractors.gs |
+| 13 | `Validator` | Validator.gs |
+| 14 | `JsonUtils` | JsonUtils.gs |
+
+**HTML** — Cliquez **+** > **HTML** :
+
+| # | Nom (sans .html) | Fichier source |
+|---|------------------|----------------|
+| 1 | `WebApp` | WebApp.html |
 
 ### 3. Configurer le manifeste
 
-1. Dans l'editeur Apps Script, cliquez sur **Parametres du projet** (icone engrenage)
+1. Cliquez **Parametres du projet** (icone engrenage dans la barre laterale)
 2. Cochez **Afficher le fichier manifeste "appsscript.json"**
-3. Remplacez le contenu de `appsscript.json` par celui de ce dossier
+3. Revenez dans l'editeur, ouvrez `appsscript.json`
+4. Remplacez tout le contenu par celui de `appscript/appsscript.json`
+5. Sauvegardez (Ctrl+S)
 
-### 4. Configurer les cles API
+### 4. Deployer en tant que Web App
 
-1. Rechargez votre Google Sheets
-2. Un menu **Vinted Assistant** apparait
-3. Cliquez sur **Vinted Assistant > Configuration**
-4. Entrez votre cle API Gemini (obligatoire)
-5. Optionnel : entrez votre cle API Cloud Vision (pour l'OCR)
+1. Cliquez **Deployer** > **Nouveau deploiement**
+2. A cote de "Type", cliquez l'icone engrenage et selectionnez **Application Web**
+3. Remplissez :
+   - **Description** : "Vinted Assistant v1.0"
+   - **Executer en tant que** : **Moi**
+   - **Qui a acces** : **Toute personne disposant du lien**
+4. Cliquez **Deployer**
+5. **Autorisez le script** quand Google le demande :
+   - Cliquez "Examiner les autorisations"
+   - Choisissez votre compte Google
+   - "Avancees" > "Acceder a Vinted Assistant (non securise)"
+   - "Autoriser"
+6. **Copiez l'URL** de la web app — c'est le lien a partager !
 
-### 5. Preparer les images
+### 5. Premiere utilisation
+
+1. Ouvrez l'URL de la web app dans votre navigateur
+2. Cliquez l'icone **engrenage** en haut a droite
+3. Entrez votre **cle API Gemini** (obligatoire)
+4. Optionnel : entrez l'**ID du Google Sheet** pour les logs
+5. Cliquez **Enregistrer**
+
+### 6. Preparer les images
 
 1. Creez un dossier dans Google Drive
-2. Uploadez vos photos du vetement dans ce dossier
+2. Uploadez les photos du vetement dans ce dossier
 3. Copiez l'ID du dossier (visible dans l'URL : `https://drive.google.com/drive/folders/[ID_ICI]`)
 
 ## Utilisation
 
-1. Ouvrez le panneau : **Vinted Assistant > Ouvrir le panneau**
-2. Collez l'ID du dossier Drive et cliquez **Charger les images**
-3. **Clic** sur une image = la selectionner pour l'analyse IA
-4. **Double-clic** = la marquer pour l'OCR (bordure jaune)
-5. Selectionnez le profil d'analyse
-6. Remplissez les champs optionnels (taille FR/US, SKU, etc.)
-7. Cliquez **Generer l'annonce**
-8. Copiez le titre et la description, ou enregistrez dans la feuille
+1. Ouvrez l'URL de la web app
+2. Collez l'ID du dossier Drive et cliquez **Charger**
+3. Cliquez sur les images a inclure dans l'analyse IA (bordure bleue)
+4. Selectionnez le profil d'analyse
+5. Remplissez les champs optionnels (taille, SKU, prix, premium...)
+6. Cliquez **Generer l'annonce**
+7. Copiez le titre et la description
+8. Optionnel : cliquez **Enregistrer dans le Sheet de log**
+
+## Logging dans Google Sheets
+
+Si un ID de Sheet est configure, chaque generation peut etre loguee avec ces colonnes :
+
+| Colonne | Description |
+|---------|-------------|
+| Date | Date/heure de la generation |
+| Profil | Profil d'analyse utilise |
+| Type article | Jean, Pull, Veste... |
+| Marque | Marque detectee |
+| Modele | Modele detecte |
+| Taille FR | Taille francaise |
+| Taille US | Taille americaine |
+| Couleur | Couleur principale |
+| Matiere | Matiere principale |
+| Coupe | Coupe (pour les jeans) |
+| Genre | Homme / Femme |
+| Prix | Prix saisi manuellement |
+| Premium | Oui / Non |
+| SKU | Code produit interne |
+| Order ID | ID de commande |
+| Etat | Etat du vetement |
+| Titre | Titre genere |
+| Description | Description generee |
+
+Les en-tetes sont crees automatiquement dans un onglet "Logs".
 
 ## Profils disponibles
 
@@ -85,19 +145,21 @@ Fichiers a creer :
 | `pull` | Pull / Gilet (Tommy Hilfiger, vintage, etc.) |
 | `jacket_carhart` | Veste Carhartt (modele, doublure, composition) |
 
-## Differences avec la version desktop
+## Partager avec vos collegues
 
-| Aspect | Desktop (Python) | Apps Script |
-|--------|-----------------|-------------|
-| Runtime | Python 3.10+ | Google Apps Script (V8) |
-| UI | CustomTkinter | Google Sheets + sidebar HTML |
-| Images | Fichiers locaux | Google Drive |
-| Config | Fichier .env | Script Properties |
-| API Gemini | google-genai SDK | UrlFetchApp REST |
-| OCR | google-cloud-vision SDK | Cloud Vision REST API |
-| Extension Chrome | Oui (browser_bridge) | Non (copier/coller) |
-| Threading | ThreadPoolExecutor | Single-threaded |
-| Limite | Aucune | 6 min par execution |
+Envoyez simplement l'URL de la web app. Vos collegues pourront l'utiliser depuis n'importe quel navigateur, quel que soit leur OS (Windows, Mac, Linux, mobile).
+
+> **Note** : les collegues utilisent votre cle API Gemini (car le script s'execute en tant que vous). Ils n'ont rien a configurer de leur cote.
+
+## Mettre a jour l'application
+
+Apres une modification du code :
+1. Cliquez **Deployer** > **Gerer les deploiements**
+2. Cliquez l'icone **crayon** sur le deploiement actif
+3. Changez la version en **Nouveau version**
+4. Cliquez **Deployer**
+
+L'URL reste la meme, vos collegues verront la mise a jour automatiquement.
 
 ## Limites Apps Script
 
@@ -107,14 +169,8 @@ Fichiers a creer :
 - **Taille max** : 50 MB par requete UrlFetchApp
 - **Quotas** : limites quotidiennes sur UrlFetchApp (20 000 appels/jour)
 
-## Obtenir les cles API
+## Obtenir la cle API Gemini
 
-### Gemini API
 1. Allez sur [AI Studio](https://aistudio.google.com/app/apikey)
 2. Cliquez "Create API key"
-3. Copiez la cle
-
-### Cloud Vision API (optionnel)
-1. Allez sur [Google Cloud Console](https://console.cloud.google.com/)
-2. Activez l'API Cloud Vision
-3. Creez une cle API dans "Identifiants"
+3. Copiez la cle (commence par `AIzaSy...`)

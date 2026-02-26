@@ -2,54 +2,21 @@
  * Vinted Assistant Online - Google Apps Script
  *
  * Point d'entree principal.
- * Ajoute un menu personnalise a Google Sheets et gere les interactions UI.
+ * Deploye en tant que Web App autonome via doGet().
  */
 
 // ============================================================
-// Menu & UI
+// Web App Entry Point
 // ============================================================
 
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('Vinted Assistant')
-    .addItem('Ouvrir le panneau', 'showSidebar')
-    .addItem('Configuration', 'showConfigDialog')
-    .addSeparator()
-    .addItem('Aide', 'showHelp')
-    .addToUi();
-}
-
-function showSidebar() {
-  var html = HtmlService.createHtmlOutputFromFile('Sidebar')
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('WebApp')
     .setTitle('Vinted Assistant')
-    .setWidth(420);
-  SpreadsheetApp.getUi().showSidebar(html);
-}
-
-function showConfigDialog() {
-  var html = HtmlService.createHtmlOutputFromFile('ConfigDialog')
-    .setTitle('Configuration')
-    .setWidth(400)
-    .setHeight(300);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Configuration Vinted Assistant');
-}
-
-function showHelp() {
-  var ui = SpreadsheetApp.getUi();
-  ui.alert(
-    'Vinted Assistant - Aide',
-    '1. Configurez votre cle API Gemini via le menu Configuration.\n' +
-    '2. Placez vos images dans un dossier Google Drive.\n' +
-    '3. Ouvrez le panneau lateral et selectionnez vos images.\n' +
-    '4. Choisissez un profil d\'analyse et lancez la generation.\n' +
-    '5. Le titre et la description seront generes automatiquement.\n\n' +
-    'Profils disponibles : Jean Levi\'s, Pull Tommy, Veste Carhartt',
-    ui.ButtonSet.OK
-  );
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 // ============================================================
-// Configuration (appelees depuis les dialogs HTML)
+// Configuration (appelees depuis le HTML)
 // ============================================================
 
 function getConfig() {
@@ -59,14 +26,14 @@ function getConfig() {
 function saveConfig(config) {
   Config.setGeminiApiKey(config.geminiApiKey || '');
   Config.setGeminiModel(config.geminiModel || '');
-  if (config.visionApiKey) {
-    Config.setVisionApiKey(config.visionApiKey);
+  if (config.logSheetId !== undefined) {
+    Config.setLogSheetId(config.logSheetId || '');
   }
   return { success: true };
 }
 
 // ============================================================
-// Generation d'annonce (appelee depuis la sidebar)
+// Generation d'annonce (appelee depuis le HTML)
 // ============================================================
 
 /**
@@ -74,15 +41,13 @@ function saveConfig(config) {
  *
  * @param {Object} params
  * @param {string[]} params.imageFileIds - IDs des fichiers images dans Drive
- * @param {string[]} params.ocrImageFileIds - IDs des images pour OCR
  * @param {string} params.profileName - Nom du profil (jean_levis, pull, jacket_carhart)
- * @param {Object} params.uiData - Donnees saisies manuellement (tailles, SKU, etc.)
+ * @param {Object} params.uiData - Donnees saisies manuellement (tailles, SKU, prix, premium, etc.)
  * @returns {Object} Resultat avec title, description, features, etc.
  */
 function generateListing(params) {
   try {
     var imageFileIds = params.imageFileIds || [];
-    var ocrImageFileIds = params.ocrImageFileIds || [];
     var profileName = params.profileName || 'jean_levis';
     var uiData = params.uiData || {};
 
@@ -92,7 +57,7 @@ function generateListing(params) {
 
     var apiKey = Config.getGeminiApiKey();
     if (!apiKey) {
-      return { error: 'Cle API Gemini non configuree. Allez dans Vinted Assistant > Configuration.' };
+      return { error: 'Cle API Gemini non configuree. Ouvrez la configuration (icone engrenage).' };
     }
 
     var modelName = Config.getGeminiModel() || 'gemini-2.5-flash';
@@ -101,30 +66,13 @@ function generateListing(params) {
       return { error: 'Profil d\'analyse inconnu : ' + profileName };
     }
 
-    // OCR (optionnel)
-    var ocrText = '';
-    if (ocrImageFileIds.length > 0) {
-      try {
-        var visionApiKey = Config.getVisionApiKey();
-        if (visionApiKey) {
-          ocrText = OCR.extractTextFromDriveFiles(ocrImageFileIds, visionApiKey);
-          Logger.log('OCR: ' + ocrText.length + ' caracteres extraits');
-        } else {
-          Logger.log('OCR ignore : cle API Vision non configuree');
-        }
-      } catch (ocrErr) {
-        Logger.log('OCR erreur (non bloquante) : ' + ocrErr.message);
-      }
-    }
-
     // Appel Gemini
     var geminiResult = GeminiClient.generateContent(
       apiKey,
       modelName,
       imageFileIds,
       profile,
-      uiData,
-      ocrText
+      uiData
     );
 
     if (geminiResult.error) {
@@ -153,8 +101,7 @@ function generateListing(params) {
     }
 
     // Normalisation + post-traitement
-    var profileEnum = profileName;
-    var normalized = Normalizer.normalizeAndPostprocess(parsed, profileEnum, uiData);
+    var normalized = Normalizer.normalizeAndPostprocess(parsed, profileName, uiData);
 
     // Construire le resultat final
     var listing = Models.createListing(normalized);
@@ -177,7 +124,7 @@ function generateListing(params) {
 }
 
 // ============================================================
-// Utilitaires Drive (appelees depuis la sidebar)
+// Utilitaires Drive (appelees depuis le HTML)
 // ============================================================
 
 /**
@@ -214,23 +161,89 @@ function listImagesInFolder(folderId) {
   }
 }
 
-/**
- * Ecrit le resultat dans la feuille active.
- */
-function writeResultToSheet(result) {
-  try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var lastRow = sheet.getLastRow();
-    var newRow = lastRow + 1;
+// ============================================================
+// Logging dans Google Sheets
+// ============================================================
 
-    sheet.getRange(newRow, 1).setValue(result.title || '');
-    sheet.getRange(newRow, 2).setValue(result.description || '');
-    sheet.getRange(newRow, 3).setValue(result.brand || '');
-    sheet.getRange(newRow, 4).setValue(result.sku || '');
-    sheet.getRange(newRow, 5).setValue(new Date());
+var LOG_HEADERS = [
+  'Date', 'Profil', 'Type article', 'Marque', 'Modele',
+  'Taille FR', 'Taille US', 'Couleur', 'Matiere', 'Coupe',
+  'Genre', 'Prix', 'Premium', 'SKU', 'Order ID',
+  'Etat', 'Titre', 'Description'
+];
+
+/**
+ * Logue le resultat d'une generation dans le Google Sheet configure.
+ *
+ * @param {Object} result - Resultat de generateListing()
+ * @param {Object} params - Parametres originaux (profileName, uiData)
+ * @returns {Object} { success: true, row: number } ou { error: string }
+ */
+function logGenerationToSheet(result, params) {
+  try {
+    var sheetId = Config.getLogSheetId();
+    if (!sheetId) {
+      return { error: 'ID du Google Sheet de log non configure. Ouvrez la configuration.' };
+    }
+
+    var spreadsheet = SpreadsheetApp.openById(sheetId);
+    var sheet = spreadsheet.getSheetByName('Logs') || spreadsheet.insertSheet('Logs');
+
+    // Creer les en-tetes si la feuille est vide
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
+      sheet.getRange(1, 1, 1, LOG_HEADERS.length).setFontWeight('bold');
+    }
+
+    var features = result.features || {};
+    var uiData = (params && params.uiData) || {};
+    var profileName = (params && params.profileName) || '';
+
+    // Determiner le type d'article
+    var articleType = features.garment_type || '';
+    if (!articleType) {
+      if (profileName === 'jean_levis') articleType = 'Jean';
+      else if (profileName === 'pull') articleType = 'Pull';
+      else if (profileName === 'jacket_carhart') articleType = 'Veste';
+    }
+
+    // Taille FR : selon le profil
+    var tailleFr = features.size_fr || features.size || '';
+    var tailleUs = features.size_us || '';
+
+    // Couleur : peut etre un string ou un array
+    var couleur = features.color || '';
+    if (!couleur && features.main_colors && features.main_colors.length > 0) {
+      couleur = features.main_colors.join(', ');
+    }
+
+    var row = [
+      new Date(),
+      profileName,
+      articleType,
+      features.brand || result.brand || '',
+      features.model || '',
+      tailleFr,
+      tailleUs,
+      couleur,
+      features.material || '',
+      features.fit || '',
+      features.gender || '',
+      uiData.price || '',
+      uiData.premium ? 'Oui' : 'Non',
+      features.sku || result.sku || '',
+      features.order_id || uiData.order_id || '',
+      features.condition || '',
+      result.title || '',
+      result.description || ''
+    ];
+
+    var newRow = sheet.getLastRow() + 1;
+    sheet.getRange(newRow, 1, 1, row.length).setValues([row]);
 
     return { success: true, row: newRow };
   } catch (err) {
-    return { error: 'Erreur ecriture : ' + err.message };
+    Logger.log('logGenerationToSheet error: ' + err.message);
+    return { error: 'Erreur ecriture log : ' + err.message };
   }
 }
