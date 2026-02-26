@@ -64,13 +64,26 @@
 
     /* ===== Images grid (compact) ===== */
     .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; margin: 8px 0; }
-    .img-item { position: relative; border-radius: 6px; overflow: hidden; border: 2px solid transparent; cursor: pointer; transition: border-color 0.2s; }
-    .img-item.selected { border-color: #1a73e8; }
+    .img-item { position: relative; border-radius: 6px; overflow: hidden; border: 2px solid #e0e0e0; cursor: pointer; transition: border-color 0.2s, transform 0.1s; }
+    .img-item:hover { border-color: #1a73e8; transform: scale(1.03); }
     .img-item img { width: 100%; height: 70px; object-fit: cover; display: block; }
-    .img-item .badge { position: absolute; top: 2px; right: 2px; background: #1a73e8; color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 500; }
     .img-item .remove-btn { position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
     .img-item:hover .remove-btn { opacity: 1; }
+    .img-item .zoom-hint { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.45); color: #fff; font-size: 9px; text-align: center; padding: 2px 0; opacity: 0; transition: opacity 0.2s; }
+    .img-item:hover .zoom-hint { opacity: 1; }
     .status-bar { font-size: 11px; color: #5f6368; text-align: center; padding: 4px; }
+
+    /* ===== Image lightbox ===== */
+    .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; flex-direction: column; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 92vw; max-height: 85vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 32px rgba(0,0,0,0.5); }
+    .lightbox-close { position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.15); border: none; color: #fff; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 22px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .lightbox-close:hover { background: rgba(255,255,255,0.3); }
+    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); border: none; color: #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }
+    .lightbox-nav.prev { left: 16px; }
+    .lightbox-nav.next { right: 16px; }
+    .lightbox-counter { color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 10px; }
 
     /* ===== Correction grid ===== */
     .correction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
@@ -338,12 +351,21 @@
     </div>
   </div>
 
+  <!-- Image lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <button class="lightbox-nav prev" onclick="lightboxNav(-1)">&#8249;</button>
+    <button class="lightbox-nav next" onclick="lightboxNav(1)">&#8250;</button>
+    <img id="lightboxImg" src="" alt="">
+    <div class="lightbox-counter" id="lightboxCounter"></div>
+  </div>
+
   <script>
     var MAX_WIDTH = 1024;
     var JPEG_QUALITY = 0.75;
 
     var allImages = [];
-    var selectedIndexes = {};
+    var lightboxIndex = -1;
 
     // ==================== Config ====================
 
@@ -422,9 +444,7 @@
       }
       Promise.all(promises).then(function(results) {
         for (var i = 0; i < results.length; i++) {
-          var idx = allImages.length;
           allImages.push(results[i]);
-          selectedIndexes[idx] = true;
         }
         document.getElementById('imagesSection').style.display = 'block';
         renderImages();
@@ -462,15 +482,15 @@
       for (var i = 0; i < allImages.length; i++) {
         var img = allImages[i];
         var div = document.createElement('div');
-        div.className = 'img-item' + (selectedIndexes[i] ? ' selected' : '');
+        div.className = 'img-item';
         div.innerHTML =
           '<button class="remove-btn" data-idx="' + i + '" title="Supprimer">&times;</button>' +
           '<img src="' + img.previewUrl + '" alt="' + escapeHtml(img.name) + '">' +
-          (selectedIndexes[i] ? '<span class="badge">AI</span>' : '');
+          '<div class="zoom-hint">Zoom</div>';
         div.onclick = (function(idx) {
           return function(e) {
             if (e.target.classList.contains('remove-btn')) return;
-            toggleImage(idx);
+            openLightbox(idx);
           };
         })(i);
         div.querySelector('.remove-btn').onclick = (function(idx) {
@@ -481,35 +501,53 @@
         })(i);
         grid.appendChild(div);
       }
-      updateImageStatus();
-    }
-
-    function toggleImage(idx) {
-      if (selectedIndexes[idx]) delete selectedIndexes[idx];
-      else selectedIndexes[idx] = true;
-      renderImages();
+      document.getElementById('imagesStatus').textContent =
+        allImages.length + ' image(s) ajoutee(s)';
     }
 
     function removeImage(idx) {
       allImages.splice(idx, 1);
-      var newSelected = {};
-      for (var key in selectedIndexes) {
-        var k = parseInt(key);
-        if (k < idx) newSelected[k] = true;
-        else if (k > idx) newSelected[k - 1] = true;
-      }
-      selectedIndexes = newSelected;
       renderImages();
       if (allImages.length === 0) {
         document.getElementById('imagesSection').style.display = 'none';
       }
     }
 
-    function updateImageStatus() {
-      var count = Object.keys(selectedIndexes).length;
-      document.getElementById('imagesStatus').textContent =
-        count + ' / ' + allImages.length + ' image(s) selectionnee(s)';
+    // ==================== Lightbox ====================
+
+    function openLightbox(idx) {
+      lightboxIndex = idx;
+      var lb = document.getElementById('lightbox');
+      document.getElementById('lightboxImg').src = allImages[idx].previewUrl;
+      document.getElementById('lightboxCounter').textContent =
+        (idx + 1) + ' / ' + allImages.length;
+      lb.classList.add('open');
     }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      lightboxIndex = -1;
+    }
+
+    function lightboxNav(dir) {
+      if (allImages.length === 0) return;
+      lightboxIndex = (lightboxIndex + dir + allImages.length) % allImages.length;
+      document.getElementById('lightboxImg').src = allImages[lightboxIndex].previewUrl;
+      document.getElementById('lightboxCounter').textContent =
+        (lightboxIndex + 1) + ' / ' + allImages.length;
+    }
+
+    // Close lightbox on Escape, navigate with arrow keys
+    document.addEventListener('keydown', function(e) {
+      if (!document.getElementById('lightbox').classList.contains('open')) return;
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft') lightboxNav(-1);
+      else if (e.key === 'ArrowRight') lightboxNav(1);
+    });
+    // Close lightbox on backdrop click
+    document.getElementById('lightbox').addEventListener('click', function(e) {
+      if (e.target === this) closeLightbox();
+    });
 
     // ==================== Phase switching ====================
 
@@ -559,18 +597,10 @@
     // ==================== Generation ====================
 
     function generate() {
-      var imageDataArray = [];
-      for (var key in selectedIndexes) {
-        var idx = parseInt(key);
-        if (allImages[idx]) {
-          imageDataArray.push({
-            base64: allImages[idx].base64,
-            mimeType: allImages[idx].mimeType,
-            name: allImages[idx].name
-          });
-        }
-      }
-      if (imageDataArray.length === 0) { alert('Selectionnez au moins une image.'); return; }
+      if (allImages.length === 0) { alert('Ajoutez au moins une image.'); return; }
+      var imageDataArray = allImages.map(function(img) {
+        return { base64: img.base64, mimeType: img.mimeType, name: img.name };
+      });
 
       var btn = document.getElementById('btnGenerate');
       btn.disabled = true;
