@@ -35,13 +35,18 @@ function launchAssistant() {
     return;
   }
   var html = HtmlService.createHtmlOutput(
-    '<html><body>' +
-    '<p style="font-family:Google Sans,Roboto,sans-serif;font-size:14px;">' +
-    'Ouverture de Vinted Assistant...' +
-    '</p>' +
-    '<script>window.open("' + url + '", "_blank");google.script.host.close();</script>' +
+    '<html><head><style>' +
+    'body{font-family:Google Sans,Roboto,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;margin:0;padding:16px;box-sizing:border-box;}' +
+    '.btn{display:inline-block;padding:10px 28px;background:#09B1BA;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;border:none;transition:background .2s;}' +
+    '.btn:hover{background:#078a91;}' +
+    '.hint{font-size:12px;color:#888;margin-top:10px;}' +
+    '</style></head><body>' +
+    '<a class="btn" href="' + url + '" target="_blank" ' +
+    'onclick="setTimeout(function(){google.script.host.close()},500);">' +
+    'Ouvrir Vinted Assistant</a>' +
+    '<p class="hint">Cliquez le bouton pour ouvrir l\'assistant dans un nouvel onglet.</p>' +
     '</body></html>'
-  ).setWidth(300).setHeight(80);
+  ).setWidth(340).setHeight(130);
   SpreadsheetApp.getUi().showModalDialog(html, 'Vinted Assistant');
 }
 
