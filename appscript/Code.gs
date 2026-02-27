@@ -248,7 +248,7 @@ function rebuildListing(params) {
 // ============================================================
 
 var LOG_HEADERS = [
-  'Date', 'Profil', 'Type article', 'Marque', 'Modele',
+  'Date', 'Profil', 'Type article', 'Marque', 'Modele', 'Premium',
   'Taille FR', 'Taille US', 'Couleur', 'Matiere', 'Coupe',
   'Genre', 'Prix', 'Etat', 'SKU'
 ];
@@ -319,6 +319,7 @@ function logGenerationToSheet(result, params) {
       articleType,
       features.brand || result.brand || '',
       features.model || '',
+      features.is_premium ? true : false,
       tailleFr,
       tailleUs,
       couleur,
