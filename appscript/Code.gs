@@ -250,7 +250,7 @@ function rebuildListing(params) {
 var LOG_HEADERS = [
   'Date', 'Profil', 'Type article', 'Marque', 'Modele',
   'Taille FR', 'Taille US', 'Couleur', 'Matiere', 'Coupe',
-  'Genre', 'Prix', 'SKU', 'Etat', 'Titre', 'Description'
+  'Genre', 'Prix', 'Etat', 'SKU'
 ];
 
 /**
@@ -326,10 +326,8 @@ function logGenerationToSheet(result, params) {
       features.fit || '',
       features.gender || '',
       uiData.price || '',
-      skuForLog,
       features.condition || '',
-      result.title || '',
-      result.description || ''
+      skuForLog
     ];
 
     var newRow = sheet.getLastRow() + 1;

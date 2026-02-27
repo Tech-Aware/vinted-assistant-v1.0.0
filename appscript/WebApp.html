@@ -826,6 +826,19 @@
         .generateListing(params);
     }
 
+    // Touche Entree pour lancer la generation
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        var tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'textarea') return;
+        var btn = document.getElementById('btnGenerate');
+        if (btn && !btn.disabled) {
+          e.preventDefault();
+          generate();
+        }
+      }
+    });
+
     // ==================== Champs editables par profil ====================
 
     var CONDITION_OPTIONS = [['', '(non defini)'], ['tres bon etat', 'Tres bon etat'], ['bon etat', 'Bon etat'], ['neuf', 'Neuf'], ['satisfaisant', 'Satisfaisant']];
