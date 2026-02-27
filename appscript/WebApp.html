@@ -830,7 +830,7 @@
 
     var CONDITION_OPTIONS = [['', '(non defini)'], ['tres bon etat', 'Tres bon etat'], ['bon etat', 'Bon etat'], ['neuf', 'Neuf'], ['satisfaisant', 'Satisfaisant']];
 
-    var JEAN_MATERIALS = ['Coton', 'Spandex', 'Élasthanne', 'Polyester', 'Viscose', 'Lin', 'Lyocell', 'Nylon'];
+    var JEAN_MATERIALS = ['Coton', 'Élasthanne', 'Viscose', 'Lyocell', 'Polyester', 'Lin', 'Spandex', 'Nylon'];
 
     var PROFILE_FIELDS = {
       jean_levis: [
@@ -988,7 +988,7 @@
     function copyText(elementId, btn) {
       var el = document.getElementById(elementId);
       if (!el) return;
-      var text = el.textContent;
+      var text = el.innerText;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(function() {
           if (btn) showCopied(btn);

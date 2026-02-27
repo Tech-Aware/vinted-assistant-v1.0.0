@@ -104,7 +104,7 @@ var Prompt = (function() {
     '- "neckline": Type de col si visible.',
     '- "season": Saison d\'usage principale.',
     '- "defects": Description des defauts visibles.',
-    '- "composition_materials": Array of material names EXACTLY as written on the composition label (e.g. ["Coton", "Spandex"]). Do NOT translate or normalize: if the label says "spandex", return "Spandex", not "Élasthanne". Use French names only if the label is in French.',
+    '- "composition_materials": Array of material names from the composition label. Allowed values: "Coton", "Élasthanne", "Viscose", "Lyocell", "Polyester", "Lin", "Spandex", "Nylon". Map any synonym to the closest allowed value (e.g. "Elastane" -> "Élasthanne", "Lycra" -> "Élasthanne"). Only return values from this list.',
     '',
     'RULES ABOUT UNKNOWN OR UNCERTAIN INFORMATION:',
     '- If a field\'s value is not clearly visible, set it to null.',
