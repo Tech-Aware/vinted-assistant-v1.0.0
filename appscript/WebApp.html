@@ -301,6 +301,10 @@
 
           <div class="form-row">
             <div class="form-group">
+              <label>Order ID</label>
+              <input type="text" id="orderId" placeholder="ex: 42">
+            </div>
+            <div class="form-group">
               <label>Prix (EUR)</label>
               <input type="number" id="price" placeholder="ex: 25.00" step="0.01" min="0">
             </div>
@@ -796,6 +800,7 @@
       };
 
       var fields = {
+        order_id: 'orderId',
         gender: 'gender', fit: 'fit', rise_type: 'riseType',
         price: 'price'
       };
@@ -1058,6 +1063,7 @@
       document.getElementById('fileInput').value = '';
 
       // 2. Reinitialiser les champs parametres
+      document.getElementById('orderId').value = '';
       document.getElementById('price').value = '';
       document.getElementById('gender').value = '';
       document.getElementById('fit').value = '';
