@@ -248,7 +248,7 @@ function rebuildListing(params) {
 // ============================================================
 
 var LOG_HEADERS = [
-  'Date', 'Profil', 'Type article', 'Marque', 'Modele', 'Premium',
+  'Date', 'Agent', 'Profil', 'Type article', 'Marque', 'Modele', 'Premium',
   'Taille FR', 'Taille US', 'Couleur', 'Matiere', 'Coupe',
   'Genre', 'Prix', 'Etat', 'SKU'
 ];
@@ -313,8 +313,11 @@ function logGenerationToSheet(result, params) {
       matiere = features.composition_materials.join(', ');
     }
 
+    var agentEmail = Session.getActiveUser().getEmail() || '';
+
     var row = [
       new Date(),
+      agentEmail,
       profileName,
       articleType,
       features.brand || result.brand || '',
