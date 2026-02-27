@@ -57,9 +57,12 @@ var DescriptionEngine = (function() {
       else if (fitLabel === 'droits') silhouette = 'offre une coupe classique et intemporelle';
       else silhouette = 'offre un style polyvalent';
 
+      var isPremium = features.is_premium || false;
+      var premiumTag = isPremium ? ' (modèle Premium)' : '';
+
       var intro = fitLabel
-        ? 'Ces Jeans ' + fitLabel + ' ' + brand + ' pour ' + gender + ' ' + riseIntro + ' ' + silhouette + '.'
-        : 'Ces Jeans ' + brand + ' pour ' + gender + ' ' + riseIntro + ' ' + silhouette + '.';
+        ? 'Ces Jeans ' + fitLabel + ' ' + brand + premiumTag + ' pour ' + gender + ' ' + riseIntro + ' ' + silhouette + '.'
+        : 'Ces Jeans ' + brand + premiumTag + ' pour ' + gender + ' ' + riseIntro + ' ' + silhouette + '.';
 
       // Composition : utilise les noms reels des materiaux (pas de normalisation)
       var compositionSentence;
@@ -149,7 +152,9 @@ var DescriptionEngine = (function() {
       }
 
       // Headline
-      var headlineMain = [garmentType.charAt(0).toUpperCase() + garmentType.slice(1) + ' ' + brand];
+      var isPremium = features.is_premium || false;
+      var brandLabel = brand + (isPremium ? ' Premium' : '');
+      var headlineMain = [garmentType.charAt(0).toUpperCase() + garmentType.slice(1) + ' ' + brandLabel];
       if (gender) headlineMain.push(gender.toLowerCase());
       var headlineLine1 = headlineMain.filter(Boolean).join(' ').trim();
 
@@ -252,7 +257,8 @@ var DescriptionEngine = (function() {
       var originCountry = DescriptionBuilder.safeClean(features.origin_country);
 
       // Product sentence
-      var productParts = ['Veste ' + brand];
+      var isPremium = features.is_premium || false;
+      var productParts = [isPremium ? 'Veste ' + brand + ' Premium' : 'Veste ' + brand];
       if (model) productParts.push(model);
       if (gender) productParts.push('pour ' + gender);
       productParts.push('taille ' + sizeDisplay);

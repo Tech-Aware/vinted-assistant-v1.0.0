@@ -93,10 +93,13 @@ var TitleEngine = (function() {
 
       var showFrInTitle = isFrUsCoherent(sizeFr, sizeUsRaw);
 
+      var isPremium = features.is_premium || false;
+
       var parts = ['Jean'];
       if (brand) {
         parts.push(brand.toLowerCase().split(' ').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' '));
       }
+      if (isPremium) parts.push('Premium');
       if (model) parts.push(model);
       if (sizeFr && showFrInTitle) parts.push('FR' + sizeFr);
       if (sizeUsDisplay) parts.push(sizeUsDisplay);
@@ -156,14 +159,14 @@ var TitleEngine = (function() {
 
       var parts = [garmentType];
 
+      var isPremium = features.is_premium || false;
+
       if (isVintage) {
         parts.push('Vintage');
       } else if (brand) {
         var brandFormatted = brand.toLowerCase().split(' ').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
         parts.push(brandFormatted);
-        if (features.is_pima && brand.toLowerCase() === 'tommy hilfiger') {
-          parts.push('Premium');
-        }
+        if (isPremium) parts.push('Premium');
       }
 
       if (gender) parts.push(gender);
@@ -201,8 +204,11 @@ var TitleEngine = (function() {
       var sku = TitleBuilder.normalizeStr(features.sku);
       var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
 
+      var isPremium = features.is_premium || false;
+
       var prefix = hasHood ? 'Veste à capuche Carhartt' : 'Veste Carhartt';
       var parts = [prefix];
+      if (isPremium) parts.push('Premium');
 
       if (brand && brand.toLowerCase() !== 'carhartt') parts.push(brand);
 

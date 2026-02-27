@@ -40,6 +40,7 @@ var Templates = (function() {
               rise_type: { type: ['string', 'null'] },
               rise_cm: { type: ['number', 'null'] },
               gender: { type: ['string', 'null'] },
+              is_premium: { type: ['boolean', 'null'] },
               sku: { type: ['string', 'null'] },
               sku_status: { type: 'string' }
             }
@@ -80,6 +81,7 @@ var Templates = (function() {
               size: { type: ['string', 'null'] },
               size_estimated: { type: ['string', 'null'] },
               size_source: { type: ['string', 'null'] },
+              is_premium: { type: ['boolean', 'null'] },
               sku: { type: ['string', 'null'] },
               sku_status: { type: 'string' }
             }
@@ -121,6 +123,7 @@ var Templates = (function() {
               is_camouflage: { type: ['boolean', 'null'] },
               is_realtree: { type: ['boolean', 'null'] },
               is_new_york: { type: ['boolean', 'null'] },
+              is_premium: { type: ['boolean', 'null'] },
               sku: { type: ['string', 'null'] },
               sku_status: { type: 'string' }
             }

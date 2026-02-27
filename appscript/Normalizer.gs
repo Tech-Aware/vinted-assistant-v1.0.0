@@ -63,6 +63,25 @@ var Normalizer = (function() {
   }
 
   // =====================================================
+  // Premium Levi's detection
+  // =====================================================
+
+  var PREMIUM_LEVIS_MODELS = [
+    '501', '505', '517', '550', '560', '569',
+    'vintage', 'big e', 'orange tab', 'red tab',
+    'made in usa', 'selvedge', 'lvc', 'levis vintage clothing'
+  ];
+
+  function isPremiumLevisModel(model) {
+    if (!model) return false;
+    var low = String(model).toLowerCase().trim();
+    for (var i = 0; i < PREMIUM_LEVIS_MODELS.length; i++) {
+      if (low.indexOf(PREMIUM_LEVIS_MODELS[i]) !== -1) return true;
+    }
+    return false;
+  }
+
+  // =====================================================
   // Feature builders par profil
   // =====================================================
 
@@ -160,6 +179,12 @@ var Normalizer = (function() {
     // Condition
     var condition = uiData.condition || rawFeatures.condition || aiData.condition || null;
 
+    // Premium: IA > detection par modele
+    var isPremium = rawFeatures.is_premium || false;
+    if (!isPremium && model) {
+      isPremium = isPremiumLevisModel(model);
+    }
+
     var features = {
       brand: brand,
       model: model,
@@ -174,6 +199,7 @@ var Normalizer = (function() {
       rise_type: riseType,
       rise_cm: riseCm,
       gender: gender,
+      is_premium: isPremium,
       sku: sku,
       sku_status: skuStatus,
       order_id: orderId,
@@ -247,6 +273,9 @@ var Normalizer = (function() {
     var isPima = descText.indexOf('pima coton') !== -1 || descText.indexOf('pima cotton') !== -1 ||
                  materialText.indexOf('pima coton') !== -1 || materialText.indexOf('pima cotton') !== -1;
 
+    // Premium: IA > is_pima
+    var isPremium = rawFeatures.is_premium || isPima || false;
+
     return {
       brand: normalizedBrand,
       is_vintage: isVintage,
@@ -266,6 +295,7 @@ var Normalizer = (function() {
       sku_status: skuStatus,
       order_id: orderId,
       is_pima: isPima,
+      is_premium: isPremium,
       condition: condition
     };
   }
@@ -332,6 +362,12 @@ var Normalizer = (function() {
     var orderId = uiData.order_id;
     var condition = uiData.condition || rawFeatures.condition || null;
 
+    // Premium: IA > detection WIP/vintage/Made in USA
+    var isPremium = rawFeatures.is_premium || false;
+    if (!isPremium) {
+      isPremium = TextExtractors.detectFlagFromText(fullText, ['carhartt wip', 'work in progress', 'made in usa', 'made in u.s.a']);
+    }
+
     return {
       brand: brand,
       model: model,
@@ -351,6 +387,7 @@ var Normalizer = (function() {
       is_camouflage: isCamouflage,
       is_realtree: isRealtree,
       is_new_york: isNewYork,
+      is_premium: isPremium,
       sku: sku,
       sku_status: skuStatus,
       order_id: orderId,
