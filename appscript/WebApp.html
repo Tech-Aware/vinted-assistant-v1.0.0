@@ -301,10 +301,6 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label>Order ID</label>
-              <input type="text" id="orderId" placeholder="ex: 42">
-            </div>
-            <div class="form-group">
               <label>Prix (EUR)</label>
               <input type="number" id="price" placeholder="ex: 25.00" step="0.01" min="0">
             </div>
@@ -714,12 +710,20 @@
         if (f.type === 'multicheck') {
           var checkedArr = Array.isArray(features[f.key]) ? features[f.key] : [];
           var checkedLow = checkedArr.map(function(m) { return m.toLowerCase(); });
+          // Fusionner options predefinies + materiaux IA non presents
+          var allOpts = f.options.slice();
+          var allOptsLow = allOpts.map(function(o) { return o.toLowerCase(); });
+          for (var k = 0; k < checkedArr.length; k++) {
+            if (allOptsLow.indexOf(checkedArr[k].toLowerCase()) === -1) {
+              allOpts.push(checkedArr[k]);
+              allOptsLow.push(checkedArr[k].toLowerCase());
+            }
+          }
           html += '<div class="form-group form-group-full"><label>' + f.label + '</label>' +
             '<div class="multicheck-group" id="corr_' + f.key + '">';
-          for (var j = 0; j < f.options.length; j++) {
-            var mat = f.options[j];
+          for (var j = 0; j < allOpts.length; j++) {
+            var mat = allOpts[j];
             var isChecked = checkedLow.indexOf(mat.toLowerCase()) !== -1;
-            var cbId = 'corr_' + f.key + '_' + j;
             html += '<label class="multicheck-item' + (isChecked ? ' checked' : '') + '">' +
               '<input type="checkbox" value="' + escapeAttr(mat) + '"' + (isChecked ? ' checked' : '') +
               ' onchange="this.parentElement.classList.toggle(\'checked\', this.checked)">' +
@@ -784,7 +788,6 @@
       };
 
       var fields = {
-        order_id: 'orderId',
         gender: 'gender', fit: 'fit', rise_type: 'riseType',
         price: 'price'
       };
@@ -1046,7 +1049,6 @@
       document.getElementById('fileInput').value = '';
 
       // 2. Reinitialiser les champs parametres
-      document.getElementById('orderId').value = '';
       document.getElementById('price').value = '';
       document.getElementById('gender').value = '';
       document.getElementById('fit').value = '';
