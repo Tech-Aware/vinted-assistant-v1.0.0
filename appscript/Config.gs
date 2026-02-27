@@ -11,7 +11,6 @@ var Config = (function() {
     GEMINI_API_KEY: 'GEMINI_API_KEY',
     GEMINI_MODEL: 'GEMINI_MODEL',
     LOG_SHEET_ID: 'LOG_SHEET_ID',
-    PHOTO_FOLDER_ID: 'PHOTO_FOLDER_ID',
     LOG_LEVEL: 'LOG_LEVEL',
     WEBAPP_URL: 'WEBAPP_URL'
   };
@@ -48,14 +47,6 @@ var Config = (function() {
       getProps_().setProperty(KEYS.LOG_SHEET_ID, id);
     },
 
-    getPhotoFolderId: function() {
-      return getProps_().getProperty(KEYS.PHOTO_FOLDER_ID) || '';
-    },
-
-    setPhotoFolderId: function(id) {
-      getProps_().setProperty(KEYS.PHOTO_FOLDER_ID, id);
-    },
-
     getLogLevel: function() {
       return getProps_().getProperty(KEYS.LOG_LEVEL) || 'INFO';
     },
@@ -77,7 +68,6 @@ var Config = (function() {
         geminiApiKey: this.getGeminiApiKey(),
         geminiModel: this.getGeminiModel(),
         logSheetId: this.getLogSheetId(),
-        photoFolderId: this.getPhotoFolderId(),
         logLevel: this.getLogLevel(),
         webAppUrl: this.getWebAppUrl()
       };

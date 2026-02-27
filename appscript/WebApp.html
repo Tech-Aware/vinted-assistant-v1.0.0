@@ -270,9 +270,9 @@
         <!-- Upload images -->
         <div class="section">
           <div class="section-title"><span class="step">1</span> Photos</div>
-          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-zone" id="uploadZone" onclick="pickPhotos()">
             <div class="upload-icon">&#128247;</div>
-            <p><b>Cliquez</b> ou glissez-deposez</p>
+            <p><b>Ouvrir un dossier</b> ou glissez-deposez</p>
             <p style="font-size:11px;">JPEG, PNG, WebP</p>
           </div>
           <input type="file" id="fileInput" multiple accept="image/*" style="display:none;" onchange="handleFiles(this.files)">
@@ -415,16 +415,6 @@
         </small>
       </div>
 
-      <div class="form-group">
-        <label>ID du dossier Google Drive photos (optionnel)</label>
-        <input type="text" id="cfgPhotoFolderId" placeholder="ID du dossier Drive contenant les photos">
-        <small style="font-size:11px; color:#80868b; display:block; margin-top:2px;">
-          Ouvrez le dossier dans Drive, l'ID est dans l'URL :<br>
-          drive.google.com/drive/folders/<b>[ID_ICI]</b><br>
-          Les photos seront supprimees du dossier apres enregistrement.
-        </small>
-      </div>
-
       <div id="configStatus"></div>
 
       <div class="config-actions">
@@ -469,6 +459,8 @@
 
     var allImages = [];
     var lightboxIndex = -1;
+    var dirHandle = null;       // FileSystemDirectoryHandle (local folder)
+    var loadedFileNames = [];   // noms des fichiers charges depuis le dossier
 
     // ==================== Config ====================
 
@@ -484,7 +476,6 @@
             }
           }
           if (config.logSheetId) document.getElementById('cfgLogSheetId').value = config.logSheetId;
-          if (config.photoFolderId) document.getElementById('cfgPhotoFolderId').value = config.photoFolderId;
         })
         .getConfig();
     }
@@ -498,8 +489,7 @@
       var config = {
         geminiApiKey: document.getElementById('cfgGeminiApiKey').value.trim(),
         geminiModel: document.getElementById('cfgGeminiModel').value,
-        logSheetId: document.getElementById('cfgLogSheetId').value.trim(),
-        photoFolderId: document.getElementById('cfgPhotoFolderId').value.trim()
+        logSheetId: document.getElementById('cfgLogSheetId').value.trim()
       };
       if (!config.geminiApiKey) {
         showConfigStatus('Veuillez entrer une cle API Gemini.', 'err');
@@ -538,6 +528,52 @@
         handleFiles(e.dataTransfer.files);
       });
     })();
+
+    function pickPhotos() {
+      if (window.showDirectoryPicker) {
+        // File System Access API : ouvrir un dossier local
+        window.showDirectoryPicker({ mode: 'readwrite' }).then(function(handle) {
+          dirHandle = handle;
+          loadFromDirectory(handle);
+        }).catch(function(err) {
+          // L'utilisateur a annule ou API bloquee: fallback file input
+          if (err.name !== 'AbortError') {
+            document.getElementById('fileInput').click();
+          }
+        });
+      } else {
+        // Navigateur sans support : fallback classique
+        document.getElementById('fileInput').click();
+      }
+    }
+
+    function loadFromDirectory(handle) {
+      var filePromises = [];
+      loadedFileNames = [];
+      var reader = handle.values();
+
+      function readNext() {
+        return reader.next().then(function(result) {
+          if (result.done) return;
+          var entry = result.value;
+          if (entry.kind === 'file' && /\.(jpe?g|png|webp|heic)$/i.test(entry.name)) {
+            loadedFileNames.push(entry.name);
+            filePromises.push(entry.getFile());
+          }
+          return readNext();
+        });
+      }
+
+      readNext().then(function() {
+        return Promise.all(filePromises);
+      }).then(function(files) {
+        if (files.length === 0) {
+          alert('Aucune image trouvee dans ce dossier.');
+          return;
+        }
+        handleFiles(files);
+      });
+    }
 
     function handleFiles(fileList) {
       if (!fileList || fileList.length === 0) return;
@@ -966,26 +1002,40 @@
       google.script.run
         .withSuccessHandler(function(res) {
           if (res.error) { alert('Erreur: ' + res.error); return; }
-          // Vider le dossier Drive photos puis reinitialiser
-          google.script.run
-            .withSuccessHandler(function(clearRes) {
-              var msg = 'Enregistre a la ligne ' + res.row + ' !';
-              if (clearRes && clearRes.deleted > 0) {
-                msg += '\n' + clearRes.deleted + ' photo(s) supprimee(s) du dossier Drive.';
-              }
-              alert(msg);
-              resetAll();
-            })
-            .withFailureHandler(function() {
-              alert('Enregistre a la ligne ' + res.row + ' !\n(Attention : erreur lors du nettoyage du dossier photos)');
-              resetAll();
-            })
-            .clearPhotoFolder();
+          // Supprimer les photos du dossier local puis reinitialiser
+          clearLocalPhotos().then(function(deleted) {
+            var msg = 'Enregistre a la ligne ' + res.row + ' !';
+            if (deleted > 0) {
+              msg += '\n' + deleted + ' photo(s) supprimee(s) du dossier.';
+            }
+            alert(msg);
+            resetAll();
+          });
         })
         .withFailureHandler(function(err) {
           alert('Erreur: ' + err.message);
         })
         .logGenerationToSheet(window._lastResult, window._lastParams);
+    }
+
+    function clearLocalPhotos() {
+      if (!dirHandle || loadedFileNames.length === 0) {
+        return Promise.resolve(0);
+      }
+      var count = 0;
+      var chain = Promise.resolve();
+      loadedFileNames.forEach(function(name) {
+        chain = chain.then(function() {
+          return dirHandle.removeEntry(name).then(function() {
+            count++;
+          }).catch(function(err) {
+            console.warn('Impossible de supprimer ' + name + ': ' + err.message);
+          });
+        });
+      });
+      return chain.then(function() {
+        return count;
+      });
     }
 
     function resetAll() {
@@ -1016,6 +1066,8 @@
       // 5. Reinitialiser les donnees internes
       window._lastResult = null;
       window._lastParams = null;
+      dirHandle = null;
+      loadedFileNames = [];
     }
 
     // ==================== Utils ====================
