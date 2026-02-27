@@ -693,6 +693,14 @@
       var fields = PROFILE_FIELDS[profile] || [];
       var grid = document.getElementById('correctionGrid');
 
+      // Auto-calcul is_stretch si non fourni : elasthane >= 3% OU viscose
+      if (features.is_stretch == null && profile === 'jean_levis') {
+        var mats = features.composition_materials || [];
+        var hasViscose = mats.some(function(m) { return m && m.toLowerCase() === 'viscose'; });
+        var elPct = parseFloat(features.elasthane_percent);
+        features.is_stretch = hasViscose || (elPct >= 3);
+      }
+
       // Build clickable image strip so user can reference photos while correcting
       var html = '<div class="correction-images">';
       for (var j = 0; j < allImages.length; j++) {
@@ -831,6 +839,7 @@
         {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
         {key: 'rise_type', label: 'Taille (rise)', type: 'select', options: [['', 'Auto'], ['low', 'Basse'], ['mid', 'Moyenne'], ['high', 'Haute']]},
         {key: 'composition_materials', label: 'Composition', type: 'multicheck', options: JEAN_MATERIALS},
+        {key: 'is_stretch', label: 'Stretch', type: 'checkbox'},
         {key: 'is_premium', label: 'Premium', type: 'checkbox'},
         {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},

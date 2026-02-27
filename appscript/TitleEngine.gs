@@ -36,12 +36,20 @@ var TitleEngine = (function() {
       var elasPercent = null;
       try { elasPercent = features.elasthane_percent != null ? parseFloat(features.elasthane_percent) : null; } catch (e) {}
 
-      // Stretch: basé sur materiaux elastiques OU elasthane_percent > 2
+      // Stretch: si correction manuelle fournie, on la respecte ;
+      // sinon auto : elasthane >= 3% OU viscose presente dans la composition
       var compositionMaterials = features.composition_materials || [];
-      var hasElasticMaterial = compositionMaterials.some(function(m) {
-        return Normalizer.isElasticMaterial(m);
+      var hasViscose = compositionMaterials.some(function(m) {
+        return m && m.toLowerCase() === 'viscose';
       });
-      var isStretch = hasElasticMaterial || (elasPercent != null && elasPercent > 2);
+      var isStretch;
+      if (features.is_stretch === true || features.is_stretch === 'true' || features.is_stretch === '1') {
+        isStretch = true;
+      } else if (features.is_stretch === false || features.is_stretch === 'false' || features.is_stretch === '0') {
+        isStretch = false;
+      } else {
+        isStretch = hasViscose || (elasPercent != null && elasPercent >= 3);
+      }
 
       // Rise
       var riseType = features.rise_type;

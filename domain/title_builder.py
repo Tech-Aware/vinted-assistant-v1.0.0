@@ -585,8 +585,17 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
     if cotton_percent is not None and cotton_percent >= 60:
         parts.append(f"{cotton_percent}% coton")
 
-    # Stretch si élasthanne >= 2%
-    if elas_percent is not None and elas_percent >= 2:
+    # Stretch : correction manuelle prioritaire, sinon auto (elasthane >= 3% OU viscose)
+    is_stretch_raw = features.get("is_stretch")
+    if is_stretch_raw is True or str(is_stretch_raw).lower() in ("true", "1"):
+        is_stretch = True
+    elif is_stretch_raw is False or str(is_stretch_raw).lower() in ("false", "0"):
+        is_stretch = False
+    else:
+        comp_mats = [m.lower() for m in (features.get("composition_materials") or [])]
+        has_viscose = "viscose" in comp_mats
+        is_stretch = has_viscose or (elas_percent is not None and elas_percent >= 3)
+    if is_stretch:
         parts.append("stretch")
 
     # Genre (homme / femme)
