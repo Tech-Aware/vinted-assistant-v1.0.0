@@ -315,13 +315,17 @@ function logGenerationToSheet(result, params) {
 
     var agentEmail = Session.getActiveUser().getEmail() || '';
 
-    // Rise : traduire high/mid/low en francais (sans "taille")
+    // Rise : matching souple + fallback uiData + rise_cm
     var riseLabel = '';
-    if (features.rise_type) {
-      var rt = features.rise_type.toLowerCase();
-      if (rt === 'high') riseLabel = 'Haute';
-      else if (rt === 'mid') riseLabel = 'Moyenne';
-      else if (rt === 'low') riseLabel = 'Basse';
+    var riseRaw = features.rise_type || uiData.rise_type || '';
+    if (!riseRaw && features.rise_cm != null) {
+      riseRaw = TitleBuilder.classifyRiseFromCm(features.rise_cm) || '';
+    }
+    if (riseRaw) {
+      var rl = riseRaw.toLowerCase();
+      if (rl.indexOf('high') !== -1 || rl.indexOf('haute') !== -1) riseLabel = 'Haute';
+      else if (rl.indexOf('low') !== -1 || rl.indexOf('basse') !== -1) riseLabel = 'Basse';
+      else if (rl.indexOf('mid') !== -1 || rl.indexOf('moy') !== -1) riseLabel = 'Moyenne';
     }
 
     var row = [

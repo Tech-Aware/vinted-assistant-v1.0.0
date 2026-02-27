@@ -25,12 +25,10 @@ var DescriptionBuilder = (function() {
     if (normalized === 'mid' || normalized.indexOf('moy') !== -1) return 'taille moyenne';
 
     if (riseCm != null) {
-      try {
-        var v = parseFloat(riseCm);
-        if (v < 23) return 'taille basse';
-        if (v >= 26) return 'taille haute';
-        return 'taille moyenne';
-      } catch (e) {}
+      var classified = TitleBuilder.classifyRiseFromCm(riseCm);
+      if (classified === 'low') return 'taille basse';
+      if (classified === 'high') return 'taille haute';
+      if (classified === 'mid') return 'taille moyenne';
     }
 
     return 'taille moyenne';

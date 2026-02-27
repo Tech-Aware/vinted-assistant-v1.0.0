@@ -228,10 +228,9 @@ var TitleBuilder = (function() {
     try { v = parseFloat(riseCm); } catch (e) { return null; }
     if (isNaN(v)) return null;
 
-    if (v < 20) return 'ultra_low';
-    if (v < 23) return 'low';
-    if (v < 26) return 'mid';
-    return 'high';
+    if (v <= 20) return 'low';
+    if (v >= 30) return 'high';
+    return 'mid';
   }
 
   return {
