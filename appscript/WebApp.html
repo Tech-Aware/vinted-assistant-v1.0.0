@@ -705,6 +705,20 @@
         features.is_stretch = hasViscose || (elPct >= 3);
       }
 
+      // Normaliser model : chiffre uniquement, sinon vide
+      if (features.model) {
+        var numOnly = String(features.model).replace(/\D/g, '');
+        features.model = numOnly || '';
+      }
+      // Normaliser size_us : retirer prefixe W
+      if (features.size_us) {
+        features.size_us = String(features.size_us).replace(/^[Ww]/, '');
+      }
+      // Normaliser length : retirer prefixe L
+      if (features.length) {
+        features.length = String(features.length).replace(/^[Ll]/, '');
+      }
+
       // Build clickable image strip so user can reference photos while correcting
       var html = '<div class="correction-images">';
       for (var j = 0; j < allImages.length; j++) {
