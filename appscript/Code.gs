@@ -249,7 +249,7 @@ function rebuildListing(params) {
 
 var LOG_HEADERS = [
   'Date', 'Agent', 'Profil', 'Type article', 'Marque', 'Modele', 'Premium',
-  'Taille FR', 'Taille US', 'Couleur', 'Matiere', 'Coupe',
+  'Taille FR', 'Taille US', 'Rise', 'Couleur', 'Matiere', 'Coupe',
   'Genre', 'Prix', 'Etat', 'SKU'
 ];
 
@@ -315,6 +315,15 @@ function logGenerationToSheet(result, params) {
 
     var agentEmail = Session.getActiveUser().getEmail() || '';
 
+    // Rise : traduire high/mid/low en francais (sans "taille")
+    var riseLabel = '';
+    if (features.rise_type) {
+      var rt = features.rise_type.toLowerCase();
+      if (rt === 'high') riseLabel = 'Haute';
+      else if (rt === 'mid') riseLabel = 'Moyenne';
+      else if (rt === 'low') riseLabel = 'Basse';
+    }
+
     var row = [
       new Date(),
       agentEmail,
@@ -325,6 +334,7 @@ function logGenerationToSheet(result, params) {
       features.is_premium ? true : false,
       tailleFr,
       tailleUs,
+      riseLabel,
       couleur,
       matiere,
       features.fit || '',
