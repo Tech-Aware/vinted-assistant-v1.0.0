@@ -301,17 +301,6 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label>Taille FR</label>
-              <input type="text" id="sizeFr" placeholder="ex: 40">
-            </div>
-            <div class="form-group">
-              <label>Taille US</label>
-              <input type="text" id="sizeUs" placeholder="ex: W30">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
               <label>Order ID</label>
               <input type="text" id="orderId" placeholder="ex: 42">
             </div>
@@ -747,7 +736,7 @@
       };
 
       var fields = {
-        size_fr: 'sizeFr', size_us: 'sizeUs', order_id: 'orderId',
+        order_id: 'orderId',
         gender: 'gender', fit: 'fit', rise_type: 'riseType',
         price: 'price'
       };
@@ -961,13 +950,44 @@
       if (!window._lastResult) return;
       google.script.run
         .withSuccessHandler(function(res) {
-          if (res.error) alert('Erreur: ' + res.error);
-          else alert('Enregistre a la ligne ' + res.row + ' !\n\nVous pouvez maintenant faire Ctrl+R pour recommencer.');
+          if (res.error) { alert('Erreur: ' + res.error); return; }
+          alert('Enregistre a la ligne ' + res.row + ' !');
+          resetAll();
         })
         .withFailureHandler(function(err) {
           alert('Erreur: ' + err.message);
         })
         .logGenerationToSheet(window._lastResult, window._lastParams);
+    }
+
+    function resetAll() {
+      // 1. Supprimer toutes les photos
+      allImages = [];
+      document.getElementById('imagesGrid').innerHTML = '';
+      document.getElementById('imagesSection').style.display = 'none';
+      document.getElementById('fileInput').value = '';
+
+      // 2. Reinitialiser les champs parametres
+      document.getElementById('orderId').value = '';
+      document.getElementById('price').value = '';
+      document.getElementById('gender').value = '';
+      document.getElementById('fit').value = '';
+      document.getElementById('riseType').value = '';
+
+      // 3. Vider le resultat genere
+      var resultArea = document.getElementById('resultArea');
+      resultArea.style.display = 'none';
+      resultArea.innerHTML = '';
+      document.getElementById('rightPlaceholder').style.display = '';
+
+      // 4. Revenir a la phase parametres
+      document.getElementById('phaseCorrections').classList.remove('active');
+      document.getElementById('phaseParams').classList.remove('hidden');
+      document.getElementById('correctionGrid').innerHTML = '';
+
+      // 5. Reinitialiser les donnees internes
+      window._lastResult = null;
+      window._lastParams = null;
     }
 
     // ==================== Utils ====================
