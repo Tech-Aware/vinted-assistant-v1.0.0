@@ -304,7 +304,7 @@ function logGenerationToSheet(result, params) {
     }
 
     var spreadsheet = SpreadsheetApp.openById(sheetId);
-    var sheet = spreadsheet.getSheetByName('Logs') || spreadsheet.insertSheet('Logs');
+    var sheet = spreadsheet.getSheetByName('Générations') || spreadsheet.insertSheet('Générations');
 
     // Creer les en-tetes si la feuille est vide
     if (sheet.getLastRow() === 0) {
