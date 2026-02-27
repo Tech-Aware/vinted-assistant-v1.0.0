@@ -96,6 +96,9 @@ function saveConfig(config) {
   if (config.logSheetId !== undefined) {
     Config.setLogSheetId(config.logSheetId || '');
   }
+  if (config.photoFolderId !== undefined) {
+    Config.setPhotoFolderId(config.photoFolderId || '');
+  }
   return { success: true };
 }
 
@@ -240,6 +243,39 @@ function rebuildListing(params) {
   } catch (err) {
     Logger.log('rebuildListing error: ' + err.message);
     return { error: 'Erreur reconstruction : ' + err.message };
+  }
+}
+
+// ============================================================
+// Nettoyage du dossier Drive photos
+// ============================================================
+
+/**
+ * Supprime toutes les images du dossier Google Drive configure.
+ * Appele automatiquement apres l'enregistrement dans le Sheet.
+ *
+ * @returns {Object} { deleted: number } ou { error: string }
+ */
+function clearPhotoFolder() {
+  try {
+    var folderId = Config.getPhotoFolderId();
+    if (!folderId) return { deleted: 0 };
+
+    var folder = DriveApp.getFolderById(folderId);
+    var files = folder.getFiles();
+    var count = 0;
+    while (files.hasNext()) {
+      var file = files.next();
+      var mime = file.getMimeType();
+      if (mime.indexOf('image/') === 0) {
+        file.setTrashed(true);
+        count++;
+      }
+    }
+    return { deleted: count };
+  } catch (err) {
+    Logger.log('clearPhotoFolder error: ' + err.message);
+    return { error: 'Erreur suppression photos: ' + err.message };
   }
 }
 

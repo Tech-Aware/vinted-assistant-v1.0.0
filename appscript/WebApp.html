@@ -415,6 +415,16 @@
         </small>
       </div>
 
+      <div class="form-group">
+        <label>ID du dossier Google Drive photos (optionnel)</label>
+        <input type="text" id="cfgPhotoFolderId" placeholder="ID du dossier Drive contenant les photos">
+        <small style="font-size:11px; color:#80868b; display:block; margin-top:2px;">
+          Ouvrez le dossier dans Drive, l'ID est dans l'URL :<br>
+          drive.google.com/drive/folders/<b>[ID_ICI]</b><br>
+          Les photos seront supprimees du dossier apres enregistrement.
+        </small>
+      </div>
+
       <div id="configStatus"></div>
 
       <div class="config-actions">
@@ -474,6 +484,7 @@
             }
           }
           if (config.logSheetId) document.getElementById('cfgLogSheetId').value = config.logSheetId;
+          if (config.photoFolderId) document.getElementById('cfgPhotoFolderId').value = config.photoFolderId;
         })
         .getConfig();
     }
@@ -487,7 +498,8 @@
       var config = {
         geminiApiKey: document.getElementById('cfgGeminiApiKey').value.trim(),
         geminiModel: document.getElementById('cfgGeminiModel').value,
-        logSheetId: document.getElementById('cfgLogSheetId').value.trim()
+        logSheetId: document.getElementById('cfgLogSheetId').value.trim(),
+        photoFolderId: document.getElementById('cfgPhotoFolderId').value.trim()
       };
       if (!config.geminiApiKey) {
         showConfigStatus('Veuillez entrer une cle API Gemini.', 'err');
@@ -951,8 +963,21 @@
       google.script.run
         .withSuccessHandler(function(res) {
           if (res.error) { alert('Erreur: ' + res.error); return; }
-          alert('Enregistre a la ligne ' + res.row + ' !');
-          resetAll();
+          // Vider le dossier Drive photos puis reinitialiser
+          google.script.run
+            .withSuccessHandler(function(clearRes) {
+              var msg = 'Enregistre a la ligne ' + res.row + ' !';
+              if (clearRes && clearRes.deleted > 0) {
+                msg += '\n' + clearRes.deleted + ' photo(s) supprimee(s) du dossier Drive.';
+              }
+              alert(msg);
+              resetAll();
+            })
+            .withFailureHandler(function() {
+              alert('Enregistre a la ligne ' + res.row + ' !\n(Attention : erreur lors du nettoyage du dossier photos)');
+              resetAll();
+            })
+            .clearPhotoFolder();
         })
         .withFailureHandler(function(err) {
           alert('Erreur: ' + err.message);
