@@ -108,7 +108,7 @@ var TitleEngine = (function() {
         parts.push(brand.toLowerCase().split(' ').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' '));
       }
       if (isPremium) parts.push('Premium');
-      if (model) parts.push(model);
+      if (model && /^\d+$/.test(model)) parts.push(model);
       if (sizeFr && showFrInTitle) parts.push('FR' + sizeFr);
       if (sizeUsDisplay) parts.push(sizeUsDisplay);
       if (lengthDisplay) parts.push(lengthDisplay);
@@ -220,14 +220,8 @@ var TitleEngine = (function() {
 
       if (brand && brand.toLowerCase() !== 'carhartt') parts.push(brand);
 
-      if (model) {
-        var modelClean = model.trim();
-        var modelLower = modelClean.toLowerCase();
-        var modelSegment = modelLower.indexOf('jacket') !== -1 ? modelClean : modelClean + ' Jacket';
-        if (isNewYork || modelLower.indexOf('new york') !== -1 || modelLower.endsWith(' ny')) {
-          modelSegment = modelSegment.trim() + ' NY';
-        }
-        parts.push(modelSegment);
+      if (model && /^\d+$/.test(model)) {
+        parts.push(model);
       } else if (isNewYork) {
         parts.push('modèle NY');
       }

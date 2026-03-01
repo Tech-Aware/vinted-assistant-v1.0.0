@@ -334,7 +334,7 @@ function logGenerationToSheet(result, params) {
       profileName,
       articleType,
       features.brand || result.brand || '',
-      features.model || '',
+      features._raw_model || features.model || '',
       features.is_premium ? true : false,
       tailleFr,
       tailleUs,

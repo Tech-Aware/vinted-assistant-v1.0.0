@@ -259,7 +259,7 @@ var DescriptionEngine = (function() {
       // Product sentence
       var isPremium = features.is_premium || false;
       var productParts = [isPremium ? 'Veste ' + brand + ' Premium' : 'Veste ' + brand];
-      if (model) productParts.push(model);
+      if (model && /^\d+$/.test(model)) productParts.push(model);
       if (gender) productParts.push('pour ' + gender);
       productParts.push('taille ' + sizeDisplay);
       if (color) productParts.push('coloris ' + color);

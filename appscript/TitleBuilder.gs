@@ -6,7 +6,7 @@
 
 var TitleBuilder = (function() {
 
-  var SKU_PREFIX = '- ';
+  var SKU_PREFIX = '#';
 
   function normalizeStr(value) {
     if (value == null) return null;

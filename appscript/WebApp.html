@@ -705,7 +705,9 @@
         features.is_stretch = hasViscose || (elPct >= 3);
       }
 
-      // Normaliser model : chiffre uniquement, sinon vide
+      // Sauvegarder le model original pour le sheet (avant normalisation)
+      features._raw_model = features.model || '';
+      // Normaliser model : chiffre uniquement, sinon vide (pour titre/description)
       if (features.model) {
         var numOnly = String(features.model).replace(/\D/g, '');
         features.model = numOnly || '';
