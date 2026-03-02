@@ -177,7 +177,7 @@ var Normalizer = (function() {
     var orderId = uiData.order_id;
 
     // Condition
-    var condition = uiData.condition || rawFeatures.condition || aiData.condition || null;
+    var condition = uiData.condition || rawFeatures.condition || aiData.condition || 'tres bon etat';
 
     // Premium: IA > detection par modele
     var isPremium = rawFeatures.is_premium || false;
@@ -265,7 +265,7 @@ var Normalizer = (function() {
     var isVintage = normalizedBrand == null;
 
     var orderId = uiData.order_id;
-    var condition = uiData.condition || rawFeatures.condition || null;
+    var condition = uiData.condition || rawFeatures.condition || 'tres bon etat';
 
     // Pima cotton detection
     var descText = (aiData.description || '').toLowerCase();
@@ -360,7 +360,7 @@ var Normalizer = (function() {
     }
 
     var orderId = uiData.order_id;
-    var condition = uiData.condition || rawFeatures.condition || null;
+    var condition = uiData.condition || rawFeatures.condition || 'tres bon etat';
 
     // Premium: IA > detection WIP/vintage/Made in USA
     var isPremium = rawFeatures.is_premium || false;
