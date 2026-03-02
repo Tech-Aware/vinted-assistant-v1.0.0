@@ -91,7 +91,10 @@ var DescriptionEngine = (function() {
       var defectsClean = DescriptionBuilder.normalizeDefects(defects);
       var stateLine = !defectsClean ? '👍 Très bon état : article impeccable !' : '👍 Très bon état : ' + defectsClean;
 
-      var measuresLine = '🔎 Consultez les photos pour obtenir les mesures précises et la composition détaillée.';
+      var hasLabels = Array.isArray(compositionMaterials) && compositionMaterials.length > 0;
+      var measuresLine = hasLabels
+        ? '🔎 Consultez les photos pour obtenir les mesures précises et la composition détaillée.'
+        : '🔎 Consultez les photos pour obtenir les mesures précises, étiquettes coupées pour plus de confort.';
       var shippingLine = '📦 Envoi rapide et soigné';
       var ctaSizeLine = '✨ Retrouvez tous mes articles Levi\'s à votre taille ici 👉 ' + sizeTag;
       var ctaLotLine = '💡 Jusqu\'à 20% de réduction sur les lots, pensez y !';
