@@ -17,20 +17,9 @@ var DescriptionBuilder = (function() {
   }
 
   function formatRiseLabel(riseType, riseCm) {
-    var normalized = '';
-    if (riseType) normalized = riseType.trim().toLowerCase();
-
-    if (['low', 'ultra_low'].indexOf(normalized) !== -1 || normalized.indexOf('basse') !== -1) return 'taille basse';
-    if (normalized === 'high' || normalized.indexOf('haute') !== -1) return 'taille haute';
-    if (normalized === 'mid' || normalized.indexOf('moy') !== -1) return 'taille moyenne';
-
-    if (riseCm != null) {
-      var classified = TitleBuilder.classifyRiseFromCm(riseCm);
-      if (classified === 'low') return 'taille basse';
-      if (classified === 'high') return 'taille haute';
-      if (classified === 'mid') return 'taille moyenne';
-    }
-
+    var norm = TitleBuilder.normalizeRiseType(riseType, riseCm);
+    if (norm === 'low') return 'taille basse';
+    if (norm === 'high') return 'taille haute';
     return 'taille moyenne';
   }
 

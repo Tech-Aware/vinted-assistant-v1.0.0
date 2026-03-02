@@ -51,30 +51,12 @@ var TitleEngine = (function() {
         isStretch = hasViscose || (elasPercent != null && elasPercent >= 3);
       }
 
-      // Rise
-      var riseType = features.rise_type;
-      if (!riseType) {
-        riseType = TitleBuilder.classifyRiseFromCm(features.rise_cm);
-      } else {
-        var normalized = riseType.trim().toLowerCase();
-        if (normalized.indexOf('basse') !== -1 || normalized.indexOf('low') !== -1) riseType = 'low';
-        else if (normalized.indexOf('haute') !== -1 || normalized.indexOf('high') !== -1) riseType = 'high';
-        else if (normalized.indexOf('moy') !== -1 || normalized.indexOf('mid') !== -1) riseType = 'mid';
-      }
-
-      function getRiseLabel(raw) {
-        if (!raw) return null;
-        var n = String(raw).trim().toLowerCase();
-        if (n.indexOf('low') !== -1 || n.indexOf('basse') !== -1 || n.indexOf('ultra') !== -1) return 'taille basse';
-        if (n.indexOf('high') !== -1 || n.indexOf('haute') !== -1) return 'taille haute';
-        if (n.indexOf('mid') !== -1 || n.indexOf('moy') !== -1) return 'taille moyenne';
-        return null;
-      }
-
-      var riseLabel = getRiseLabel(riseType);
-      if (!riseLabel) {
-        riseLabel = getRiseLabel(TitleBuilder.classifyRiseFromCm(features.rise_cm));
-      }
+      // Rise (centralise via TitleBuilder.normalizeRiseType)
+      var riseNorm = TitleBuilder.normalizeRiseType(features.rise_type, features.rise_cm);
+      var riseLabel = null;
+      if (riseNorm === 'low') riseLabel = 'taille basse';
+      else if (riseNorm === 'high') riseLabel = 'taille haute';
+      else if (riseNorm === 'mid') riseLabel = 'taille moyenne';
 
       var sizeUsDisplay = null;
       if (sizeUsRaw) {

@@ -315,18 +315,15 @@ function logGenerationToSheet(result, params) {
 
     var agentEmail = Session.getActiveUser().getEmail() || '';
 
-    // Rise : matching souple + fallback uiData + rise_cm
+    // Rise : meme logique centralisee que titre/description
+    var riseNorm = TitleBuilder.normalizeRiseType(
+      features.rise_type || uiData.rise_type,
+      features.rise_cm
+    );
     var riseLabel = '';
-    var riseRaw = features.rise_type || uiData.rise_type || '';
-    if (!riseRaw && features.rise_cm != null) {
-      riseRaw = TitleBuilder.classifyRiseFromCm(features.rise_cm) || '';
-    }
-    if (riseRaw) {
-      var rl = riseRaw.toLowerCase();
-      if (rl.indexOf('high') !== -1 || rl.indexOf('haute') !== -1) riseLabel = 'Haute';
-      else if (rl.indexOf('low') !== -1 || rl.indexOf('basse') !== -1) riseLabel = 'Basse';
-      else if (rl.indexOf('mid') !== -1 || rl.indexOf('moy') !== -1) riseLabel = 'Moyenne';
-    }
+    if (riseNorm === 'low') riseLabel = 'Basse';
+    else if (riseNorm === 'high') riseLabel = 'Haute';
+    else if (riseNorm === 'mid') riseLabel = 'Moyenne';
 
     var row = [
       new Date(),
@@ -334,7 +331,7 @@ function logGenerationToSheet(result, params) {
       profileName,
       articleType,
       features.brand || result.brand || '',
-      features._raw_model || features.model || '',
+      features.model || features._raw_model || '',
       features.is_premium ? true : false,
       tailleFr,
       tailleUs,

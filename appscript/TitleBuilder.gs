@@ -233,6 +233,17 @@ var TitleBuilder = (function() {
     return 'mid';
   }
 
+  function normalizeRiseType(riseType, riseCm) {
+    if (riseType) {
+      var n = riseType.trim().toLowerCase();
+      if (n.indexOf('basse') !== -1 || n.indexOf('low') !== -1) return 'low';
+      if (n.indexOf('haute') !== -1 || n.indexOf('high') !== -1) return 'high';
+      if (n.indexOf('moy') !== -1 || n.indexOf('mid') !== -1) return 'mid';
+    }
+    if (riseCm != null) return classifyRiseFromCm(riseCm);
+    return null;
+  }
+
   return {
     SKU_PREFIX: SKU_PREFIX,
     normalizeStr: normalizeStr,
@@ -246,7 +257,8 @@ var TitleBuilder = (function() {
     formatNeckline: formatNeckline,
     normalizePullSize: normalizePullSize,
     normalizeCarharttSize: normalizeCarharttSize,
-    classifyRiseFromCm: classifyRiseFromCm
+    classifyRiseFromCm: classifyRiseFromCm,
+    normalizeRiseType: normalizeRiseType
   };
 
 })();
