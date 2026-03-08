@@ -20,9 +20,12 @@ var GeminiClient = (function() {
    * @param {Object} uiData - Donnees UI
    * @returns {Object} { text: string } ou { error: string }
    */
-  function generateContent(apiKey, modelName, imageDataArray, profile, uiData) {
+  function generateContent(apiKey, modelName, imageDataArray, profile, uiData, options) {
+    options = options || {};
+
     // Construire le prompt
-    var fullPrompt = Prompt.getPromptContract() + '\n\n' + profile.promptSuffix;
+    var basePrompt = Prompt.getPromptContract(options.creativityLevel);
+    var fullPrompt = basePrompt + '\n\n' + profile.promptSuffix;
 
     // Ajouter le mode de mesure si fourni
     var measurementMode = (uiData || {}).measurement_mode || (uiData || {}).measurementMode;
@@ -56,7 +59,8 @@ var GeminiClient = (function() {
 
     // Appel API avec retry
     var normalizedModel = normalizeModelName_(modelName);
-    return callApiWithRetry_(apiKey, normalizedModel, parts);
+    var temperature = options.temperature != null ? options.temperature : 0.5;
+    return callApiWithRetry_(apiKey, normalizedModel, parts, temperature);
   }
 
   /**
@@ -77,12 +81,12 @@ var GeminiClient = (function() {
   /**
    * Appel API Gemini avec retry exponentiel.
    */
-  function callApiWithRetry_(apiKey, modelName, parts) {
+  function callApiWithRetry_(apiKey, modelName, parts, temperature) {
     var lastError = null;
 
     for (var attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        var result = callApi_(apiKey, modelName, parts);
+        var result = callApi_(apiKey, modelName, parts, temperature);
         return result;
       } catch (err) {
         lastError = err;
@@ -112,7 +116,7 @@ var GeminiClient = (function() {
   /**
    * Appel direct a l'API Gemini REST.
    */
-  function callApi_(apiKey, modelName, parts) {
+  function callApi_(apiKey, modelName, parts, temperature) {
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + apiKey;
 
     var payload = {
@@ -122,7 +126,7 @@ var GeminiClient = (function() {
         }
       ],
       generationConfig: {
-        temperature: 0.2,
+        temperature: temperature != null ? temperature : 0.5,
         topP: 0.9,
         responseMimeType: 'application/json'
       }

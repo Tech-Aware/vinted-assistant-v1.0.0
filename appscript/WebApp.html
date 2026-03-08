@@ -149,6 +149,56 @@
     .phase-corrections { display: none; }
     .phase-corrections.active { display: block; }
     .phase-params.hidden { display: none; }
+    .phase-setup { display: none; }
+    .phase-setup.active { display: block; }
+    .app-layout.hidden { display: none; }
+
+    /* ===== Setup phase ===== */
+    .setup-container { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+    .setup-welcome { text-align: center; margin-bottom: 32px; }
+    .setup-welcome h2 { font-size: 24px; color: #1a73e8; margin-bottom: 8px; }
+    .setup-welcome p { color: #5f6368; font-size: 14px; }
+    .setup-welcome .user-email { font-size: 12px; color: #9aa0a6; margin-top: 4px; }
+    .setup-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+    .setup-profiles { margin-top: 24px; }
+    .setup-profiles h3 { font-size: 16px; color: #3c4043; margin-bottom: 12px; }
+    .profile-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; transition: border-color 0.2s; }
+    .profile-card:hover { border-color: #1a73e8; }
+    .profile-card .profile-info { flex: 1; }
+    .profile-card .profile-name { font-weight: 500; font-size: 14px; }
+    .profile-card .profile-meta { font-size: 11px; color: #9aa0a6; }
+    .profile-card .profile-actions { display: flex; gap: 6px; }
+    .profile-card .btn-sm-icon { background: none; border: 1px solid #dadce0; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: #5f6368; transition: all 0.15s; }
+    .profile-card .btn-sm-icon:hover { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+    .profile-card .btn-sm-icon.danger:hover { background: #fce4ec; border-color: #e53935; color: #e53935; }
+
+    /* ===== Profile editor overlay ===== */
+    .profile-editor-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 150; }
+    .profile-editor-overlay.open { display: flex; align-items: center; justify-content: center; }
+    .profile-editor { background: #fff; border-radius: 12px; padding: 24px; width: 94%; max-width: 700px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .profile-editor h2 { font-size: 18px; color: #1a73e8; margin-bottom: 16px; }
+    .profile-editor .editor-section { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e8eaed; }
+    .profile-editor .editor-section h3 { font-size: 14px; color: #3c4043; margin-bottom: 8px; }
+    .profile-editor .editor-section:last-child { border-bottom: none; }
+    .field-list { margin-top: 8px; }
+    .field-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; padding: 6px 8px; background: #f8f9fa; border-radius: 6px; }
+    .field-row input, .field-row select { padding: 4px 8px; font-size: 12px; border: 1px solid #dadce0; border-radius: 4px; }
+    .field-row .field-key { width: 120px; }
+    .field-row .field-label { width: 120px; }
+    .field-row .field-type { width: 100px; }
+    .field-row .btn-remove-field { background: none; border: none; color: #e53935; cursor: pointer; font-size: 16px; padding: 0 4px; }
+    .template-textarea { width: 100%; min-height: 60px; padding: 8px 10px; border: 1px solid #dadce0; border-radius: 6px; font-family: 'Roboto Mono', monospace; font-size: 12px; resize: vertical; }
+    .template-hint { font-size: 11px; color: #9aa0a6; margin-top: 4px; }
+    .template-preview { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #3c4043; margin-top: 8px; white-space: pre-wrap; word-break: break-word; min-height: 30px; }
+    .editor-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+    /* ===== Creativity slider ===== */
+    .creativity-group { margin-top: 12px; }
+    .creativity-group label { display: block; font-size: 11px; font-weight: 500; color: #5f6368; margin-bottom: 3px; }
+    .creativity-options { display: flex; gap: 8px; }
+    .creativity-btn { flex: 1; padding: 8px; border: 1px solid #dadce0; border-radius: 6px; background: #fff; cursor: pointer; text-align: center; font-size: 12px; transition: all 0.15s; }
+    .creativity-btn:hover { border-color: #1a73e8; }
+    .creativity-btn.active { background: #1a73e8; color: #fff; border-color: #1a73e8; }
 
     /* ===== Mobile layout (class set by JS to bypass GAS iframe issues) ===== */
     /* -- Global mobile reset -- */
@@ -251,12 +301,117 @@
   <div class="header">
     <h1>Vinted Assistant</h1>
     <div class="header-actions">
+      <span id="headerUserName" style="font-size:12px; opacity:0.8; margin-right:8px;"></span>
+      <button class="btn-icon" onclick="openProfileManager()" title="Mes profils">&#128221;</button>
       <button class="btn-icon" onclick="openConfig()" title="Configuration">&#9881;</button>
     </div>
   </div>
 
+  <!-- Phase Setup (premier lancement) -->
+  <div class="phase-setup" id="phaseSetup">
+    <div class="setup-container">
+      <div class="setup-welcome">
+        <h2 id="setupWelcomeTitle">Bienvenue !</h2>
+        <p>Configurez votre assistant Vinted pour commencer.</p>
+        <div class="user-email" id="setupUserEmail"></div>
+      </div>
+
+      <div class="setup-actions">
+        <button class="btn btn-primary" onclick="startAssistant()">Commencer</button>
+        <button class="btn btn-secondary" onclick="openProfileManager()">Gerer mes profils</button>
+      </div>
+
+      <div class="setup-profiles" id="setupProfiles">
+        <h3>Mes profils d'analyse</h3>
+        <div id="setupProfilesList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile manager overlay -->
+  <div class="profile-editor-overlay" id="profileManagerOverlay">
+    <div class="profile-editor" style="max-width:560px;">
+      <h2>Mes profils</h2>
+      <div id="profileManagerList"></div>
+      <div style="margin-top:16px; display:flex; gap:8px; justify-content:space-between; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="openNewProfileEditor()">+ Nouveau profil</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeProfileManager()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile editor overlay -->
+  <div class="profile-editor-overlay" id="profileEditorOverlay">
+    <div class="profile-editor">
+      <h2 id="editorTitle">Nouveau profil</h2>
+
+      <div class="editor-section">
+        <h3>Identite</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nom technique (sans espaces)</label>
+            <input type="text" id="edProfileName" placeholder="ex: chemise_ralph_lauren" pattern="[a-z0-9_]+">
+          </div>
+          <div class="form-group">
+            <label>Label affiche</label>
+            <input type="text" id="edProfileLabel" placeholder="ex: Chemise Ralph Lauren">
+          </div>
+        </div>
+      </div>
+
+      <div class="editor-section">
+        <h3>Champs d'analyse</h3>
+        <p class="template-hint">Definissez les champs que l'IA devra extraire et que vous pourrez corriger.</p>
+        <div class="field-list" id="edFieldsList"></div>
+        <button class="btn btn-secondary btn-sm" onclick="addEditorField()" style="margin-top:8px;">+ Ajouter un champ</button>
+      </div>
+
+      <div class="editor-section">
+        <h3>Template de titre</h3>
+        <p class="template-hint">Utilisez {nom_du_champ} pour inserer des valeurs. Ex: {brand} {size} {color}</p>
+        <textarea class="template-textarea" id="edTitleTemplate" oninput="previewTitle()" placeholder="Ex: {brand} {model} taille {size} {color} #{sku}"></textarea>
+        <div class="template-preview" id="edTitlePreview"></div>
+      </div>
+
+      <div class="editor-section">
+        <h3>Template de description</h3>
+        <p class="template-hint">Placeholders speciaux : {ai_description}, {ai_defects}, {condition_label}, {hashtags}</p>
+        <textarea class="template-textarea" id="edDescTemplate" style="min-height:100px;" placeholder="Ex: {ai_description}&#10;&#10;Etat : {condition_label}&#10;&#10;📦 Envoi rapide&#10;{hashtags}"></textarea>
+      </div>
+
+      <div class="editor-section">
+        <h3>Hashtags et SKU</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Hashtags (separes par des espaces)</label>
+            <input type="text" id="edHashtags" placeholder="ex: #mode #vintage #preloved">
+          </div>
+          <div class="form-group">
+            <label>Tag de compte</label>
+            <input type="text" id="edAccountTag" placeholder="ex: #moncompte">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Prefixe SKU</label>
+            <input type="text" id="edSkuPrefix" placeholder="ex: CHR">
+          </div>
+          <div class="form-group">
+            <label>Format SKU (regex)</label>
+            <input type="text" id="edSkuFormat" placeholder="ex: [A-Z]{3}\\d{1,8}">
+          </div>
+        </div>
+      </div>
+
+      <div class="editor-footer">
+        <button class="btn btn-secondary" onclick="closeProfileEditor()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveProfileFromEditor()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Two-column layout -->
-  <div class="app-layout">
+  <div class="app-layout" id="appLayout">
 
     <!-- ===== LEFT PANEL ===== -->
     <div class="panel panel-left">
@@ -292,10 +447,8 @@
 
           <div class="form-group">
             <label>Profil d'analyse</label>
-            <select id="profileName">
-              <option value="jean_levis">Jean Levi's</option>
-              <option value="pull">Pull / Gilet</option>
-              <option value="jacket_carhart">Veste Carhartt</option>
+            <select id="profileName" onchange="onProfileChange()">
+              <!-- Charge dynamiquement -->
             </select>
           </div>
 
@@ -415,6 +568,23 @@
         </small>
       </div>
 
+      <div class="creativity-group">
+        <label>Niveau de creativite IA</label>
+        <div class="creativity-options" id="creativityOptions">
+          <button class="creativity-btn" data-level="conservative" onclick="setCreativity('conservative')">Conservateur</button>
+          <button class="creativity-btn active" data-level="balanced" onclick="setCreativity('balanced')">Equilibre</button>
+          <button class="creativity-btn" data-level="creative" onclick="setCreativity('creative')">Creatif</button>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:12px;">
+        <label>Cle API personnelle (optionnel)</label>
+        <input type="password" id="cfgUserApiKey" placeholder="Votre propre cle API Gemini">
+        <small style="font-size:11px; color:#80868b; display:block; margin-top:2px;">
+          Laissez vide pour utiliser la cle partagee.
+        </small>
+      </div>
+
       <div id="configStatus"></div>
 
       <div class="config-actions">
@@ -461,11 +631,325 @@
     var lightboxIndex = -1;
     var dirHandle = null;       // FileSystemDirectoryHandle (local folder)
     var loadedFileNames = [];   // noms des fichiers charges depuis le dossier
+    var currentUserInfo = null; // info utilisateur connecte
+    var currentCreativity = 'balanced';
+    var userProfileFields = null; // PROFILE_FIELDS charge dynamiquement
+    var editingProfileName = null; // profil en cours d'edition
+
+    // ==================== Initialization ====================
+
+    (function initApp() {
+      google.script.run
+        .withSuccessHandler(function(info) {
+          currentUserInfo = info;
+          document.getElementById('headerUserName').textContent = info.displayName || '';
+          document.getElementById('setupUserEmail').textContent = info.email || '';
+          currentCreativity = (info.config && info.config.creativityLevel) || 'balanced';
+
+          if (info.isNewUser) {
+            showSetupPhase(info);
+          } else {
+            startAssistant();
+          }
+        })
+        .withFailureHandler(function() {
+          // Si l'auth echoue, demarrer normalement
+          startAssistant();
+        })
+        .getCurrentUserInfo();
+    })();
+
+    function showSetupPhase(info) {
+      document.getElementById('setupWelcomeTitle').textContent = 'Bienvenue ' + (info.displayName || '') + ' !';
+      document.getElementById('phaseSetup').classList.add('active');
+      document.getElementById('appLayout').classList.add('hidden');
+      loadSetupProfiles();
+    }
+
+    function startAssistant() {
+      document.getElementById('phaseSetup').classList.remove('active');
+      document.getElementById('appLayout').classList.remove('hidden');
+      loadProfileSelector();
+    }
+
+    function loadSetupProfiles() {
+      google.script.run
+        .withSuccessHandler(function(profiles) {
+          var container = document.getElementById('setupProfilesList');
+          container.innerHTML = '';
+          for (var i = 0; i < profiles.length; i++) {
+            var p = profiles[i];
+            var badge = p.isBuiltIn ? '<span class="profile-meta"> (par defaut)</span>' : '';
+            container.innerHTML +=
+              '<div class="profile-card">' +
+                '<div class="profile-info">' +
+                  '<div class="profile-name">' + escapeHtml(p.label) + badge + '</div>' +
+                  '<div class="profile-meta">' + escapeHtml(p.name) + '</div>' +
+                '</div>' +
+              '</div>';
+          }
+        })
+        .getUserProfilesList();
+    }
+
+    function loadProfileSelector() {
+      google.script.run
+        .withSuccessHandler(function(profiles) {
+          var sel = document.getElementById('profileName');
+          var current = sel.value;
+          sel.innerHTML = '';
+          for (var i = 0; i < profiles.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = profiles[i].name;
+            opt.textContent = profiles[i].label;
+            sel.appendChild(opt);
+          }
+          // Restaurer la selection
+          if (current) {
+            for (var j = 0; j < sel.options.length; j++) {
+              if (sel.options[j].value === current) { sel.selectedIndex = j; break; }
+            }
+          }
+          // Charger les champs du profil selectionne
+          onProfileChange();
+        })
+        .getUserProfilesList();
+    }
+
+    function onProfileChange() {
+      var profileName = document.getElementById('profileName').value;
+      if (!profileName) return;
+      google.script.run
+        .withSuccessHandler(function(fields) {
+          userProfileFields = {};
+          userProfileFields[profileName] = fields;
+        })
+        .getProfileFields(profileName);
+    }
+
+    // ==================== Profile Manager ====================
+
+    function openProfileManager() {
+      document.getElementById('profileManagerOverlay').classList.add('open');
+      loadProfileManagerList();
+    }
+
+    function closeProfileManager() {
+      document.getElementById('profileManagerOverlay').classList.remove('open');
+    }
+
+    function loadProfileManagerList() {
+      google.script.run
+        .withSuccessHandler(function(profiles) {
+          var container = document.getElementById('profileManagerList');
+          container.innerHTML = '';
+          for (var i = 0; i < profiles.length; i++) {
+            var p = profiles[i];
+            var builtInBadge = p.isBuiltIn ? ' <span class="profile-meta">(defaut)</span>' : '';
+            var actions = '<button class="btn-sm-icon" onclick="editProfile(\'' + escapeAttr(p.name) + '\')">Editer</button>' +
+              '<button class="btn-sm-icon" onclick="duplicateProfile(\'' + escapeAttr(p.name) + '\')">Dupliquer</button>';
+            if (!p.isBuiltIn) {
+              actions += '<button class="btn-sm-icon danger" onclick="deleteProfile(\'' + escapeAttr(p.name) + '\')">Suppr.</button>';
+            }
+            container.innerHTML +=
+              '<div class="profile-card">' +
+                '<div class="profile-info"><div class="profile-name">' + escapeHtml(p.label) + builtInBadge + '</div><div class="profile-meta">' + escapeHtml(p.name) + '</div></div>' +
+                '<div class="profile-actions">' + actions + '</div>' +
+              '</div>';
+          }
+        })
+        .getUserProfilesList();
+    }
+
+    function deleteProfile(name) {
+      if (!confirm('Supprimer le profil "' + name + '" ?')) return;
+      google.script.run
+        .withSuccessHandler(function() {
+          loadProfileManagerList();
+          loadProfileSelector();
+        })
+        .deleteUserProfile(name);
+    }
+
+    function duplicateProfile(name) {
+      var newName = prompt('Nom du nouveau profil :', name + '_copie');
+      if (!newName) return;
+      newName = newName.replace(/\s+/g, '_').toLowerCase();
+      google.script.run
+        .withSuccessHandler(function() {
+          loadProfileManagerList();
+          loadProfileSelector();
+        })
+        .duplicateUserProfile(name, newName);
+    }
+
+    // ==================== Profile Editor ====================
+
+    function openNewProfileEditor() {
+      editingProfileName = null;
+      document.getElementById('editorTitle').textContent = 'Nouveau profil';
+      document.getElementById('edProfileName').value = '';
+      document.getElementById('edProfileName').disabled = false;
+      document.getElementById('edProfileLabel').value = '';
+      document.getElementById('edTitleTemplate').value = '{brand} {size} {color} #{sku}';
+      document.getElementById('edDescTemplate').value = '{ai_description}\n\nEtat : {condition_label}\n\n\ud83d\udce6 Envoi rapide et soigne.\n\ud83d\udca1 Pensez a faire un lot !\n\n{hashtags}';
+      document.getElementById('edHashtags').value = '';
+      document.getElementById('edAccountTag').value = '';
+      document.getElementById('edSkuPrefix').value = '';
+      document.getElementById('edSkuFormat').value = '';
+
+      // Champs par defaut
+      var defaultFields = [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'color', label: 'Couleur', type: 'text'},
+        {key: 'size', label: 'Taille', type: 'text'},
+        {key: 'gender', label: 'Genre', type: 'select'},
+        {key: 'condition', label: 'Etat', type: 'select'},
+        {key: 'sku', label: 'SKU', type: 'text'}
+      ];
+      renderEditorFields(defaultFields);
+      document.getElementById('profileEditorOverlay').classList.add('open');
+      previewTitle();
+    }
+
+    function editProfile(name) {
+      editingProfileName = name;
+      google.script.run
+        .withSuccessHandler(function(profile) {
+          if (!profile) { alert('Profil introuvable.'); return; }
+          document.getElementById('editorTitle').textContent = 'Editer : ' + profile.label;
+          document.getElementById('edProfileName').value = profile.profileName;
+          document.getElementById('edProfileName').disabled = true; // pas de renommage
+          document.getElementById('edProfileLabel').value = profile.label;
+          document.getElementById('edTitleTemplate').value = profile.titleTemplate || '';
+          document.getElementById('edDescTemplate').value = profile.descriptionTemplate || '';
+
+          var hashtags = profile.hashtags || {};
+          var coreTags = Array.isArray(hashtags.core) ? hashtags.core.join(' ') : '';
+          document.getElementById('edHashtags').value = coreTags;
+          document.getElementById('edAccountTag').value = profile.accountTag || '';
+          document.getElementById('edSkuPrefix').value = profile.skuPrefix || '';
+          document.getElementById('edSkuFormat').value = profile.skuFormat || '';
+
+          renderEditorFields(profile.fields || []);
+          document.getElementById('profileEditorOverlay').classList.add('open');
+          previewTitle();
+        })
+        .getUserProfileDetail(name);
+    }
+
+    function closeProfileEditor() {
+      document.getElementById('profileEditorOverlay').classList.remove('open');
+      editingProfileName = null;
+    }
+
+    function renderEditorFields(fields) {
+      var container = document.getElementById('edFieldsList');
+      container.innerHTML = '';
+      for (var i = 0; i < fields.length; i++) {
+        addEditorFieldRow(fields[i]);
+      }
+    }
+
+    function addEditorField() {
+      addEditorFieldRow({key: '', label: '', type: 'text'});
+    }
+
+    function addEditorFieldRow(field) {
+      var container = document.getElementById('edFieldsList');
+      var row = document.createElement('div');
+      row.className = 'field-row';
+      row.innerHTML =
+        '<input type="text" class="field-key" value="' + escapeAttr(field.key || '') + '" placeholder="Cle (ex: brand)">' +
+        '<input type="text" class="field-label" value="' + escapeAttr(field.label || '') + '" placeholder="Label (ex: Marque)">' +
+        '<select class="field-type">' +
+          '<option value="text"' + (field.type === 'text' ? ' selected' : '') + '>Texte</option>' +
+          '<option value="number"' + (field.type === 'number' ? ' selected' : '') + '>Nombre</option>' +
+          '<option value="select"' + (field.type === 'select' ? ' selected' : '') + '>Liste</option>' +
+          '<option value="checkbox"' + (field.type === 'checkbox' ? ' selected' : '') + '>Case</option>' +
+          '<option value="multicheck"' + (field.type === 'multicheck' ? ' selected' : '') + '>Multi-choix</option>' +
+        '</select>' +
+        '<button class="btn-remove-field" onclick="this.parentElement.remove()" title="Supprimer">&times;</button>';
+      container.appendChild(row);
+    }
+
+    function previewTitle() {
+      var template = document.getElementById('edTitleTemplate').value;
+      var preview = template.replace(/\{(\w+)\}/g, function(m, key) {
+        return '[' + key + ']';
+      });
+      document.getElementById('edTitlePreview').textContent = preview || '(apercu vide)';
+    }
+
+    function saveProfileFromEditor() {
+      var profileName = document.getElementById('edProfileName').value.trim().toLowerCase().replace(/\s+/g, '_');
+      var label = document.getElementById('edProfileLabel').value.trim();
+
+      if (!profileName) { alert('Nom technique requis.'); return; }
+      if (!label) { alert('Label requis.'); return; }
+
+      // Collecter les champs
+      var fieldRows = document.querySelectorAll('#edFieldsList .field-row');
+      var fields = [];
+      for (var i = 0; i < fieldRows.length; i++) {
+        var row = fieldRows[i];
+        var key = row.querySelector('.field-key').value.trim();
+        var lbl = row.querySelector('.field-label').value.trim();
+        var type = row.querySelector('.field-type').value;
+        if (key && lbl) {
+          var field = {key: key, label: lbl, type: type};
+          // Options par defaut pour les selects
+          if (type === 'select') {
+            if (key === 'gender') field.options = [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']];
+            else if (key === 'condition') field.options = [['', '(non defini)'], ['tres bon etat', 'Tres bon etat'], ['bon etat', 'Bon etat'], ['neuf', 'Neuf'], ['satisfaisant', 'Satisfaisant']];
+            else field.options = [['', '(vide)']];
+          }
+          fields.push(field);
+        }
+      }
+
+      // Hashtags
+      var hashtagsStr = document.getElementById('edHashtags').value.trim();
+      var coreHashtags = hashtagsStr ? hashtagsStr.split(/\s+/) : [];
+
+      var profileData = {
+        profileName: profileName,
+        label: label,
+        isBuiltIn: false,
+        fields: fields,
+        titleTemplate: document.getElementById('edTitleTemplate').value,
+        descriptionTemplate: document.getElementById('edDescTemplate').value,
+        promptSuffix: '', // sera genere automatiquement par ProfileEngine
+        skuFormat: document.getElementById('edSkuFormat').value.trim(),
+        skuPrefix: document.getElementById('edSkuPrefix').value.trim(),
+        hashtags: {core: coreHashtags, account: document.getElementById('edAccountTag').value.trim()},
+        accountTag: document.getElementById('edAccountTag').value.trim(),
+        compositionMaterials: [],
+        conditionOptions: [['', '(non defini)'], ['tres bon etat', 'Tres bon etat'], ['bon etat', 'Bon etat'], ['neuf', 'Neuf'], ['satisfaisant', 'Satisfaisant']]
+      };
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            closeProfileEditor();
+            loadProfileManagerList();
+            loadProfileSelector();
+            alert('Profil enregistre !');
+          } else {
+            alert('Erreur : ' + (result.error || 'inconnue'));
+          }
+        })
+        .withFailureHandler(function(err) {
+          alert('Erreur : ' + err.message);
+        })
+        .saveUserProfile(profileData);
+    }
 
     // ==================== Config ====================
 
     function openConfig() {
       document.getElementById('configOverlay').classList.add('open');
+      // Charger la config globale
       google.script.run
         .withSuccessHandler(function(config) {
           if (config.geminiApiKey) document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey;
@@ -478,11 +962,25 @@
           if (config.logSheetId) document.getElementById('cfgLogSheetId').value = config.logSheetId;
         })
         .getConfig();
+
+      // Charger les prefs utilisateur
+      if (currentUserInfo && currentUserInfo.config) {
+        document.getElementById('cfgUserApiKey').value = currentUserInfo.config.apiKey || '';
+        setCreativity(currentUserInfo.config.creativityLevel || 'balanced');
+      }
     }
 
     function closeConfig() {
       document.getElementById('configOverlay').classList.remove('open');
       document.getElementById('configStatus').innerHTML = '';
+    }
+
+    function setCreativity(level) {
+      currentCreativity = level;
+      var btns = document.querySelectorAll('#creativityOptions .creativity-btn');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('active', btns[i].getAttribute('data-level') === level);
+      }
     }
 
     function saveConfigAction() {
@@ -495,11 +993,22 @@
         showConfigStatus('Veuillez entrer une cle API Gemini.', 'err');
         return;
       }
+
+      // Sauvegarder la config globale
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            showConfigStatus('Configuration enregistree !', 'ok');
-            setTimeout(closeConfig, 1200);
+            // Aussi sauvegarder les prefs utilisateur
+            var userSettings = {
+              apiKey: document.getElementById('cfgUserApiKey').value.trim(),
+              creativityLevel: currentCreativity
+            };
+            google.script.run
+              .withSuccessHandler(function() {
+                showConfigStatus('Configuration enregistree !', 'ok');
+                setTimeout(closeConfig, 1200);
+              })
+              .saveUserSettings(userSettings);
           } else {
             showConfigStatus('Erreur lors de la sauvegarde.', 'err');
           }
@@ -694,7 +1203,8 @@
 
     function switchToCorrections(result, profile) {
       var features = result.features || {};
-      var fields = PROFILE_FIELDS[profile] || [];
+      // Utiliser les champs dynamiques si disponibles, sinon fallback hardcoded
+      var fields = (userProfileFields && userProfileFields[profile]) || PROFILE_FIELDS[profile] || [];
       var grid = document.getElementById('correctionGrid');
 
       // Auto-calcul is_stretch si non fourni : elasthane >= 3% OU viscose
@@ -948,7 +1458,7 @@
 
     function applyCorrections() {
       var profile = (window._lastParams && window._lastParams.profileName) || 'jean_levis';
-      var fields = PROFILE_FIELDS[profile] || [];
+      var fields = (userProfileFields && userProfileFields[profile]) || PROFILE_FIELDS[profile] || [];
       var features = {};
 
       var base = (window._lastResult && window._lastResult.features) || {};

@@ -100,6 +100,134 @@ function saveConfig(config) {
 }
 
 // ============================================================
+// User management (appelees depuis le HTML)
+// ============================================================
+
+/**
+ * Retourne les infos de l'utilisateur connecte.
+ * Initialise les profils par defaut si nouvel utilisateur.
+ */
+function getCurrentUserInfo() {
+  var email = Session.getActiveUser().getEmail();
+  if (!email) {
+    return { email: '', displayName: 'Utilisateur', isNewUser: true, config: {} };
+  }
+
+  var user = UserStore.getUserByEmail(email);
+  var isNewUser = !user;
+
+  if (isNewUser) {
+    user = {
+      email: email,
+      displayName: email.split('@')[0],
+      apiKey: '',
+      geminiModel: '',
+      creativityLevel: 'balanced',
+      defaultProfile: '',
+      createdAt: new Date().toISOString()
+    };
+    UserStore.saveUser(email, user);
+    UserStore.ensureDefaultProfiles(email);
+  }
+
+  return {
+    email: email,
+    displayName: user.displayName || email.split('@')[0],
+    isNewUser: isNewUser,
+    config: {
+      apiKey: user.apiKey || '',
+      geminiModel: user.geminiModel || '',
+      creativityLevel: user.creativityLevel || 'balanced',
+      defaultProfile: user.defaultProfile || ''
+    }
+  };
+}
+
+/**
+ * Sauvegarde les parametres utilisateur.
+ */
+function saveUserSettings(settings) {
+  var email = Session.getActiveUser().getEmail();
+  if (!email) return { error: 'Utilisateur non identifie.' };
+
+  var user = UserStore.getUserByEmail(email) || {};
+  user.email = email;
+  if (settings.displayName !== undefined) user.displayName = settings.displayName;
+  if (settings.apiKey !== undefined) user.apiKey = settings.apiKey;
+  if (settings.geminiModel !== undefined) user.geminiModel = settings.geminiModel;
+  if (settings.creativityLevel !== undefined) user.creativityLevel = settings.creativityLevel;
+  if (settings.defaultProfile !== undefined) user.defaultProfile = settings.defaultProfile;
+
+  UserStore.saveUser(email, user);
+  return { success: true };
+}
+
+/**
+ * Retourne la liste des profils de l'utilisateur connecte.
+ */
+function getUserProfilesList() {
+  var email = Session.getActiveUser().getEmail();
+  if (!email) return [];
+
+  UserStore.ensureDefaultProfiles(email);
+  var profiles = UserStore.getUserProfiles(email);
+  return profiles.map(function(p) {
+    return { name: p.profileName, label: p.label, isBuiltIn: p.isBuiltIn };
+  });
+}
+
+/**
+ * Retourne le detail complet d'un profil utilisateur.
+ */
+function getUserProfileDetail(profileName) {
+  var email = Session.getActiveUser().getEmail();
+  if (!email) return null;
+  return UserStore.getProfile(email, profileName);
+}
+
+/**
+ * Sauvegarde un profil utilisateur (creation ou mise a jour).
+ */
+function saveUserProfile(profileData) {
+  var email = Session.getActiveUser().getEmail();
+  if (!email) return { error: 'Utilisateur non identifie.' };
+  if (!profileData || !profileData.profileName) return { error: 'Nom de profil requis.' };
+
+  UserStore.saveProfile(email, profileData);
+  return { success: true };
+}
+
+/**
+ * Supprime un profil utilisateur.
+ */
+function deleteUserProfile(profileName) {
+  var email = Session.getActiveUser().getEmail();
+  if (!email) return { error: 'Utilisateur non identifie.' };
+
+  var deleted = UserStore.deleteProfile(email, profileName);
+  return { success: deleted };
+}
+
+/**
+ * Duplique un profil existant sous un nouveau nom.
+ */
+function duplicateUserProfile(sourceName, newName) {
+  var email = Session.getActiveUser().getEmail();
+  if (!email) return { error: 'Utilisateur non identifie.' };
+
+  var source = UserStore.getProfile(email, sourceName);
+  if (!source) return { error: 'Profil source introuvable.' };
+
+  var newProfile = JSON.parse(JSON.stringify(source));
+  newProfile.profileName = newName;
+  newProfile.label = newName;
+  newProfile.isBuiltIn = false;
+
+  UserStore.saveProfile(email, newProfile);
+  return { success: true };
+}
+
+// ============================================================
 // Generation d'annonce (appelee depuis le HTML)
 // ============================================================
 
@@ -137,16 +265,38 @@ function generateListing(params) {
     }
     imageDataArray = validImages;
 
-    var apiKey = Config.getGeminiApiKey();
+    // Identifier l'utilisateur et ses preferences
+    var userEmail = Session.getActiveUser().getEmail();
+    var apiKey = Config.getEffectiveApiKey(userEmail);
     if (!apiKey) {
       return { error: 'Cle API Gemini non configuree. Ouvrez la configuration (icone engrenage).' };
     }
 
-    var modelName = Config.getGeminiModel() || 'gemini-2.5-flash';
+    var modelName = Config.getEffectiveModel(userEmail) || 'gemini-2.5-flash';
+
+    // Charger le profil : d'abord depuis UserStore, sinon built-in
+    var userProfile = userEmail ? UserStore.getProfile(userEmail, profileName) : null;
     var profile = Templates.getProfile(profileName);
+    var isCustomProfile = false;
+
+    if (userProfile && !userProfile.isBuiltIn && userProfile.titleTemplate) {
+      // Profil custom : construire un objet profile compatible
+      isCustomProfile = true;
+      profile = {
+        name: userProfile.profileName,
+        label: userProfile.label,
+        promptSuffix: userProfile.promptSuffix || ProfileEngine.buildPromptSuffix(userProfile),
+        jsonSchema: null // pas de validation stricte pour les profils custom
+      };
+    }
+
     if (!profile) {
       return { error: 'Profil d\'analyse inconnu : ' + profileName };
     }
+
+    // Temperature selon le niveau de creativite
+    var creativityLevel = Config.getCreativityLevel(userEmail);
+    var temperature = Config.creativityToTemperature(creativityLevel);
 
     // Appel Gemini
     var geminiResult = GeminiClient.generateContent(
@@ -154,7 +304,8 @@ function generateListing(params) {
       modelName,
       imageDataArray,
       profile,
-      uiData
+      uiData,
+      { temperature: temperature, creativityLevel: creativityLevel }
     );
 
     if (geminiResult.error) {
@@ -183,7 +334,12 @@ function generateListing(params) {
     }
 
     // Normalisation + post-traitement
-    var normalized = Normalizer.normalizeAndPostprocess(parsed, profileName, uiData);
+    var normalized;
+    if (isCustomProfile && userProfile) {
+      normalized = ProfileEngine.normalizeCustomProfile(parsed, userProfile, uiData);
+    } else {
+      normalized = Normalizer.normalizeAndPostprocess(parsed, profileName, uiData);
+    }
 
     // Construire le resultat final
     var listing = Models.createListing(normalized);
@@ -228,8 +384,19 @@ function rebuildListing(params) {
     var aiDescription = params.aiDescription || '';
     var aiDefects = params.aiDefects || null;
 
-    var title = TitleEngine.buildTitle(profileName, features);
-    var description = DescriptionEngine.buildDescription(profileName, features, aiDescription, aiDefects);
+    // Verifier si c'est un profil custom
+    var userEmail = Session.getActiveUser().getEmail();
+    var userProfile = userEmail ? UserStore.getProfile(userEmail, profileName) : null;
+
+    var title, description;
+
+    if (userProfile && !userProfile.isBuiltIn && userProfile.titleTemplate) {
+      title = ProfileEngine.buildTitle(userProfile, features);
+      description = ProfileEngine.buildDescription(userProfile, features, aiDescription, aiDefects);
+    } else {
+      title = TitleEngine.buildTitle(profileName, features);
+      description = DescriptionEngine.buildDescription(profileName, features, aiDescription, aiDefects);
+    }
 
     return {
       success: true,

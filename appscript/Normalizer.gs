@@ -429,7 +429,8 @@ var Normalizer = (function() {
   function normalizeAndPostprocess(aiData, profileName, uiData) {
     var profile = coerceProfileName(profileName);
     if (!profile) {
-      Logger.log('Normalizer: profil inconnu: ' + profileName);
+      // Profil non built-in : peut etre un profil custom, retourner les donnees brutes
+      Logger.log('Normalizer: profil non built-in: ' + profileName + ', donnees retournees brutes');
       return aiData;
     }
 

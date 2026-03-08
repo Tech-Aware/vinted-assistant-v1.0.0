@@ -149,6 +149,20 @@ var Templates = (function() {
 
     getAllProfiles: function() {
       return PROFILES;
+    },
+
+    /**
+     * Verifie si un profil est un built-in.
+     */
+    isBuiltIn: function(name) {
+      return PROFILES.hasOwnProperty(name);
+    },
+
+    /**
+     * Retourne les profils built-in au format UserStore.
+     */
+    getBuiltInProfiles: function() {
+      return DefaultProfiles.getAll();
     }
   };
 
