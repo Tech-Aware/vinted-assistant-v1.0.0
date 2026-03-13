@@ -114,15 +114,23 @@ var Normalizer = (function() {
     var color = rawFeatures.color || aiData.color;
     if (!color) color = TextExtractors.extractColorFromText(fullText);
 
-    var sizeFr = uiData.size_fr || rawFeatures.size_fr || aiData.size_fr;
     var sizeUs = uiData.size_us || rawFeatures.size_us || aiData.size_us;
-    var length = uiData.length || rawFeatures.length || aiData.length;
+    var length = uiData.length || rawFeatures.length || aiData.length || null;
 
-    if (!sizeUs || !length) {
+    // Text extraction uniquement pour sizeUs (pas pour length)
+    if (!sizeUs) {
       var inferred = TextExtractors.extractSizesFromText(fullText);
-      if (!sizeUs && inferred[0]) sizeUs = inferred[0];
-      if (!length && inferred[1]) length = inferred[1];
+      if (inferred[0]) sizeUs = inferred[0];
     }
+
+    // Taille FR = toujours US + 10
+    var sizeFr = null;
+    if (sizeUs) {
+      var usNum = parseInt(String(sizeUs).replace(/\D/g, ''), 10);
+      if (!isNaN(usNum)) sizeFr = String(usNum + 10);
+    }
+    // Permettre override manuel
+    if (uiData.size_fr) sizeFr = uiData.size_fr;
 
     var cottonPercent = rawFeatures.cotton_percent || aiData.cotton_percent;
     var elasthanePercent = rawFeatures.elasthane_percent || aiData.elasthane_percent;
@@ -132,14 +140,9 @@ var Normalizer = (function() {
     if (compositionMaterials && Array.isArray(compositionMaterials)) {
       compositionMaterials = compositionMaterials.map(capitalizeMaterial).filter(Boolean);
     }
-    // Fallback: construire depuis les pourcentages si l'IA n'a pas detecte
+    // Fallback: Coton par defaut si aucune composition detectee
     if (!compositionMaterials || compositionMaterials.length === 0) {
-      compositionMaterials = [];
-      if (cottonPercent) compositionMaterials.push('Coton');
-      if (elasthanePercent) {
-        // Utiliser le terme generique si on n'a que le %
-        compositionMaterials.push('Élasthanne');
-      }
+      compositionMaterials = ['Coton'];
     }
 
     // Material string pour le log

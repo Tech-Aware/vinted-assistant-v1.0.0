@@ -325,6 +325,14 @@ function logGenerationToSheet(result, params) {
     else if (riseNorm === 'high') riseLabel = 'Haute';
     else if (riseNorm === 'mid') riseLabel = 'Moyenne';
 
+    // Prix : defaut selon SKU (JLF=24, JLH=26)
+    var price = uiData.price || '';
+    if (!price && skuForLog) {
+      var skuUp = skuForLog.toUpperCase();
+      if (skuUp.indexOf('JLF') !== -1) price = 24;
+      else if (skuUp.indexOf('JLH') !== -1) price = 26;
+    }
+
     var row = [
       new Date(),
       agentEmail,
@@ -340,7 +348,7 @@ function logGenerationToSheet(result, params) {
       matiere,
       features.fit || '',
       features.gender || '',
-      uiData.price || '',
+      price,
       features.condition || '',
       skuForLog
     ];

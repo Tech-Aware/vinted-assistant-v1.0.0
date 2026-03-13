@@ -64,7 +64,7 @@ var TextExtractors = (function() {
     if (v.indexOf('skinny') !== -1 || v.indexOf('slim') !== -1) return 'Skinny';
     if (v.indexOf('straight') !== -1 || v.indexOf('droit') !== -1) return 'Straight/Droit';
     if (v.indexOf('bootcut') !== -1 || v.indexOf('flare') !== -1 || v.indexOf('évasé') !== -1) return 'Bootcut/Évasé';
-    return value.trim() || null;
+    return null;
   }
 
   function normalizeSkuValue(raw) {
