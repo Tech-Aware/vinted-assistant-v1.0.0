@@ -81,8 +81,10 @@ var TitleEngine = (function() {
       if (sizeFr && showFrInTitle) parts.push('FR' + sizeFr);
       if (sizeUsDisplay) parts.push(sizeUsDisplay);
       if (lengthDisplay) parts.push(lengthDisplay);
-      if (fit && riseLabel) parts.push(fit + ' ' + riseLabel);
-      else if (fit) parts.push(fit);
+      var fitOriginal = TitleBuilder.normalizeStr(features.fit_original);
+      var fitDisplay = TitleBuilder.formatFitDisplay(fitOriginal, fit);
+      if (fitDisplay && riseLabel) parts.push(fitDisplay + ' ' + riseLabel);
+      else if (fitDisplay) parts.push(fitDisplay);
       else if (riseLabel) parts.push(riseLabel);
       if (cottonPercent != null && cottonPercent >= 60) parts.push(cottonPercent + '% coton');
       if (isStretch) parts.push('stretch');

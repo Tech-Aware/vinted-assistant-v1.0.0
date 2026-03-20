@@ -114,6 +114,7 @@ def build_features_for_jean_levis(
 
     # --- Fit ---------------------------------------------------------------
     # Priorité : UI (boutons radio) > IA > extraction texte
+    fit_original = None  # Coupe brute Gemini (avant normalisation)
     ui_fit = ui_data.get("fit")
     if ui_fit:
         # Normaliser les valeurs UI (droite, evasee, skinny) vers les labels standard
@@ -126,10 +127,16 @@ def build_features_for_jean_levis(
             fit = "Skinny"
         else:
             fit = normalize_fit_label(ui_fit)
+        # Pas de fit_original quand c'est un override UI
         logger.info("build_features_for_jean_levis: coupe fournie par l'UI -> %s", fit)
     else:
-        fit = raw_features.get("fit") or ai_data.get("fit")
-        fit = normalize_fit_label(fit)
+        raw_fit = raw_features.get("fit") or ai_data.get("fit")
+        if raw_fit:
+            fit_original = str(raw_fit).strip()
+            # Capitalize first letter
+            if fit_original:
+                fit_original = fit_original[0].upper() + fit_original[1:]
+        fit = normalize_fit_label(raw_fit)
         if not fit:
             fit = extract_fit_from_text(full_text)
 
@@ -360,6 +367,7 @@ def build_features_for_jean_levis(
         "brand": brand,
         "model": model,
         "fit": fit,
+        "fit_original": fit_original,
         "color": color,
         "size_fr": size_fr,
         "size_us": size_us,

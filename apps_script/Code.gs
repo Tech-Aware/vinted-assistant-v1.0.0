@@ -171,6 +171,14 @@ function generateListing(params) {
         normalized.features.fit = normalizeFitCategory_(normalized.features.fit);
       }
     }
+    // Calculer prix conseille et prix neuf AVANT la description
+    var pricingResult = { price: null, retail: '' };
+    if (profileName === 'jean_levis') {
+      pricingResult = calculateRecommendedPrice_(normalized.features || {});
+      if (pricingResult.retail) {
+        normalized.features.retail_price_range = pricingResult.retail;
+      }
+    }
     // Reconstruire titre/description avec la taille FR corrigee
     normalized.title = TitleEngine.buildTitle(profileName, normalized.features);
     normalized.description = DescriptionEngine.buildDescription(
@@ -179,11 +187,6 @@ function generateListing(params) {
     );
     // Construire le resultat final
     var listing = Models.createListing(normalized);
-    // Calculer prix conseille et prix neuf
-    var pricingResult = { price: null, retail: '' };
-    if (profileName === 'jean_levis') {
-      pricingResult = calculateRecommendedPrice_(listing.features || normalized.features || {});
-    }
     return {
       success: true,
       title: listing.title,
@@ -227,6 +230,13 @@ function rebuildListing(params) {
     // Normaliser la coupe en 3 categories
     if (profileName === 'jean_levis' && features.fit) {
       features.fit = normalizeFitCategory_(features.fit);
+    }
+    // Calculer prix neuf AVANT la description
+    if (profileName === 'jean_levis') {
+      var rebuildPricing = calculateRecommendedPrice_(features);
+      if (rebuildPricing && rebuildPricing.retail) {
+        features.retail_price_range = rebuildPricing.retail;
+      }
     }
     var title = TitleEngine.buildTitle(profileName, features);
     var description = DescriptionEngine.buildDescription(profileName, features, aiDescription, aiDefects);

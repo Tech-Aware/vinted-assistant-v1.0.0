@@ -25,6 +25,15 @@ var TitleBuilder = (function() {
     }
     return value.trim();
   }
+  function formatFitDisplay(fitOriginal, fitNormalized) {
+    if (!fitNormalized) return null;
+    if (!fitOriginal) return fitNormalized;
+    var standardLabels = ['skinny', 'droit', 'évasé'];
+    var orig = fitOriginal.trim();
+    if (standardLabels.indexOf(orig.toLowerCase()) !== -1) return fitNormalized;
+    if (orig.toLowerCase() === fitNormalized.toLowerCase()) return fitNormalized;
+    return orig + '/' + fitNormalized;
+  }
   function sanitizeModelLabel(value) {
     if (!value) return null;
     var raw = value.trim();
@@ -199,6 +208,7 @@ var TitleBuilder = (function() {
     SKU_PREFIX: SKU_PREFIX,
     normalizeStr: normalizeStr,
     normalizeFit: normalizeFit,
+    formatFitDisplay: formatFitDisplay,
     sanitizeModelLabel: sanitizeModelLabel,
     normalizeGender: normalizeGender,
     safeJoin: safeJoin,

@@ -95,15 +95,10 @@ var DescriptionEngine = (function() {
       var paragraph1 = [intro, compositionSentence, colorSentence, closure].join(' ');
       var infoBlock = [sizeLine, sizeNote, stateLine, measuresLine].join('\n');
       var footerBlock = [shippingLine, '', ctaSizeLine, ctaLotLine, '', hashtagTokens.join(' ')].join('\n');
-      // Prix neuf en magasin
+      // Prix neuf en magasin (injecté dans features par Code.gs)
       var retailLine = '';
-      try {
-        var pricingResult = calculateRecommendedPrice_(features);
-        if (pricingResult && pricingResult.retail) {
-          retailLine = '💵 Prix neuf en magasin : ' + pricingResult.retail;
-        }
-      } catch (e) {
-        Logger.log('DescriptionEngine: erreur calcul prix neuf: ' + e.message);
+      if (features.retail_price_range) {
+        retailLine = '💵 Prix neuf en magasin : ' + features.retail_price_range;
       }
       if (retailLine) {
         return retailLine + '\n\n' + paragraph1 + '\n\n' + infoBlock + '\n\n' + footerBlock;
