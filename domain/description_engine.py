@@ -6,6 +6,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
+from domain.pricing import get_retail_price_range
 from domain.description_builder import (
     _build_composition,
     _build_hashtags,
@@ -56,9 +57,9 @@ def build_description_jean_levis(
         model_low = (model or "").lower()
 
         if "demi" in model_low and "curve" in model_low:
-            fit_effective = "Bootcut/Évasé"
+            fit_effective = "Évasé"
         elif "curve" in model_low and not fit_effective:
-            fit_effective = "Bootcut/Évasé"
+            fit_effective = "Évasé"
 
         # --- Déterminer le compte Vinted selon le SKU ---
         sku_upper = (sku or "").upper()
@@ -75,15 +76,18 @@ def build_description_jean_levis(
 
         # --- Construction du libellé de coupe pour la phrase d'intro ---
         fit_low = (fit_effective or "").lower()
-        if "boot" in fit_low or "évas" in fit_low or "evas" in fit_low or "flare" in fit_low:
-            fit_label = "évasés"
-            fit_hashtag = "évasé"
-        elif "skinny" in fit_low or "slim" in fit_low:
+        if "skinny" in fit_low or "slim" in fit_low:
             fit_label = "skinny"
             fit_hashtag = "skinny"
-        elif "straight" in fit_low or "droit" in fit_low:
+        elif any(m in fit_low for m in ("straight", "droit", "mom", "boyfriend", "girlfriend", "regular", "tapered")):
             fit_label = "droits"
             fit_hashtag = "droit"
+        elif any(m in fit_low for m in (
+            "boot", "évas", "evas", "flare", "curve", "curvy",
+            "wide", "baggy", "loose", "relaxed", "barrel",
+        )):
+            fit_label = "évasés"
+            fit_hashtag = "évasé"
         else:
             fit_label = ""
             fit_hashtag = ""
@@ -209,6 +213,10 @@ def build_description_jean_levis(
 
         hashtags = " ".join(hashtag_tokens)
 
+        # --- Prix neuf en magasin ---
+        retail_range = get_retail_price_range(features)
+        retail_line = f"💵 Prix neuf en magasin : {retail_range}" if retail_range else ""
+
         # --- Assemblage final ---
         # Paragraphe 1: intro + composition + couleur + fermeture
         paragraph1 = f"{intro_sentence} {composition_sentence} {color_sentence} {closure_sentence}"
@@ -219,7 +227,10 @@ def build_description_jean_levis(
         # Footer
         footer_block = "\n".join([shipping_line, "", cta_size_line, cta_lot_line, "", hashtags])
 
-        description = f"{paragraph1}\n\n{info_block}\n\n{footer_block}"
+        if retail_line:
+            description = f"{retail_line}\n\n{paragraph1}\n\n{info_block}\n\n{footer_block}"
+        else:
+            description = f"{paragraph1}\n\n{info_block}\n\n{footer_block}"
         logger.debug("build_description_jean_levis: description générée = %s", description)
         return description
 

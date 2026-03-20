@@ -39,8 +39,8 @@ def detect_fit_from_measurements(
 
     Seuils :
     - ratio ≤ 0.65 : Skinny (jambe très fuselée)
-    - ratio 0.65-0.75 : Straight/Droit (jambe droite)
-    - ratio ≥ 0.75 : Bootcut/Évasé (ouverture en bas)
+    - ratio 0.65-0.75 : Droit (jambe droite)
+    - ratio ≥ 0.75 : Évasé (ouverture en bas)
 
     Args:
         thigh_cm: Largeur cuisse à plat en cm
@@ -65,9 +65,9 @@ def detect_fit_from_measurements(
         if ratio <= 0.65:
             fit = "Skinny"
         elif ratio <= 0.75:
-            fit = "Straight/Droit"
+            fit = "Droit"
         else:
-            fit = "Bootcut/Évasé"
+            fit = "Évasé"
 
         logger.info(
             "detect_fit_from_measurements: cuisse=%.1f, cheville=%.1f, ratio=%.2f -> %s",
@@ -119,9 +119,9 @@ def build_features_for_jean_levis(
         # Normaliser les valeurs UI (droite, evasee, skinny) vers les labels standard
         ui_fit_lower = ui_fit.lower()
         if ui_fit_lower == "droite":
-            fit = "Straight/Droit"
+            fit = "Droit"
         elif ui_fit_lower == "evasee":
-            fit = "Bootcut/Évasé"
+            fit = "Évasé"
         elif ui_fit_lower == "skinny":
             fit = "Skinny"
         else:

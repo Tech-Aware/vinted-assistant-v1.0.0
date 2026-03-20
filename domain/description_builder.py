@@ -4,6 +4,8 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
+from domain.pricing import get_retail_price_range
+
 logger = logging.getLogger(__name__)
 
 
@@ -560,6 +562,7 @@ def _build_pull_composition(
 
 
 def _normalize_fit_display(raw_fit: Optional[str], model_hint: Optional[str] = None) -> str:
+    """Normalise la coupe en 3 catégories : Skinny / Droit / Évasé."""
     try:
         if not raw_fit and not model_hint:
             return "coupe non précisée"
@@ -568,25 +571,19 @@ def _normalize_fit_display(raw_fit: Optional[str], model_hint: Optional[str] = N
         low = value.lower()
         secondary_low = (model_hint or "").strip().lower()
 
-        boot_markers = (
-            "boot",
-            "flare",
-            "évas",
-            "evase",
-            "curve",
-            "curvy",
-            "demi curve",
-        )
-        if any(marker in low for marker in boot_markers) or any(
-            marker in secondary_low for marker in boot_markers
-        ):
-            return "Bootcut/Évasé"
+        combined = f"{low} {secondary_low}"
 
-        if "skinny" in low or "slim" in low:
+        if "skinny" in combined or "slim" in combined:
             return "Skinny"
 
-        if "straight" in low or "droit" in low:
-            return "Straight/Droit"
+        if any(m in combined for m in ("straight", "droit", "mom", "boyfriend", "girlfriend", "regular", "tapered")):
+            return "Droit"
+
+        if any(m in combined for m in (
+            "boot", "flare", "évas", "evase", "curve", "curvy",
+            "wide", "baggy", "loose", "relaxed", "barrel",
+        )):
+            return "Évasé"
 
         return value or "coupe non précisée"
     except Exception as exc:  # pragma: no cover - defensive
@@ -635,9 +632,9 @@ def build_jean_levis_description(
         model_low = (model or "").lower()
 
         if "demi" in model_low and "curve" in model_low:
-            fit_effective = "Bootcut/Évasé"
+            fit_effective = "Évasé"
         elif "curve" in model_low and not fit_effective:
-            fit_effective = "Bootcut/Évasé"
+            fit_effective = "Évasé"
 
         # --- Déterminer le compte Vinted selon le SKU ---
         sku_upper = (sku or "").upper()
@@ -781,12 +778,19 @@ def build_jean_levis_description(
 
         hashtags = " ".join(hashtag_tokens)
 
+        # --- Prix neuf en magasin ---
+        retail_range = get_retail_price_range(features)
+        retail_line = f"💵 Prix neuf en magasin : {retail_range}" if retail_range else ""
+
         # --- Assemblage final ---
         paragraph1 = f"{intro_sentence} {composition_sentence} {color_sentence} {closure_sentence}"
         info_block = "\n".join([size_line, size_note, state_line, measures_line])
         footer_block = "\n".join([shipping_line, "", cta_size_line, cta_lot_line, "", hashtags])
 
-        description = f"{paragraph1}\n\n{info_block}\n\n{footer_block}"
+        if retail_line:
+            description = f"{retail_line}\n\n{paragraph1}\n\n{info_block}\n\n{footer_block}"
+        else:
+            description = f"{paragraph1}\n\n{info_block}\n\n{footer_block}"
         logger.debug("build_jean_levis_description: description générée = %s", description)
         return description
 

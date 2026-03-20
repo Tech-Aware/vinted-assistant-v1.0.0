@@ -165,22 +165,24 @@ def extract_fit_from_text(text: str) -> Optional[str]:
         return None
     low = text.lower()
     if "boot cut" in low or "bootcut" in low:
-        return "Boot Cut/Évasé"
+        return "Évasé"
     return None
 
 
 def normalize_fit_label(raw_fit: Optional[str]) -> Optional[str]:
-    """Uniformise les libellés de coupe."""
+    """Uniformise les libellés de coupe en 3 catégories : Skinny / Droit / Évasé."""
     if not raw_fit:
         return None
     low = str(raw_fit).lower().strip()
-    boot_markers = {"boot cut", "bootcut", "boot-cut", "flare", "curve", "curvy"}
-    if any(marker in low for marker in boot_markers):
-        return "Boot Cut/Évasé"
     if "skinny" in low or "slim" in low:
         return "Skinny"
-    if "straight" in low or "droit" in low:
-        return "Straight/Droit"
+    if any(m in low for m in ("straight", "droit", "mom", "boyfriend", "girlfriend", "regular", "tapered")):
+        return "Droit"
+    if any(m in low for m in (
+        "boot cut", "bootcut", "boot-cut", "flare", "évasé", "evase",
+        "curve", "curvy", "wide", "baggy", "loose", "relaxed", "barrel",
+    )):
+        return "Évasé"
     return raw_fit
 
 

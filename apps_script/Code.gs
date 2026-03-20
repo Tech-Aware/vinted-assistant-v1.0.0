@@ -163,6 +163,20 @@ function generateListing(params) {
     }
     // Normalisation + post-traitement
     var normalized = Normalizer.normalizeAndPostprocess(parsed, profileName, uiData);
+    // Corriger size_fr : FR = US+10 arrondi au pair superieur
+    if (normalized.features) {
+      ensureEvenFrSize_(normalized.features);
+      // Normaliser la coupe en 3 categories
+      if (profileName === 'jean_levis' && normalized.features.fit) {
+        normalized.features.fit = normalizeFitCategory_(normalized.features.fit);
+      }
+    }
+    // Reconstruire titre/description avec la taille FR corrigee
+    normalized.title = TitleEngine.buildTitle(profileName, normalized.features);
+    normalized.description = DescriptionEngine.buildDescription(
+      profileName, normalized.features,
+      parsed.description || '', parsed.defects || (parsed.features || {}).defects || null
+    );
     // Construire le resultat final
     var listing = Models.createListing(normalized);
     return {
@@ -201,6 +215,12 @@ function rebuildListing(params) {
     var features = params.features || {};
     var aiDescription = params.aiDescription || '';
     var aiDefects = params.aiDefects || null;
+    // Corriger size_fr avant reconstruction
+    ensureEvenFrSize_(features);
+    // Normaliser la coupe en 3 categories
+    if (profileName === 'jean_levis' && features.fit) {
+      features.fit = normalizeFitCategory_(features.fit);
+    }
     var title = TitleEngine.buildTitle(profileName, features);
     var description = DescriptionEngine.buildDescription(profileName, features, aiDescription, aiDefects);
     return {
@@ -213,6 +233,138 @@ function rebuildListing(params) {
     Logger.log('rebuildListing error: ' + err.message);
     return { error: 'Erreur reconstruction : ' + err.message };
   }
+}
+// ============================================================
+// Utilitaire : taille FR toujours paire (US+10 arrondi)
+// ============================================================
+/**
+ * Si size_us est renseigne, recalcule size_fr = US+10 arrondi au pair superieur.
+ * Modifie l'objet features en place et le retourne.
+ */
+function ensureEvenFrSize_(features) {
+  var sizeUs = features.size_us || '';
+  if (sizeUs) {
+    var usNum = parseInt(String(sizeUs).replace(/\D/g, ''), 10);
+    if (!isNaN(usNum)) {
+      var fr = usNum + 10;
+      if (fr % 2 !== 0) fr += 1;
+      features.size_fr = String(fr);
+    }
+  }
+  return features;
+}
+// ============================================================
+// Normalisation coupe : 3 categories (Skinny / Droit / Évasé)
+// ============================================================
+function normalizeFitCategory_(fit) {
+  if (!fit) return 'Droit';
+  var low = String(fit).toLowerCase().trim();
+  if (low.indexOf('skinny') !== -1 || low.indexOf('slim') !== -1) return 'Skinny';
+  var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered'];
+  for (var i = 0; i < droitMarkers.length; i++) {
+    if (low.indexOf(droitMarkers[i]) !== -1) return 'Droit';
+  }
+  var evaseMarkers = ['bootcut', 'boot cut', 'flare', 'évasé', 'evase', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'];
+  for (var j = 0; j < evaseMarkers.length; j++) {
+    if (low.indexOf(evaseMarkers[j]) !== -1) return 'Évasé';
+  }
+  return 'Droit';
+}
+// ============================================================
+// Pricing : bareme jean Levi's
+// ============================================================
+function isPremiumModel_(model) {
+  if (!model) return false;
+  var low = String(model).toLowerCase();
+  var premiums = ['501', '505', '550', 'ribcage'];
+  for (var i = 0; i < premiums.length; i++) {
+    if (low.indexOf(premiums[i]) !== -1) return true;
+  }
+  return false;
+}
+function isBudgetBrand_(brand, model) {
+  var combined = ((brand || '') + ' ' + (model || '')).toLowerCase();
+  return combined.indexOf('denizen') !== -1 || combined.indexOf('signature') !== -1;
+}
+function parseSizeNumeric_(sizeRaw) {
+  if (!sizeRaw) return null;
+  var digits = String(sizeRaw).replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : null;
+}
+/**
+ * Calcule le prix conseille pour un jean Levi's selon le bareme.
+ * @param {Object} features
+ * @returns {Object} { price: number, retail: string }
+ */
+function calculateRecommendedPrice_(features) {
+  var gender = (features.gender || '').toLowerCase().trim();
+  var model = features.model || '';
+  var brand = features.brand || '';
+  var fit = normalizeFitCategory_(features.fit).toLowerCase();
+  var premium = isPremiumModel_(model);
+  var budget = isBudgetBrand_(brand, model);
+  var defects = features.defects || '';
+  var hasDefects = false;
+  if (defects) {
+    var dl = defects.toLowerCase();
+    if (dl.indexOf('aucun') === -1 && dl.indexOf('sans défaut') === -1 && dl.indexOf('parfait') === -1) {
+      var terms = ['tache', 'usure', 'déchirure', 'trou', 'accroc', 'défaut', 'trace', 'usé', 'abîmé'];
+      for (var t = 0; t < terms.length; t++) { if (dl.indexOf(terms[t]) !== -1) { hasDefects = true; break; } }
+    }
+  }
+  if (gender === 'homme') {
+    var sizeNum = parseSizeNumeric_(features.size_us);
+    return priceHomme_(premium, budget, fit, sizeNum, hasDefects);
+  } else {
+    var sizeNum = parseSizeNumeric_(features.size_fr);
+    return priceFemme_(premium, budget, fit, sizeNum, hasDefects);
+  }
+}
+function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
+  if (premium) {
+    if (fit === 'évasé') {
+      var retail = '130–140 €';
+      return { price: (sizeNum && sizeNum >= 42) ? (hasDefects ? 34 : 40) : (hasDefects ? 32 : 38), retail: retail };
+    } else if (fit === 'droit') {
+      return { price: hasDefects ? 32 : 38, retail: '120–130 €' };
+    } else {
+      return { price: hasDefects ? 28 : 34, retail: '110–120 €' };
+    }
+  }
+  if (budget) {
+    if (sizeNum && sizeNum >= 42) return { price: hasDefects ? 22 : 28, retail: '40–50 €' };
+    return { price: hasDefects ? 20 : 24, retail: '24–40 €' };
+  }
+  if (fit === 'évasé') {
+    var retail = '110–130 €';
+    return { price: (sizeNum && sizeNum >= 42) ? (hasDefects ? 30 : 36) : (hasDefects ? 28 : 34), retail: retail };
+  } else if (fit === 'skinny') {
+    return { price: hasDefects ? 20 : 24, retail: '99–110 €' };
+  }
+  return { price: hasDefects ? 22 : 28, retail: '99–120 €' };
+}
+function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
+  if (premium) {
+    if (fit === 'évasé') {
+      var retail = '120–150 €';
+      return { price: (sizeNum && sizeNum >= 38) ? (hasDefects ? 44 : 50) : (hasDefects ? 42 : 48), retail: retail };
+    } else if (fit === 'droit') {
+      return { price: hasDefects ? 38 : 44, retail: '110–130 €' };
+    } else {
+      return { price: hasDefects ? 34 : 40, retail: '110–120 €' };
+    }
+  }
+  if (budget) {
+    if (sizeNum && sizeNum >= 38) return { price: hasDefects ? 24 : 28, retail: '24–27 €' };
+    return { price: hasDefects ? 22 : 26, retail: '24–27 €' };
+  }
+  if (fit === 'évasé') {
+    var retail = '110–120 €';
+    return { price: (sizeNum && sizeNum >= 38) ? (hasDefects ? 40 : 46) : (hasDefects ? 36 : 42), retail: retail };
+  } else if (fit === 'skinny') {
+    return { price: hasDefects ? 22 : 26, retail: '99–110 €' };
+  }
+  return { price: hasDefects ? 26 : 32, retail: '99–110 €' };
 }
 // ============================================================
 // Logging dans Google Sheets
@@ -262,20 +414,10 @@ function logGenerationToSheet(result, params) {
       else if (profileName === 'pull') articleType = 'Pull';
       else if (profileName === 'jacket_carhart') articleType = 'Veste';
     }
-    // Taille FR : selon le profil
+    // Taille FR : selon le profil, corrigee au pair superieur
+    ensureEvenFrSize_(features);
     var tailleFr = features.size_fr || features.size || '';
     var tailleUs = features.size_us || '';
-    // Correction FR : si US+10 est impair, arrondir au pair superieur
-    if (tailleUs) {
-      var usNum = parseInt(String(tailleUs).replace(/\D/g, ''), 10);
-      if (!isNaN(usNum)) {
-        var expectedFr = usNum + 10;
-        if (expectedFr % 2 !== 0) {
-          expectedFr = expectedFr + 1;
-        }
-        tailleFr = String(expectedFr);
-      }
-    }
     // Couleur : peut etre un string ou un array
     var couleur = features.color || '';
     if (!couleur && features.main_colors && features.main_colors.length > 0) {
@@ -304,12 +446,11 @@ function logGenerationToSheet(result, params) {
     if (riseNorm === 'low') riseLabel = 'Basse';
     else if (riseNorm === 'high') riseLabel = 'Haute';
     else if (riseNorm === 'mid') riseLabel = 'Moyenne';
-    // Prix : defaut selon SKU (JLF=24, JLH=26)
+    // Prix : bareme si non fourni par l'UI
     var price = uiData.price || '';
-    if (!price && skuForLog) {
-      var skuUp = skuForLog.toUpperCase();
-      if (skuUp.indexOf('JLF') !== -1) price = 24;
-      else if (skuUp.indexOf('JLH') !== -1) price = 26;
+    if (!price && profileName === 'jean_levis') {
+      var priceResult = calculateRecommendedPrice_(features);
+      if (priceResult && priceResult.price) price = priceResult.price;
     }
     // Horodatage precis de la generation (colonne Timestamp)
     var now = new Date();

@@ -46,13 +46,16 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
             try:
                 raw_model_low = (raw_model or "").lower()
                 if fit == "Skinny" and raw_model_low and any(
-                    marker in raw_model_low for marker in ("boot", "flare", "évas", "evase", "curve", "curvy")
+                    marker in raw_model_low for marker in (
+                        "boot", "flare", "évas", "evase", "curve", "curvy",
+                        "wide", "baggy", "loose", "relaxed", "barrel",
+                    )
                 ):
                     logger.debug(
-                        "build_title_jean_levis: fit ajusté en Bootcut/Évasé depuis modèle %s",
+                        "build_title_jean_levis: fit ajusté en Évasé depuis modèle %s",
                         raw_model,
                     )
-                    fit = "Bootcut/Évasé"
+                    fit = "Évasé"
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning("build_title_jean_levis: ajustement fit impossible (%s)", exc)
 
