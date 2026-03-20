@@ -878,6 +878,26 @@
           window._lastResult.title = result.title;
           window._lastResult.description = result.description;
           window._lastResult.features = result.features;
+          // Mettre a jour le prix conseille apres correction
+          if (result.recommended_price != null) {
+            window._lastResult.recommended_price = result.recommended_price;
+            window._lastResult.retail_price_range = result.retail_price_range || '';
+          }
+          var priceBlock = document.querySelector('.price-info-block');
+          if (result.recommended_price != null) {
+            var priceContent = '<div style="font-size:14px;font-weight:600;color:#166534;">💰 Prix conseillé Vinted : ' + result.recommended_price + '€</div>' +
+              (result.retail_price_range ? '<div style="font-size:13px;color:#4b5563;margin-top:4px;">💵 Prix neuf en magasin : ' + escapeHtml(result.retail_price_range) + '</div>' : '');
+            if (priceBlock) {
+              priceBlock.innerHTML = priceContent;
+            } else {
+              var newBlock = document.createElement('div');
+              newBlock.className = 'price-info-block';
+              newBlock.style.cssText = 'margin:10px 0;padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;';
+              newBlock.innerHTML = priceContent;
+              var resultBox = document.querySelector('.result-box h3');
+              if (resultBox) resultBox.insertAdjacentElement('afterend', newBlock);
+            }
+          }
         })
         .withFailureHandler(function(err) {
           if (btnCorr) { btnCorr.disabled = false; btnCorr.textContent = 'Appliquer les corrections'; }
