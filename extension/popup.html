@@ -13,15 +13,17 @@
     <span id="status-dot" class="status-dot offline" title="Déconnecté"></span>
   </header>
 
-  <!-- Section: Images -->
+  <!-- Section: Images (fallback manuel, caché par défaut) -->
   <section class="section">
-    <label class="section-label">Photos</label>
-    <div id="drop-zone" class="drop-zone">
-      <span class="drop-zone__text">Glisser des images ici ou</span>
-      <button id="btn-add-images" class="btn btn--small" type="button">Parcourir</button>
-      <input id="file-input" type="file" multiple accept="image/png,image/jpeg,image/webp" hidden>
+    <a href="#" id="toggle-manual-upload" class="manual-upload-link">ou charger des photos manuellement</a>
+    <div id="manual-upload-section" hidden>
+      <div id="drop-zone" class="drop-zone">
+        <span class="drop-zone__text">Glisser des images ici ou</span>
+        <button id="btn-add-images" class="btn btn--small" type="button">Parcourir</button>
+        <input id="file-input" type="file" multiple accept="image/png,image/jpeg,image/webp" hidden>
+      </div>
+      <div id="thumbnails" class="thumbnails"></div>
     </div>
-    <div id="thumbnails" class="thumbnails"></div>
   </section>
 
   <!-- Section: Profil -->
@@ -156,14 +158,16 @@
     <div id="status-message" class="status-message"></div>
   </section>
 
-  <!-- Section: Résultats -->
+  <!-- Section: Panel de correction -->
   <section id="results-section" class="section" hidden>
+    <label class="section-label">Corrections</label>
+
     <div class="result-card">
       <div class="result-header">
         <span class="section-label">Titre</span>
         <button class="btn btn--icon" id="btn-copy-title" title="Copier">📋</button>
       </div>
-      <textarea id="result-title" class="result-text result-text--title" readonly></textarea>
+      <textarea id="result-title" class="result-text result-text--title"></textarea>
     </div>
 
     <div class="result-card">
@@ -171,19 +175,50 @@
         <span class="section-label">Description</span>
         <button class="btn btn--icon" id="btn-copy-desc" title="Copier">📋</button>
       </div>
-      <textarea id="result-description" class="result-text result-text--desc" readonly></textarea>
+      <textarea id="result-description" class="result-text result-text--desc"></textarea>
+    </div>
+
+    <div class="correction-fields">
+      <div class="field-row">
+        <div class="field-group">
+          <label>Marque</label>
+          <input id="edit-brand" class="input input--sm" placeholder="Marque">
+        </div>
+        <div class="field-group">
+          <label>Taille</label>
+          <input id="edit-size" class="input input--sm" placeholder="Taille">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>État</label>
+          <select id="edit-condition" class="input input--sm">
+            <option value="">--</option>
+            <option value="Neuf">Neuf</option>
+            <option value="Très bon état">Très bon état</option>
+            <option value="Bon état">Bon état</option>
+            <option value="Satisfaisant">Satisfaisant</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Couleur</label>
+          <input id="edit-color" class="input input--sm" placeholder="Couleur">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group field-group--full">
+          <label>Matières</label>
+          <input id="edit-materials" class="input" placeholder="Matières">
+        </div>
+      </div>
     </div>
 
     <div class="result-meta">
-      <span id="meta-brand" class="meta-tag" hidden></span>
-      <span id="meta-size" class="meta-tag" hidden></span>
-      <span id="meta-condition" class="meta-tag" hidden></span>
-      <span id="meta-color" class="meta-tag" hidden></span>
       <span id="meta-time" class="meta-tag meta-tag--muted" hidden></span>
     </div>
 
     <button id="btn-fill" class="btn btn--accent btn--full">
-      Remplir le brouillon Vinted
+      Appliquer les corrections
     </button>
   </section>
 

@@ -1,6 +1,7 @@
 /**
  * Vinted Assistant - Extension Popup
  * Interface principale pour générer et remplir les annonces Vinted.
+ * Extrait automatiquement les photos du brouillon Vinted.
  */
 
 const API_BASE = 'http://localhost:8765';
@@ -13,9 +14,6 @@ let lastResult = null;
 const statusDot = document.getElementById('status-dot');
 const profileSelect = document.getElementById('profile-select');
 const fieldsSection = document.getElementById('fields-section');
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const thumbnails = document.getElementById('thumbnails');
 const btnGenerate = document.getElementById('btn-generate');
 const btnGenerateText = document.getElementById('btn-generate-text');
 const btnGenerateSpinner = document.getElementById('btn-generate-spinner');
@@ -26,6 +24,20 @@ const resultDescription = document.getElementById('result-description');
 const btnFill = document.getElementById('btn-fill');
 const btnCopyTitle = document.getElementById('btn-copy-title');
 const btnCopyDesc = document.getElementById('btn-copy-desc');
+
+// Correction fields
+const editBrand = document.getElementById('edit-brand');
+const editSize = document.getElementById('edit-size');
+const editCondition = document.getElementById('edit-condition');
+const editColor = document.getElementById('edit-color');
+const editMaterials = document.getElementById('edit-materials');
+
+// Manual upload fallback
+const toggleManualUpload = document.getElementById('toggle-manual-upload');
+const manualUploadSection = document.getElementById('manual-upload-section');
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const thumbnails = document.getElementById('thumbnails');
 
 // ----------------------------------------------------------------
 // Initialization
@@ -78,11 +90,21 @@ function setupEventListeners() {
   // Profile change
   profileSelect.addEventListener('change', onProfileChange);
 
-  // Image upload
+  // Manual upload toggle
+  toggleManualUpload.addEventListener('click', (e) => {
+    e.preventDefault();
+    const isHidden = manualUploadSection.hidden;
+    manualUploadSection.hidden = !isHidden;
+    toggleManualUpload.textContent = isHidden
+      ? 'masquer l\'upload manuel'
+      : 'ou charger des photos manuellement';
+  });
+
+  // Image upload (fallback)
   document.getElementById('btn-add-images').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => addFiles(e.target.files));
 
-  // Drag & drop
+  // Drag & drop (fallback)
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('dragover');
@@ -97,7 +119,7 @@ function setupEventListeners() {
   // Generate
   btnGenerate.addEventListener('click', onGenerate);
 
-  // Fill Vinted
+  // Apply corrections
   btnFill.addEventListener('click', onFillVinted);
 
   // Copy buttons
@@ -131,7 +153,7 @@ function onProfileChange() {
 }
 
 // ----------------------------------------------------------------
-// Image handling
+// Image handling (fallback manuel)
 // ----------------------------------------------------------------
 
 function addFiles(fileList) {
@@ -141,7 +163,6 @@ function addFiles(fileList) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target.result;
-      // Strip data URI prefix to get pure base64
       const base64 = dataUrl.split(',')[1];
       const objectUrl = URL.createObjectURL(file);
 
@@ -156,7 +177,6 @@ function addFiles(fileList) {
     };
     reader.readAsDataURL(file);
   }
-  // Reset file input so same file can be re-added
   fileInput.value = '';
 }
 
@@ -190,13 +210,33 @@ function renderThumbnails() {
 }
 
 // ----------------------------------------------------------------
+// Photo extraction from draft
+// ----------------------------------------------------------------
+
+async function extractPhotosFromDraft() {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: 'extract_photos' }, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      if (!response || response.status !== 'success') {
+        reject(new Error(response?.message || 'Erreur lors de l\'extraction des photos.'));
+        return;
+      }
+      resolve(response.images);
+    });
+  });
+}
+
+// ----------------------------------------------------------------
 // Generate
 // ----------------------------------------------------------------
 
 function updateGenerateButton() {
-  const hasImages = images.length > 0;
   const hasProfile = profileSelect.value !== '';
-  btnGenerate.disabled = !(hasImages && hasProfile);
+  // On n'exige plus d'images : elles seront extraites automatiquement du brouillon
+  btnGenerate.disabled = !hasProfile;
 }
 
 function collectUiData() {
@@ -229,12 +269,6 @@ function collectUiData() {
 }
 
 async function onGenerate() {
-  // Validate
-  if (images.length === 0) {
-    setStatus('Ajoutez au moins une image.', 'error');
-    return;
-  }
-
   const profile = profileSelect.value;
   if (!profile) {
     setStatus('Sélectionnez un profil.', 'error');
@@ -254,24 +288,48 @@ async function onGenerate() {
   const connected = await checkConnection();
   if (!connected) return;
 
-  // Build request
-  const uiData = collectUiData();
-  const body = {
-    images: images.map(img => ({ data: img.data, filename: img.filename })),
-    profile: profile,
-    ui_data: uiData,
-  };
-
   // UI loading state
   btnGenerate.disabled = true;
   btnGenerateText.textContent = 'Analyse en cours...';
   btnGenerateSpinner.hidden = false;
   resultsSection.hidden = true;
-  setStatus('Analyse IA en cours... (10-30 secondes)', '');
+  setStatus('', '');
 
   try {
+    // Step 1: Get images (manual or auto-extract from draft)
+    let imageList;
+    if (images.length > 0) {
+      // Utiliser les images chargées manuellement
+      imageList = images.map(img => ({ data: img.data, filename: img.filename }));
+      setStatus('Utilisation des photos chargées manuellement...', '');
+    } else {
+      // Extraire automatiquement les photos du brouillon
+      setStatus('Extraction des photos du brouillon...', '');
+      try {
+        const extractedImages = await extractPhotosFromDraft();
+        if (!extractedImages || extractedImages.length === 0) {
+          setStatus('Aucune photo trouvée dans le brouillon Vinted.', 'error');
+          return;
+        }
+        imageList = extractedImages;
+        setStatus(`${imageList.length} photo(s) extraite(s). Analyse IA en cours...`, '');
+      } catch (extractErr) {
+        setStatus('Erreur: ' + extractErr.message, 'error');
+        return;
+      }
+    }
+
+    // Step 2: Send to backend for analysis
+    setStatus('Analyse IA en cours... (10-30 secondes)', '');
+    const uiData = collectUiData();
+    const body = {
+      images: imageList,
+      profile: profile,
+      ui_data: uiData,
+    };
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+    const timeout = setTimeout(() => controller.abort(), 120000);
 
     const resp = await fetch(`${API_BASE}/generate`, {
       method: 'POST',
@@ -289,7 +347,10 @@ async function onGenerate() {
 
     lastResult = await resp.json();
     displayResults(lastResult);
-    setStatus(`Terminé en ${lastResult.generation_time_s || '?'}s`, 'success');
+    setStatus(`Terminé en ${lastResult.generation_time_s || '?'}s — remplissage auto...`, 'success');
+
+    // Step 3: Auto-fill the Vinted draft
+    await autoFillVinted();
 
   } catch (err) {
     if (err.name === 'AbortError') {
@@ -306,18 +367,32 @@ async function onGenerate() {
 }
 
 // ----------------------------------------------------------------
-// Results display
+// Results display (correction panel)
 // ----------------------------------------------------------------
 
 function displayResults(data) {
   resultTitle.value = data.title || '';
   resultDescription.value = data.description || '';
 
+  // Remplir les champs de correction éditables
+  editBrand.value = data.brand || '';
+  editSize.value = data.size || '';
+  editColor.value = data.color || '';
+  editMaterials.value = data.materials || '';
+
+  // Mapper la condition vers la valeur du select
+  if (data.condition) {
+    const conditionLower = data.condition.toLowerCase();
+    const options = editCondition.options;
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].value.toLowerCase() === conditionLower) {
+        editCondition.selectedIndex = i;
+        break;
+      }
+    }
+  }
+
   // Meta tags
-  setMetaTag('meta-brand', data.brand);
-  setMetaTag('meta-size', data.size);
-  setMetaTag('meta-condition', data.condition);
-  setMetaTag('meta-color', data.color);
   setMetaTag('meta-time', data.generation_time_s ? `${data.generation_time_s}s` : null);
 
   resultsSection.hidden = false;
@@ -334,49 +409,71 @@ function setMetaTag(id, value) {
 }
 
 // ----------------------------------------------------------------
-// Fill Vinted form
+// Fill / Apply corrections to Vinted form
 // ----------------------------------------------------------------
 
-async function onFillVinted() {
-  if (!lastResult) {
-    setStatus('Aucun résultat à envoyer.', 'error');
-    return;
-  }
-
-  // Use the editable text (user may have modified)
-  const data = {
+function collectCorrectionData() {
+  return {
     title: resultTitle.value,
     description: resultDescription.value,
-    brand: lastResult.brand,
-    size: lastResult.size,
-    condition: lastResult.condition,
-    color: lastResult.color,
-    materials: lastResult.materials,
-    price: lastResult.price || parseInt(document.getElementById('price').value) || 24,
-    shipping_size: lastResult.shipping_size || 'Petit',
+    brand: editBrand.value,
+    size: editSize.value,
+    condition: editCondition.value,
+    color: editColor.value,
+    materials: editMaterials.value,
+    price: lastResult?.price || parseInt(document.getElementById('price').value) || 24,
+    shipping_size: lastResult?.shipping_size || 'Petit',
   };
+}
+
+async function autoFillVinted() {
+  if (!lastResult) return;
+
+  const data = collectCorrectionData();
 
   try {
+    await sendFillMessage(data);
+    setStatus(`Terminé en ${lastResult.generation_time_s || '?'}s — brouillon rempli !`, 'success');
+  } catch (err) {
+    setStatus(`Analyse terminée. Erreur remplissage: ${err.message}`, 'error');
+  }
+}
+
+async function onFillVinted() {
+  const data = collectCorrectionData();
+
+  try {
+    btnFill.disabled = true;
+    btnFill.textContent = 'Application...';
+    await sendFillMessage(data);
+    setStatus('Corrections appliquées !', 'success');
+    btnFill.textContent = 'Appliqué !';
+    btnFill.style.background = '#22c55e';
+    setTimeout(() => {
+      btnFill.textContent = 'Appliquer les corrections';
+      btnFill.style.background = '';
+    }, 3000);
+  } catch (err) {
+    setStatus('Erreur: ' + err.message, 'error');
+  } finally {
+    btnFill.disabled = false;
+  }
+}
+
+function sendFillMessage(data) {
+  return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({ action: 'fill_vinted', data: data }, (response) => {
       if (chrome.runtime.lastError) {
-        setStatus('Erreur: ' + chrome.runtime.lastError.message, 'error');
+        reject(new Error(chrome.runtime.lastError.message));
         return;
       }
       if (response && response.status === 'success') {
-        setStatus('Brouillon Vinted rempli !', 'success');
-        btnFill.textContent = 'Rempli !';
-        btnFill.style.background = '#22c55e';
-        setTimeout(() => {
-          btnFill.textContent = 'Remplir le brouillon Vinted';
-          btnFill.style.background = '';
-        }, 3000);
-      } else if (response && response.status === 'error') {
-        setStatus('Erreur: ' + (response.message || 'Aucun brouillon Vinted ouvert.'), 'error');
+        resolve();
+      } else {
+        reject(new Error(response?.message || 'Aucun brouillon Vinted ouvert.'));
       }
     });
-  } catch (err) {
-    setStatus('Erreur extension: ' + err.message, 'error');
-  }
+  });
 }
 
 // ----------------------------------------------------------------

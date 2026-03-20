@@ -272,3 +272,20 @@ select.input {
   color: var(--accent);
 }
 .meta-tag--muted { color: var(--text-muted); }
+
+/* Manual upload fallback link */
+.manual-upload-link {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+.manual-upload-link:hover { color: var(--accent); }
+
+/* Correction fields */
+.correction-fields {
+  margin-bottom: 8px;
+}
