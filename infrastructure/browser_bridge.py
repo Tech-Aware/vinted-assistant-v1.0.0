@@ -283,12 +283,22 @@ class BrowserBridge:
             # Construire la réponse enrichie
             result = listing.to_dict()
 
-            # Ajouter les valeurs par défaut pour l'extension
-            result["price"] = ui_data.get("price", 24)
+            # Calculer le prix conseillé via le barème
+            features = result.get("features", {})
+            profile_name = profile.name if hasattr(profile, 'name') else str(profile)
+            if profile_name == "jean_levis" or profile_name == "JEAN_LEVIS":
+                from domain.pricing import calculate_recommended_price_jean_levis, get_retail_price_range
+                price_val, _explanation = calculate_recommended_price_jean_levis(features)
+                result["recommended_price"] = price_val
+                result["retail_price_range"] = get_retail_price_range(features) or ""
+                result["price"] = price_val or 24
+            else:
+                result["price"] = ui_data.get("price", 24)
+                result["recommended_price"] = None
+                result["retail_price_range"] = ""
             result["shipping_size"] = ui_data.get("shipping_size", "Petit")
 
             # Extraire matériaux depuis features si disponible
-            features = result.get("features", {})
             materials = features.get("composition_materials") or features.get("material")
             if not materials and result.get("manual_composition_text"):
                 materials = result["manual_composition_text"]

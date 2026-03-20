@@ -179,6 +179,11 @@ function generateListing(params) {
     );
     // Construire le resultat final
     var listing = Models.createListing(normalized);
+    // Calculer prix conseille et prix neuf
+    var pricingResult = { price: null, retail: '' };
+    if (profileName === 'jean_levis') {
+      pricingResult = calculateRecommendedPrice_(listing.features || normalized.features || {});
+    }
     return {
       success: true,
       title: listing.title,
@@ -187,6 +192,8 @@ function generateListing(params) {
       features: listing.features,
       sku: listing.sku,
       skuStatus: listing.skuStatus,
+      recommended_price: pricingResult.price,
+      retail_price_range: pricingResult.retail,
       aiDescription: parsed.description || '',
       aiDefects: parsed.defects || (parsed.features || {}).defects || null,
       rawText: geminiResult.text

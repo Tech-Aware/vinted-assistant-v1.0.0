@@ -245,7 +245,6 @@ function collectUiData() {
 
   data.order_id = document.getElementById('order_id').value.trim() || null;
   data.has_defect = document.getElementById('has_defect').checked;
-  data.price = parseInt(document.getElementById('price').value) || 24;
 
   if (profile === 'jean_levis') {
     data.size_fr = document.getElementById('size_fr').value.trim() || null;
@@ -390,6 +389,18 @@ function displayResults(data) {
         break;
       }
     }
+  }
+
+  // Prix conseillé et prix neuf
+  const priceInfo = document.getElementById('price-info');
+  const recommendedPrice = document.getElementById('recommended-price');
+  const retailPrice = document.getElementById('retail-price');
+  if (data.recommended_price) {
+    recommendedPrice.textContent = `${data.recommended_price}€`;
+    retailPrice.textContent = data.retail_price_range || '';
+    priceInfo.hidden = false;
+  } else {
+    priceInfo.hidden = true;
   }
 
   // Meta tags

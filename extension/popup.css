@@ -285,6 +285,31 @@ select.input {
 }
 .manual-upload-link:hover { color: var(--accent); }
 
+/* Price info block */
+.price-info {
+  background: rgba(29, 216, 166, 0.08);
+  border: 1px solid rgba(29, 216, 166, 0.25);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.price-row + .price-row { margin-top: 4px; }
+.price-label { color: var(--text-muted); }
+.price-value {
+  font-weight: 600;
+  color: var(--accent);
+}
+.price-value--muted {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 /* Correction fields */
 .correction-fields {
   margin-bottom: 8px;
