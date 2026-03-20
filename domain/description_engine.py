@@ -6,7 +6,6 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from domain.pricing import get_retail_price_range
 from domain.description_builder import (
     _build_composition,
     _build_hashtags,
@@ -213,8 +212,8 @@ def build_description_jean_levis(
 
         hashtags = " ".join(hashtag_tokens)
 
-        # --- Prix neuf en magasin ---
-        retail_range = get_retail_price_range(features)
+        # --- Prix neuf en magasin (injecté dans features par le normalizer) ---
+        retail_range = features.get("retail_price_range")
         retail_line = f"💵 Prix neuf en magasin : {retail_range}" if retail_range else ""
 
         # --- Assemblage final ---

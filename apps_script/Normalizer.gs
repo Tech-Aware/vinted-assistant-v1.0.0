@@ -81,6 +81,7 @@ var Normalizer = (function() {
     if (!model) model = TextExtractors.extractModelFromText(fullText);
     // Fit : priorite UI > IA > texte
     var fit;
+    var fitOriginal = null; // Coupe brute Gemini (avant normalisation)
     var uiFit = uiData.fit;
     if (uiFit) {
       var uiFitLow = uiFit.toLowerCase();
@@ -88,9 +89,14 @@ var Normalizer = (function() {
       else if (uiFitLow === 'evasee') fit = 'Évasé';
       else if (uiFitLow === 'skinny') fit = 'Skinny';
       else fit = TextExtractors.normalizeFitLabel(uiFit);
+      // Pas de fitOriginal quand c'est un override UI
     } else {
-      fit = rawFeatures.fit || aiData.fit;
-      fit = TextExtractors.normalizeFitLabel(fit);
+      var rawFit = rawFeatures.fit || aiData.fit;
+      if (rawFit) {
+        var rawFitStr = String(rawFit).trim();
+        if (rawFitStr) fitOriginal = rawFitStr.charAt(0).toUpperCase() + rawFitStr.slice(1);
+      }
+      fit = TextExtractors.normalizeFitLabel(rawFit);
       if (!fit) fit = TextExtractors.extractFitFromText(fullText);
     }
     var color = rawFeatures.color || aiData.color;
@@ -161,6 +167,7 @@ var Normalizer = (function() {
       brand: brand,
       model: model,
       fit: fit,
+      fit_original: fitOriginal,
       color: color,
       size_fr: sizeFr,
       size_us: sizeUs,

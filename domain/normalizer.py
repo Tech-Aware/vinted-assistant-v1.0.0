@@ -471,6 +471,16 @@ def normalize_and_postprocess(
             exc,
         )
 
+    # --- Injecter le prix neuf en magasin dans les features avant la description ---
+    if profile_name == AnalysisProfileName.JEAN_LEVIS:
+        try:
+            from domain.pricing import get_retail_price_range
+            retail = get_retail_price_range(features)
+            if retail:
+                features["retail_price_range"] = retail
+        except Exception as exc:
+            logger.warning("normalize_and_postprocess: calcul prix neuf échoué (%s)", exc)
+
     # --- 2) Description ----------------------------------------------------
     try:
         description = build_description(

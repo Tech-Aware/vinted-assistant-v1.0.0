@@ -10,6 +10,7 @@ from domain.title_builder import (
     SKU_PREFIX,
     _classify_rise_from_cm,
     _format_colors_segment,
+    _format_fit_display,
     _format_material_segment,
     _format_neckline,
     _normalize_carhartt_size,
@@ -169,10 +170,12 @@ def build_title_jean_levis(features: Dict[str, Any]) -> str:
         if length_display:
             parts.append(length_display)
 
-        if fit and rise_label:
-            parts.append(f"{fit} {rise_label}")
-        elif fit:
-            parts.append(fit)
+        fit_original = _normalize_str(features.get("fit_original"))
+        fit_display = _format_fit_display(fit_original, fit)
+        if fit_display and rise_label:
+            parts.append(f"{fit_display} {rise_label}")
+        elif fit_display:
+            parts.append(fit_display)
         elif rise_label:
             parts.append(rise_label)
 

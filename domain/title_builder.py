@@ -48,6 +48,28 @@ def _normalize_fit(value: Optional[str]) -> Optional[str]:
     return raw
 
 
+def _format_fit_display(fit_original: Optional[str], fit_normalized: Optional[str]) -> Optional[str]:
+    """
+    Formate l'affichage de la coupe : "Original/Standardisé" si différents.
+    Ex: "Flare/Évasé", "Slim/Skinny", "Mom/Droit".
+    Si identiques ou si l'original est déjà un label standard, retourne le standardisé seul.
+    """
+    if not fit_normalized:
+        return None
+    if not fit_original:
+        return fit_normalized
+
+    standard_labels = {"skinny", "droit", "évasé"}
+    orig = fit_original.strip()
+    # Si l'original est déjà un label standard, pas de double affichage
+    if orig.lower() in standard_labels:
+        return fit_normalized
+    # Si identiques (insensible à la casse), pas de double affichage
+    if orig.lower() == fit_normalized.lower():
+        return fit_normalized
+    return f"{orig}/{fit_normalized}"
+
+
 def _sanitize_model_label(value: Optional[str]) -> Optional[str]:
     """Nettoie le modèle pour éviter les doublons de coupe dans le titre."""
     if not value:
@@ -566,10 +588,12 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
         parts.append(size_us_display)
 
     # Coupe + éventuelle 'taille basse'
-    if fit and low_rise:
-        parts.append(f"coupe {fit} taille basse")
-    elif fit:
-        parts.append(f"coupe {fit}")
+    fit_original = _normalize_str(features.get("fit_original"))
+    fit_display = _format_fit_display(fit_original, fit)
+    if fit_display and low_rise:
+        parts.append(f"coupe {fit_display} taille basse")
+    elif fit_display:
+        parts.append(f"coupe {fit_display}")
     elif low_rise:
         parts.append("taille basse")
 
