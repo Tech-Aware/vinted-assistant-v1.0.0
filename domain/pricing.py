@@ -69,10 +69,15 @@ def _normalize_fit_for_pricing(fit: Optional[str]) -> str:
     if not fit:
         return "droit"
     low = fit.lower().strip()
-    if "skinny" in low or "slim" in low:
-        return "skinny"
+    # Évasé en premier
     if any(m in low for m in ("évasé", "evase", "bootcut", "boot cut", "flare", "wide", "baggy", "loose", "relaxed", "barrel", "curve", "curvy")):
         return "évasé"
+    # Droit avant skinny/slim (pour "slim straight", "slim taper", etc.)
+    if any(m in low for m in ("straight", "droit", "mom", "boyfriend", "girlfriend", "regular", "taper")):
+        return "droit"
+    # Skinny/Slim pur
+    if "skinny" in low or "slim" in low:
+        return "skinny"
     return "droit"
 
 
@@ -210,11 +215,12 @@ def calculate_recommended_price_jean_levis(
         model = features.get("model") or ""
         brand = features.get("brand") or ""
         feature_defects = features.get("defects") or defects or ""
+        condition = (features.get("condition") or "").lower().strip()
         fit_raw = features.get("fit") or ""
 
-        is_premium = _is_premium_model(model)
-        is_budget = _is_budget_brand(brand, model)
-        has_def = _has_defects(feature_defects)
+        is_premium = _is_premium_model(model) or bool(features.get("is_premium"))
+        is_budget = not is_premium and _is_budget_brand(brand, model)
+        has_def = condition == "satisfaisant" or _has_defects(feature_defects)
         fit = _normalize_fit_for_pricing(fit_raw)
 
         if gender == "homme":
@@ -252,8 +258,8 @@ def get_retail_price_range(features: Dict[str, Any]) -> Optional[str]:
         brand = features.get("brand") or ""
         fit_raw = features.get("fit") or ""
 
-        is_premium = _is_premium_model(model)
-        is_budget = _is_budget_brand(brand, model)
+        is_premium = _is_premium_model(model) or bool(features.get("is_premium"))
+        is_budget = not is_premium and _is_budget_brand(brand, model)
         fit = _normalize_fit_for_pricing(fit_raw)
 
         if gender == "homme":

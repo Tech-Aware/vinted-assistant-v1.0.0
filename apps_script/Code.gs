@@ -236,6 +236,10 @@ function rebuildListing(params) {
     if (profileName === 'jean_levis' && features.fit) {
       features.fit = normalizeFitCategory_(features.fit);
     }
+    // Injecter les defauts IA dans features pour le pricing
+    if (!features.defects && aiDefects) {
+      features.defects = aiDefects;
+    }
     // Calculer prix conseille et prix neuf AVANT la description
     var rebuildPricing = { price: null, retail: '' };
     if (profileName === 'jean_levis') {
@@ -329,14 +333,21 @@ function calculateRecommendedPrice_(features) {
   var model = features.model || '';
   var brand = features.brand || '';
   var fit = normalizeFitCategory_(features.fit).toLowerCase();
-  var premium = isPremiumModel_(model);
-  var budget = isBudgetBrand_(brand, model);
-  var defects = features.defects || features.condition || '';
+  var premium = isPremiumModel_(model) || (features.is_premium === true);
+  var budget = !premium && isBudgetBrand_(brand, model);
+  var defectsText = features.defects || '';
+  var condition = (features.condition || '').toLowerCase().trim();
   var hasDefects = false;
-  if (defects) {
-    var dl = defects.toLowerCase();
+  // 1) Condition "satisfaisant" implique des defauts
+  if (condition === 'satisfaisant') {
+    hasDefects = true;
+  }
+  // 2) Analyser le texte de defauts (si present)
+  if (!hasDefects && defectsText) {
+    var dl = defectsText.toLowerCase();
     if (dl.indexOf('aucun') === -1 && dl.indexOf('sans défaut') === -1 && dl.indexOf('parfait') === -1
-        && dl.indexOf('tres bon') === -1 && dl.indexOf('très bon') === -1 && dl.indexOf('bon état') === -1
+        && dl.indexOf('tres bon') === -1 && dl.indexOf('très bon') === -1
+        && dl.indexOf('bon etat') === -1 && dl.indexOf('bon état') === -1
         && dl.indexOf('neuf') === -1 && dl.indexOf('comme neuf') === -1) {
       var terms = ['tache', 'usure', 'déchirure', 'trou', 'accroc', 'défaut', 'trace', 'usé', 'abîmé',
                    'décoloration', 'jaunissement', 'peluche', 'bouloché', 'endommagé'];
