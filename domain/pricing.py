@@ -215,11 +215,12 @@ def calculate_recommended_price_jean_levis(
         model = features.get("model") or ""
         brand = features.get("brand") or ""
         feature_defects = features.get("defects") or defects or ""
+        condition = (features.get("condition") or "").lower().strip()
         fit_raw = features.get("fit") or ""
 
         is_premium = _is_premium_model(model) or bool(features.get("is_premium"))
         is_budget = not is_premium and _is_budget_brand(brand, model)
-        has_def = _has_defects(feature_defects)
+        has_def = condition == "satisfaisant" or _has_defects(feature_defects)
         fit = _normalize_fit_for_pricing(fit_raw)
 
         if gender == "homme":
