@@ -21,14 +21,7 @@ def _normalize_str(value: Optional[str]) -> Optional[str]:
 
 def _normalize_fit(value: Optional[str]) -> Optional[str]:
     """
-    Normalise la coupe pour rester cohérent dans les titres.
-
-    Règles métier :
-      - 'slim'  -> 'Skinny'
-      - 'straight' ou 'droit' -> 'Straight/Droit'
-      - 'bootcut' / 'flare' / 'évasé' -> 'Bootcut/Évasé'
-
-    En dehors de ces cas, on renvoie la valeur d’origine nettoyée.
+    Normalise la coupe en 3 catégories : Skinny / Droit / Évasé.
     """
     if not value:
         return None
@@ -36,26 +29,22 @@ def _normalize_fit(value: Optional[str]) -> Optional[str]:
     raw = value.strip()
     v = raw.lower()
 
-    # Slim = Skinny
+    # Skinny
     if "slim" in v or "skinny" in v:
         return "Skinny"
 
-    # Straight / Droit
-    if "straight" in v or "droit" in v:
-        return "Straight/Droit"
+    # Droit (includes mom, boyfriend, girlfriend, regular, tapered)
+    if any(m in v for m in ("straight", "droit", "mom", "boyfriend", "girlfriend", "regular", "tapered")):
+        return "Droit"
 
-    # Bootcut / Évasé / Flare
-    if (
-        "bootcut" in v
-        or "flare" in v
-        or "évasé" in v
-        or "evase" in v
-        or "curve" in v
-        or "curvy" in v
-    ):
-        return "Bootcut/Évasé"
+    # Évasé (includes wide, baggy, loose, relaxed, barrel)
+    if any(m in v for m in (
+        "bootcut", "boot cut", "flare", "évasé", "evase",
+        "curve", "curvy", "wide", "baggy", "loose", "relaxed", "barrel",
+    )):
+        return "Évasé"
 
-    # Sinon, on garde la valeur telle quelle (juste trimée)
+    # Fallback
     return raw
 
 
@@ -486,13 +475,16 @@ def build_jean_levis_title(features: Dict[str, Any]) -> str:
             raw_model_low = (raw_model or "").lower()
             if fit == "Skinny" and raw_model_low and any(
                 marker in raw_model_low
-                for marker in ("boot", "flare", "évas", "evase", "curve", "curvy")
+                for marker in (
+                    "boot", "flare", "évas", "evase", "curve", "curvy",
+                    "wide", "baggy", "loose", "relaxed", "barrel",
+                )
             ):
                 logger.debug(
-                    "build_jean_levis_title: fit ajusté en Bootcut/Évasé depuis modèle %s",
+                    "build_jean_levis_title: fit ajusté en Évasé depuis modèle %s",
                     raw_model,
                 )
-                fit = "Bootcut/Évasé"
+                fit = "Évasé"
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("build_jean_levis_title: ajustement fit impossible (%s)", exc)
     color = _normalize_str(features.get("color"))
