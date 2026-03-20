@@ -163,6 +163,16 @@ function generateListing(params) {
     }
     // Normalisation + post-traitement
     var normalized = Normalizer.normalizeAndPostprocess(parsed, profileName, uiData);
+    // Corriger size_fr : FR = US+10 arrondi au pair superieur
+    if (normalized.features) {
+      ensureEvenFrSize_(normalized.features);
+    }
+    // Reconstruire titre/description avec la taille FR corrigee
+    normalized.title = TitleEngine.buildTitle(profileName, normalized.features);
+    normalized.description = DescriptionEngine.buildDescription(
+      profileName, normalized.features,
+      parsed.description || '', parsed.defects || (parsed.features || {}).defects || null
+    );
     // Construire le resultat final
     var listing = Models.createListing(normalized);
     return {
@@ -201,6 +211,8 @@ function rebuildListing(params) {
     var features = params.features || {};
     var aiDescription = params.aiDescription || '';
     var aiDefects = params.aiDefects || null;
+    // Corriger size_fr avant reconstruction
+    ensureEvenFrSize_(features);
     var title = TitleEngine.buildTitle(profileName, features);
     var description = DescriptionEngine.buildDescription(profileName, features, aiDescription, aiDefects);
     return {
@@ -213,6 +225,25 @@ function rebuildListing(params) {
     Logger.log('rebuildListing error: ' + err.message);
     return { error: 'Erreur reconstruction : ' + err.message };
   }
+}
+// ============================================================
+// Utilitaire : taille FR toujours paire (US+10 arrondi)
+// ============================================================
+/**
+ * Si size_us est renseigne, recalcule size_fr = US+10 arrondi au pair superieur.
+ * Modifie l'objet features en place et le retourne.
+ */
+function ensureEvenFrSize_(features) {
+  var sizeUs = features.size_us || '';
+  if (sizeUs) {
+    var usNum = parseInt(String(sizeUs).replace(/\D/g, ''), 10);
+    if (!isNaN(usNum)) {
+      var fr = usNum + 10;
+      if (fr % 2 !== 0) fr += 1;
+      features.size_fr = String(fr);
+    }
+  }
+  return features;
 }
 // ============================================================
 // Logging dans Google Sheets
@@ -262,20 +293,10 @@ function logGenerationToSheet(result, params) {
       else if (profileName === 'pull') articleType = 'Pull';
       else if (profileName === 'jacket_carhart') articleType = 'Veste';
     }
-    // Taille FR : selon le profil
+    // Taille FR : selon le profil, corrigee au pair superieur
+    ensureEvenFrSize_(features);
     var tailleFr = features.size_fr || features.size || '';
     var tailleUs = features.size_us || '';
-    // Correction FR : si US+10 est impair, arrondir au pair superieur
-    if (tailleUs) {
-      var usNum = parseInt(String(tailleUs).replace(/\D/g, ''), 10);
-      if (!isNaN(usNum)) {
-        var expectedFr = usNum + 10;
-        if (expectedFr % 2 !== 0) {
-          expectedFr = expectedFr + 1;
-        }
-        tailleFr = String(expectedFr);
-      }
-    }
     // Couleur : peut etre un string ou un array
     var couleur = features.color || '';
     if (!couleur && features.main_colors && features.main_colors.length > 0) {
