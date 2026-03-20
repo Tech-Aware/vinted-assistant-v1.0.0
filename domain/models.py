@@ -44,6 +44,7 @@ class VintedListing:
     manual_composition_text: Optional[str] = None
     description_raw: Optional[str] = None
     fallback_reason: Optional[str] = None
+    generation_time_s: Optional[float] = None
 
     # ------------------------------------------------------------------ #
     # Validation métier
@@ -164,6 +165,7 @@ class VintedListing:
 
             features = data.get("features") or {}
             manual_composition_text = data.get("manual_composition_text")
+            generation_time_s = data.get("generation_time_s")
 
             listing = cls(
                 title=title,
@@ -179,6 +181,7 @@ class VintedListing:
                 manual_composition_text=manual_composition_text,
                 description_raw=description_raw,
                 fallback_reason=fallback_reason,
+                generation_time_s=generation_time_s,
             )
 
             listing.validate()
@@ -212,6 +215,7 @@ class VintedListing:
                 "features": dict(self.features),
                 "manual_composition_text": self.manual_composition_text,
                 "fallback_reason": self.fallback_reason,
+                "generation_time_s": self.generation_time_s,
             }
             logger.debug("Sérialisation VintedListing: %r", result)
             return result

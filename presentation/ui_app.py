@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -1580,12 +1581,17 @@ class VintedAIApp(ctk.CTk):
 
             def _run_generation() -> None:
                 try:
+                    t_start = time.time()
                     listing: VintedListing = provider.generate_listing(
                         self.selected_images,
                         profile,
                         ui_data=ui_data,
                     )
-                    logger.info("Analyse IA terminée, scheduling de la mise à jour UI.")
+                    listing.generation_time_s = round(time.time() - t_start, 2)
+                    logger.info(
+                        "Analyse IA terminée en %.2fs, scheduling de la mise à jour UI.",
+                        listing.generation_time_s,
+                    )
                     self.after(0, lambda: self._handle_generation_success(listing))
                 except Exception as exc_generation:
                     logger.error(
@@ -1648,8 +1654,11 @@ class VintedAIApp(ctk.CTk):
                     )
             else:
                 if self.status_label:
+                    elapsed = ""
+                    if listing.generation_time_s is not None:
+                        elapsed = f" ({listing.generation_time_s:.1f}s)"
                     self.status_label.configure(
-                        text="Fiche générée avec succès.",
+                        text=f"Fiche générée avec succès.{elapsed}",
                         text_color=self.palette.get("accent_gradient_start", "#1cc59c"),
                     )
 
