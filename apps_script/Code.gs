@@ -171,6 +171,11 @@ function generateListing(params) {
         normalized.features.fit = normalizeFitCategory_(normalized.features.fit);
       }
     }
+    // Injecter les defauts IA dans features pour le pricing
+    if (normalized.features && !normalized.features.defects) {
+      var aiDef = parsed.defects || (parsed.features || {}).defects;
+      if (aiDef) normalized.features.defects = aiDef;
+    }
     // Calculer prix conseille et prix neuf AVANT la description
     var pricingResult = { price: null, retail: '' };
     if (profileName === 'jean_levis') {
@@ -231,9 +236,10 @@ function rebuildListing(params) {
     if (profileName === 'jean_levis' && features.fit) {
       features.fit = normalizeFitCategory_(features.fit);
     }
-    // Calculer prix neuf AVANT la description
+    // Calculer prix conseille et prix neuf AVANT la description
+    var rebuildPricing = { price: null, retail: '' };
     if (profileName === 'jean_levis') {
-      var rebuildPricing = calculateRecommendedPrice_(features);
+      rebuildPricing = calculateRecommendedPrice_(features);
       if (rebuildPricing && rebuildPricing.retail) {
         features.retail_price_range = rebuildPricing.retail;
       }
@@ -244,7 +250,9 @@ function rebuildListing(params) {
       success: true,
       title: title,
       description: description,
-      features: features
+      features: features,
+      recommended_price: rebuildPricing.price,
+      retail_price_range: rebuildPricing.retail
     };
   } catch (err) {
     Logger.log('rebuildListing error: ' + err.message);
@@ -276,15 +284,18 @@ function ensureEvenFrSize_(features) {
 function normalizeFitCategory_(fit) {
   if (!fit) return 'Droit';
   var low = String(fit).toLowerCase().trim();
-  if (low.indexOf('skinny') !== -1 || low.indexOf('slim') !== -1) return 'Skinny';
-  var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered'];
-  for (var i = 0; i < droitMarkers.length; i++) {
-    if (low.indexOf(droitMarkers[i]) !== -1) return 'Droit';
-  }
+  // Évasé markers (check first to catch "relaxed" before droit)
   var evaseMarkers = ['bootcut', 'boot cut', 'flare', 'évasé', 'evase', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'];
   for (var j = 0; j < evaseMarkers.length; j++) {
     if (low.indexOf(evaseMarkers[j]) !== -1) return 'Évasé';
   }
+  // Droit markers (check before skinny/slim to catch "slim straight", "slim taper", etc.)
+  var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'taper'];
+  for (var i = 0; i < droitMarkers.length; i++) {
+    if (low.indexOf(droitMarkers[i]) !== -1) return 'Droit';
+  }
+  // Skinny/Slim pur (seulement si aucun autre marqueur)
+  if (low.indexOf('skinny') !== -1 || low.indexOf('slim') !== -1) return 'Skinny';
   return 'Droit';
 }
 // ============================================================
@@ -320,22 +331,30 @@ function calculateRecommendedPrice_(features) {
   var fit = normalizeFitCategory_(features.fit).toLowerCase();
   var premium = isPremiumModel_(model);
   var budget = isBudgetBrand_(brand, model);
-  var defects = features.defects || '';
+  var defects = features.defects || features.condition || '';
   var hasDefects = false;
   if (defects) {
     var dl = defects.toLowerCase();
-    if (dl.indexOf('aucun') === -1 && dl.indexOf('sans défaut') === -1 && dl.indexOf('parfait') === -1) {
-      var terms = ['tache', 'usure', 'déchirure', 'trou', 'accroc', 'défaut', 'trace', 'usé', 'abîmé'];
+    if (dl.indexOf('aucun') === -1 && dl.indexOf('sans défaut') === -1 && dl.indexOf('parfait') === -1
+        && dl.indexOf('tres bon') === -1 && dl.indexOf('très bon') === -1 && dl.indexOf('bon état') === -1
+        && dl.indexOf('neuf') === -1 && dl.indexOf('comme neuf') === -1) {
+      var terms = ['tache', 'usure', 'déchirure', 'trou', 'accroc', 'défaut', 'trace', 'usé', 'abîmé',
+                   'décoloration', 'jaunissement', 'peluche', 'bouloché', 'endommagé'];
       for (var t = 0; t < terms.length; t++) { if (dl.indexOf(terms[t]) !== -1) { hasDefects = true; break; } }
     }
   }
+  var result;
   if (gender === 'homme') {
     var sizeNum = parseSizeNumeric_(features.size_us);
-    return priceHomme_(premium, budget, fit, sizeNum, hasDefects);
+    result = priceHomme_(premium, budget, fit, sizeNum, hasDefects);
   } else {
     var sizeNum = parseSizeNumeric_(features.size_fr);
-    return priceFemme_(premium, budget, fit, sizeNum, hasDefects);
+    result = priceFemme_(premium, budget, fit, sizeNum, hasDefects);
   }
+  Logger.log('calculateRecommendedPrice_: gender=' + gender + ' model=' + model +
+    ' fit=' + fit + ' premium=' + premium + ' budget=' + budget +
+    ' hasDefects=' + hasDefects + ' size=' + sizeNum + ' => ' + result.price + '€');
+  return result;
 }
 function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
   if (premium) {

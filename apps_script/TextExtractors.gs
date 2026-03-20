@@ -12,15 +12,18 @@ var TextExtractors = (function() {
   function extractFitFromText(text) {
     if (!text) return null;
     var low = text.toLowerCase();
-    if (low.indexOf('skinny') !== -1 || low.indexOf('slim') !== -1) return 'Skinny';
-    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered'];
-    for (var i = 0; i < droitMarkers.length; i++) {
-      if (low.indexOf(droitMarkers[i]) !== -1) return 'Droit';
-    }
+    // Évasé first
     var evaseMarkers = ['bootcut', 'boot cut', 'flare', 'évasé', 'evase', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'];
     for (var j = 0; j < evaseMarkers.length; j++) {
       if (low.indexOf(evaseMarkers[j]) !== -1) return 'Évasé';
     }
+    // Droit before skinny/slim (to catch "slim straight", "slim taper", etc.)
+    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'taper'];
+    for (var i = 0; i < droitMarkers.length; i++) {
+      if (low.indexOf(droitMarkers[i]) !== -1) return 'Droit';
+    }
+    // Skinny/Slim pur
+    if (low.indexOf('skinny') !== -1 || low.indexOf('slim') !== -1) return 'Skinny';
     return null;
   }
   function extractColorFromText(text) {
@@ -60,15 +63,18 @@ var TextExtractors = (function() {
   function normalizeFitLabel(value) {
     if (!value) return null;
     var v = String(value).trim().toLowerCase();
-    if (v.indexOf('skinny') !== -1 || v.indexOf('slim') !== -1) return 'Skinny';
-    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered'];
-    for (var i = 0; i < droitMarkers.length; i++) {
-      if (v.indexOf(droitMarkers[i]) !== -1) return 'Droit';
-    }
+    // Évasé first
     var evaseMarkers = ['bootcut', 'boot cut', 'flare', 'évasé', 'evase', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'];
     for (var j = 0; j < evaseMarkers.length; j++) {
       if (v.indexOf(evaseMarkers[j]) !== -1) return 'Évasé';
     }
+    // Droit before skinny/slim (to catch "slim straight", "slim taper", etc.)
+    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'taper'];
+    for (var i = 0; i < droitMarkers.length; i++) {
+      if (v.indexOf(droitMarkers[i]) !== -1) return 'Droit';
+    }
+    // Skinny/Slim pur
+    if (v.indexOf('skinny') !== -1 || v.indexOf('slim') !== -1) return 'Skinny';
     return null;
   }
   function normalizeSkuValue(raw) {
