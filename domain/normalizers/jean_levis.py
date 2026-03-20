@@ -163,6 +163,17 @@ def build_features_for_jean_levis(
         if not length and inferred_len:
             length = inferred_len
 
+    # --- Correction FR : si US+10 est impair, arrondir au pair supérieur ---
+    if size_us:
+        try:
+            us_num = int("".join(c for c in str(size_us).upper().replace("W", "") if c.isdigit()))
+            expected_fr = us_num + 10
+            if expected_fr % 2 != 0:
+                expected_fr += 1
+            size_fr = str(expected_fr)
+        except (ValueError, TypeError):
+            pass
+
     # --- Composition -------------------------------------------------------
     cotton_percent = raw_features.get("cotton_percent") or ai_data.get("cotton_percent")
     elasthane_percent = raw_features.get("elasthane_percent") or ai_data.get("elasthane_percent")

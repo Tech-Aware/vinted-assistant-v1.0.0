@@ -220,7 +220,7 @@ function rebuildListing(params) {
 var LOG_HEADERS = [
   'Date', 'Agent', 'Profil', 'Type article', 'Marque', 'Modele', 'Premium',
   'Taille FR', 'Taille US', 'Rise', 'Couleur', 'Matiere', 'Coupe',
-  'Genre', 'Prix', 'Etat', 'SKU', 'Timestamp'
+  'Genre', 'Prix', 'Etat', 'SKU', 'Timestamp', 'Duree (min)'
 ];
 /**
  * Formate un objet Date en horodatage precis : "YYYY-MM-DD HH:mm:ss"
@@ -265,6 +265,17 @@ function logGenerationToSheet(result, params) {
     // Taille FR : selon le profil
     var tailleFr = features.size_fr || features.size || '';
     var tailleUs = features.size_us || '';
+    // Correction FR : si US+10 est impair, arrondir au pair superieur
+    if (tailleUs) {
+      var usNum = parseInt(String(tailleUs).replace(/\D/g, ''), 10);
+      if (!isNaN(usNum)) {
+        var expectedFr = usNum + 10;
+        if (expectedFr % 2 !== 0) {
+          expectedFr = expectedFr + 1;
+        }
+        tailleFr = String(expectedFr);
+      }
+    }
     // Couleur : peut etre un string ou un array
     var couleur = features.color || '';
     if (!couleur && features.main_colors && features.main_colors.length > 0) {
@@ -303,6 +314,18 @@ function logGenerationToSheet(result, params) {
     // Horodatage precis de la generation (colonne Timestamp)
     var now = new Date();
     var timestamp = formatTimestamp_(now);
+    // Calculer la duree en minutes depuis la derniere generation
+    var newRow = sheet.getLastRow() + 1;
+    var dureeMins = '';
+    if (newRow > 2) {
+      var prevTimestamp = sheet.getRange(newRow - 1, 18).getValue(); // colonne R = Timestamp
+      if (prevTimestamp) {
+        var prevDate = new Date(prevTimestamp);
+        if (!isNaN(prevDate.getTime())) {
+          dureeMins = Math.round((now.getTime() - prevDate.getTime()) / 60000);
+        }
+      }
+    }
     var row = [
       now,
       agentEmail,
@@ -321,9 +344,9 @@ function logGenerationToSheet(result, params) {
       price,
       features.condition || '',
       skuForLog,
-      timestamp
+      timestamp,
+      dureeMins
     ];
-    var newRow = sheet.getLastRow() + 1;
     sheet.getRange(newRow, 1, 1, row.length).setValues([row]);
     return { success: true, row: newRow };
   } catch (err) {
