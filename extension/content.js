@@ -15,6 +15,9 @@ class VintedFormFiller {
           .then(() => sendResponse({ status: 'success' }))
           .catch((err) => sendResponse({ status: 'error', message: err.message }));
         return true; // Async response
+      } else if (request.action === 'extract_photos') {
+        const photoUrls = this.extractPhotoUrls();
+        sendResponse({ status: 'success', photos: photoUrls });
       }
     });
 
@@ -65,6 +68,79 @@ class VintedFormFiller {
         }
       }
     }, 2000);
+  }
+
+  // ----------------------------------------------------------------
+  // Photo extraction from draft page
+  // ----------------------------------------------------------------
+
+  /**
+   * Extrait les URLs des photos présentes dans le brouillon Vinted.
+   */
+  extractPhotoUrls() {
+    const urls = [];
+    const seen = new Set();
+
+    // Sélecteurs pour les images du brouillon Vinted
+    const selectors = [
+      '[data-testid*="photo"] img',
+      '[data-testid*="image"] img',
+      '[class*="photo-upload"] img',
+      '[class*="item-photo"] img',
+      '[class*="media-select"] img',
+      '[class*="photo"] img[src*="vinted"]',
+      'img[src*="vinted.net"]',
+      'img[src*="vinted.fr"]',
+      'img[src*="vinted.com"]',
+    ];
+
+    for (const selector of selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const img of elements) {
+          let src = img.src || img.getAttribute('data-src') || '';
+          if (!src || src.startsWith('data:')) continue;
+
+          // Ignorer les petites icônes/avatars
+          if (img.naturalWidth > 0 && img.naturalWidth < 50) continue;
+
+          if (!seen.has(src)) {
+            seen.add(src);
+            urls.push(src);
+          }
+        }
+      } catch (e) {
+        // Sélecteur invalide, ignorer
+      }
+    }
+
+    // Vérifier aussi les background-image CSS
+    const bgSelectors = [
+      '[class*="photo"] [style*="background-image"]',
+      '[data-testid*="photo"] [style*="background-image"]',
+    ];
+
+    for (const selector of bgSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          const style = el.style.backgroundImage || '';
+          const match = style.match(/url\(["']?(.*?)["']?\)/);
+          if (match && match[1] && !match[1].startsWith('data:')) {
+            const src = match[1];
+            if (!seen.has(src)) {
+              seen.add(src);
+              urls.push(src);
+            }
+          }
+        }
+      } catch (e) {
+        // Sélecteur invalide, ignorer
+      }
+    }
+
+    console.log(`Vinted Assistant: ${urls.length} photo(s) trouvée(s) dans le brouillon`);
+    return urls;
   }
 
   // ----------------------------------------------------------------
