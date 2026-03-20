@@ -10,17 +10,20 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*google.generativeai.*")
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*Python version.*google.*")
 
+import argparse
 import importlib
 import logging
 import os
+import signal
 import sys
+import threading
 import traceback
 
 from config.log_config import setup_logging
 from config.settings import load_settings
+from domain.ai_provider import AIProviderName
 from infrastructure.ai_factory import build_providers
 from infrastructure.browser_bridge import start_bridge, stop_bridge
-from presentation.ui_app import VintedAIApp
 
 
 def _get_log_level() -> int:
@@ -64,16 +67,29 @@ def main() -> None:
     - Initialise le logging
     - Charge la configuration (Settings)
     - Construit le provider IA (Gemini)
-    - Lance l'interface graphique
+    - Lance l'interface graphique ou le mode headless (--headless)
     """
+    # ------------------------------------------------------------------
+    # Arguments CLI
+    # ------------------------------------------------------------------
+    parser = argparse.ArgumentParser(description="Vinted Assistant")
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Mode headless : serveur API seulement, sans interface graphique.",
+    )
+    args = parser.parse_args()
+
     # ------------------------------------------------------------------
     # Logging (configurable via LOG_LEVEL env var, default: INFO)
     # ------------------------------------------------------------------
     log_level = _get_log_level()
     setup_logging(log_level)
     logger = logging.getLogger(__name__)
+    mode_label = "headless (API)" if args.headless else "GUI"
     logger.info(
-        "Démarrage de l'application Vinted Assistant (Gemini uniquement). Log level: %s",
+        "Démarrage de l'application Vinted Assistant (mode %s). Log level: %s",
+        mode_label,
         logging.getLevelName(log_level),
     )
     _verifier_dependances_images(logger)
@@ -111,11 +127,14 @@ def main() -> None:
         )
         sys.exit(1)
 
+    # Récupérer le provider Gemini pour le bridge
+    gemini_provider = providers.get(AIProviderName.GEMINI)
+
     # ------------------------------------------------------------------
     # Serveur HTTP Bridge (communication avec extension Chrome)
     # ------------------------------------------------------------------
     try:
-        bridge = start_bridge(port=8765)
+        bridge = start_bridge(port=8765, provider=gemini_provider)
         logger.info("Serveur HTTP Bridge démarré sur http://localhost:8765")
     except Exception as exc:
         logger.warning(
@@ -126,30 +145,46 @@ def main() -> None:
         bridge = None
 
     # ------------------------------------------------------------------
-    # UI
+    # Mode headless ou GUI
     # ------------------------------------------------------------------
-    try:
-        app = VintedAIApp(providers)
-        app.mainloop()
-
-    except KeyboardInterrupt:
-        logger.warning("Interruption clavier - fermeture.")
-
-    except Exception as exc:
-        logger.critical(
-            "Erreur fatale inattendue dans mainloop:\n%s",
-            traceback.format_exc(),
+    if args.headless:
+        logger.info(
+            "Mode headless actif : serveur API sur http://localhost:8765 "
+            "(Ctrl+C pour arrêter)"
         )
-        sys.exit(1)
+        shutdown_event = threading.Event()
+        signal.signal(signal.SIGINT, lambda *_: shutdown_event.set())
+        signal.signal(signal.SIGTERM, lambda *_: shutdown_event.set())
+        try:
+            shutdown_event.wait()
+        except KeyboardInterrupt:
+            pass
+        logger.info("Arrêt du mode headless.")
+    else:
+        # Import GUI seulement si nécessaire (évite besoin de display en headless)
+        from presentation.ui_app import VintedAIApp
 
-    finally:
-        # Arrêt propre du serveur HTTP
-        if bridge:
-            try:
-                stop_bridge()
-                logger.info("Serveur HTTP Bridge arrêté proprement.")
-            except Exception as exc_stop:
-                logger.warning("Erreur lors de l'arrêt du serveur HTTP: %s", exc_stop)
+        try:
+            app = VintedAIApp(providers)
+            app.mainloop()
+
+        except KeyboardInterrupt:
+            logger.warning("Interruption clavier - fermeture.")
+
+        except Exception as exc:
+            logger.critical(
+                "Erreur fatale inattendue dans mainloop:\n%s",
+                traceback.format_exc(),
+            )
+            sys.exit(1)
+
+    # Arrêt propre du serveur HTTP
+    if bridge:
+        try:
+            stop_bridge()
+            logger.info("Serveur HTTP Bridge arrêté proprement.")
+        except Exception as exc_stop:
+            logger.warning("Erreur lors de l'arrêt du serveur HTTP: %s", exc_stop)
 
 
 if __name__ == "__main__":

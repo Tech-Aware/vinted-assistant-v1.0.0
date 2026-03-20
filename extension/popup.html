@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vinted Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>Vinted Assistant</h1>
+    <span id="status-dot" class="status-dot offline" title="Déconnecté"></span>
+  </header>
+
+  <!-- Section: Images -->
+  <section class="section">
+    <label class="section-label">Photos</label>
+    <div id="drop-zone" class="drop-zone">
+      <span class="drop-zone__text">Glisser des images ici ou</span>
+      <button id="btn-add-images" class="btn btn--small" type="button">Parcourir</button>
+      <input id="file-input" type="file" multiple accept="image/png,image/jpeg,image/webp" hidden>
+    </div>
+    <div id="thumbnails" class="thumbnails"></div>
+  </section>
+
+  <!-- Section: Profil -->
+  <section class="section">
+    <label class="section-label" for="profile-select">Profil</label>
+    <select id="profile-select" class="input">
+      <option value="">-- Choisir --</option>
+    </select>
+  </section>
+
+  <!-- Section: Champs dynamiques -->
+  <section id="fields-section" class="section" hidden>
+    <!-- Jean Levi's fields -->
+    <div id="fields-jean_levis" class="profile-fields" hidden>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Taille FR *</label>
+          <input id="size_fr" class="input input--sm" placeholder="42">
+        </div>
+        <div class="field-group">
+          <label>Taille US</label>
+          <input id="size_us" class="input input--sm" placeholder="W32">
+        </div>
+        <div class="field-group">
+          <label>L</label>
+          <input id="length" class="input input--sm" placeholder="32">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Coupe</label>
+          <select id="fit" class="input input--sm">
+            <option value="">--</option>
+            <option value="droite">Droite</option>
+            <option value="evasee">Évasée</option>
+            <option value="skinny">Skinny</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Taille (rise)</label>
+          <select id="rise_type" class="input input--sm">
+            <option value="">--</option>
+            <option value="haute">Haute</option>
+            <option value="moyenne">Moyenne</option>
+            <option value="basse">Basse</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group field-group--full">
+          <label>Composition</label>
+          <input id="composition" class="input" placeholder="100% coton">
+        </div>
+      </div>
+    </div>
+
+    <!-- Pull fields -->
+    <div id="fields-pull" class="profile-fields" hidden>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Mode de mesure</label>
+          <select id="measurement_mode_pull" class="input input--sm">
+            <option value="etiquette">Étiquette visible</option>
+            <option value="mesures">Analyser les mesures</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Jacket Carhartt fields -->
+    <div id="fields-jacket_carhart" class="profile-fields" hidden>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Taille FR</label>
+          <input id="jk_size_fr" class="input input--sm" placeholder="42">
+        </div>
+        <div class="field-group">
+          <label>Taille US</label>
+          <input id="jk_size_us" class="input input--sm" placeholder="M">
+        </div>
+        <div class="field-group">
+          <label>L</label>
+          <input id="jk_length" class="input input--sm" placeholder="">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group field-group--full">
+          <label>Composition</label>
+          <input id="jk_composition" class="input" placeholder="">
+        </div>
+      </div>
+    </div>
+
+    <!-- Polaire Outdoor fields -->
+    <div id="fields-polaire_outdoor" class="profile-fields" hidden>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Mode de mesure</label>
+          <select id="measurement_mode_polaire" class="input input--sm">
+            <option value="etiquette">Étiquette visible</option>
+            <option value="mesures">Analyser les mesures</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Champs communs -->
+    <div class="field-row">
+      <div class="field-group">
+        <label>N° commande</label>
+        <input id="order_id" class="input input--sm" placeholder="ex: 20">
+      </div>
+      <div class="field-group">
+        <label>Prix (€)</label>
+        <input id="price" type="number" class="input input--sm" value="24" min="1">
+      </div>
+    </div>
+    <div class="field-row">
+      <label class="checkbox-label">
+        <input id="has_defect" type="checkbox">
+        <span>Présence de défaut</span>
+      </label>
+    </div>
+  </section>
+
+  <!-- Bouton Générer -->
+  <section class="section">
+    <button id="btn-generate" class="btn btn--primary btn--full" disabled>
+      <span id="btn-generate-text">Générer</span>
+      <span id="btn-generate-spinner" class="spinner" hidden></span>
+    </button>
+    <div id="status-message" class="status-message"></div>
+  </section>
+
+  <!-- Section: Résultats -->
+  <section id="results-section" class="section" hidden>
+    <div class="result-card">
+      <div class="result-header">
+        <span class="section-label">Titre</span>
+        <button class="btn btn--icon" id="btn-copy-title" title="Copier">📋</button>
+      </div>
+      <textarea id="result-title" class="result-text result-text--title" readonly></textarea>
+    </div>
+
+    <div class="result-card">
+      <div class="result-header">
+        <span class="section-label">Description</span>
+        <button class="btn btn--icon" id="btn-copy-desc" title="Copier">📋</button>
+      </div>
+      <textarea id="result-description" class="result-text result-text--desc" readonly></textarea>
+    </div>
+
+    <div class="result-meta">
+      <span id="meta-brand" class="meta-tag" hidden></span>
+      <span id="meta-size" class="meta-tag" hidden></span>
+      <span id="meta-condition" class="meta-tag" hidden></span>
+      <span id="meta-color" class="meta-tag" hidden></span>
+      <span id="meta-time" class="meta-tag meta-tag--muted" hidden></span>
+    </div>
+
+    <button id="btn-fill" class="btn btn--accent btn--full">
+      Remplir le brouillon Vinted
+    </button>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
