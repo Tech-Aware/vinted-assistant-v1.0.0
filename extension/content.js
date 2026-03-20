@@ -257,7 +257,7 @@ class VintedFormFiller {
     element.focus();
     await this.sleep(this.randomDelay(150, 300));
 
-    await this.typeWithKeyboard(element, text);
+    await this.pasteText(element, text);
     return true;
   }
 
@@ -283,7 +283,7 @@ class VintedFormFiller {
     await this.sleep(this.randomDelay(200, 400));
 
     // Taper le nom de la marque
-    await this.typeWithKeyboard(input, brand);
+    await this.pasteText(input, brand);
 
     // Attendre que le dropdown autocomplete apparaisse
     await this.sleep(this.randomDelay(800, 1500));
@@ -321,7 +321,7 @@ class VintedFormFiller {
 
     input.focus();
     await this.sleep(this.randomDelay(200, 400));
-    await this.typeWithKeyboard(input, value);
+    await this.pasteText(input, value);
 
     // Attendre suggestions
     await this.sleep(this.randomDelay(800, 1500));
@@ -412,7 +412,7 @@ class VintedFormFiller {
     if (colorInput) {
       colorInput.focus();
       await this.sleep(this.randomDelay(150, 300));
-      await this.typeWithKeyboard(colorInput, color);
+      await this.pasteText(colorInput, color);
 
       await this.sleep(this.randomDelay(500, 1000));
       const suggestion = this.findElement(['[role="option"]', 'ul[class*="dropdown"] li']);
@@ -470,52 +470,26 @@ class VintedFormFiller {
   }
 
   // ----------------------------------------------------------------
-  // Keyboard simulation
+  // Paste-based text insertion (native, isTrusted: true)
   // ----------------------------------------------------------------
 
   /**
-   * Simule la frappe au clavier avec événements natifs
+   * Insère le texte d'un coup via execCommand('insertText').
+   * Produit des événements natifs (isTrusted: true), indiscernable
+   * d'un vrai collage utilisateur. Compatible React/virtual DOM.
    */
-  async typeWithKeyboard(element, text) {
-    // Clear le champ d'abord
-    element.value = '';
-    element.dispatchEvent(new InputEvent('input', {
-      data: '',
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      inputType: 'deleteContent'
-    }));
+  async pasteText(element, text) {
+    element.focus();
+    await this.sleep(this.randomDelay(100, 200));
 
-    // Taper caractère par caractère
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
+    // Sélectionner tout le contenu existant (fonctionne pour input et textarea)
+    element.setSelectionRange(0, element.value.length);
 
-      element.dispatchEvent(new KeyboardEvent('keydown', {
-        key: char, bubbles: true, cancelable: true, composed: true
-      }));
+    // Insérer le texte via commande native du navigateur
+    document.execCommand('insertText', false, text);
 
-      element.value += char;
-
-      element.dispatchEvent(new KeyboardEvent('keypress', {
-        key: char, bubbles: true, cancelable: true, composed: true
-      }));
-
-      element.dispatchEvent(new InputEvent('input', {
-        data: char, bubbles: true, cancelable: true, composed: true,
-        inputType: 'insertText'
-      }));
-
-      element.dispatchEvent(new KeyboardEvent('keyup', {
-        key: char, bubbles: true, cancelable: true, composed: true
-      }));
-
-      // Délai entre frappes (50-120ms = vitesse humaine)
-      await this.sleep(this.randomDelay(50, 120));
-    }
-
-    // Événements finaux
-    element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+    // Événements finaux pour React
+    element.dispatchEvent(new Event('change', { bubbles: true }));
     element.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
   }
 
