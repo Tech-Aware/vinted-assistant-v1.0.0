@@ -329,8 +329,8 @@ function calculateRecommendedPrice_(features) {
   var model = features.model || '';
   var brand = features.brand || '';
   var fit = normalizeFitCategory_(features.fit).toLowerCase();
-  var premium = isPremiumModel_(model);
-  var budget = isBudgetBrand_(brand, model);
+  var premium = isPremiumModel_(model) || (features.is_premium === true);
+  var budget = !premium && isBudgetBrand_(brand, model);
   var defects = features.defects || features.condition || '';
   var hasDefects = false;
   if (defects) {
