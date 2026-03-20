@@ -13,6 +13,7 @@ Endpoints:
 - POST /confirm  : Confirme que les données ont été reçues par l'extension
 - GET  /profiles : Liste des profils d'analyse disponibles
 - POST /generate : Génère une annonce à partir d'images + profil + ui_data
+- POST /shutdown : Arrête le serveur proprement
 """
 
 from __future__ import annotations
@@ -312,6 +313,12 @@ class BrowserBridge:
                 except Exception:
                     pass
 
+    async def _handle_shutdown(self, request: web.Request) -> web.Response:
+        """POST /shutdown - Arrête le serveur proprement."""
+        logger.info("Arrêt du serveur demandé via /shutdown")
+        self._running = False
+        return web.json_response({"status": "shutting_down"})
+
     async def _handle_cors_preflight(self, request: web.Request) -> web.Response:
         """Gère les requêtes OPTIONS pour CORS."""
         return web.Response(
@@ -359,9 +366,11 @@ class BrowserBridge:
         app.router.add_get("/profiles", self._handle_profiles)
         app.router.add_post("/confirm", self._handle_confirm)
         app.router.add_post("/generate", self._handle_generate)
+        app.router.add_post("/shutdown", self._handle_shutdown)
         app.router.add_route("OPTIONS", "/check", self._handle_cors_preflight)
         app.router.add_route("OPTIONS", "/confirm", self._handle_cors_preflight)
         app.router.add_route("OPTIONS", "/generate", self._handle_cors_preflight)
+        app.router.add_route("OPTIONS", "/shutdown", self._handle_cors_preflight)
         return app
 
     async def _run_server(self) -> None:
