@@ -137,8 +137,7 @@
         <input id="order_id" class="input input--sm" placeholder="ex: 20">
       </div>
       <div class="field-group">
-        <label>Prix (€)</label>
-        <input id="price" type="number" class="input input--sm" value="24" min="1">
+        <!-- Prix calculé automatiquement par le barème -->
       </div>
     </div>
     <div class="field-row">
@@ -210,6 +209,17 @@
           <label>Matières</label>
           <input id="edit-materials" class="input" placeholder="Matières">
         </div>
+      </div>
+    </div>
+
+    <div id="price-info" class="price-info" hidden>
+      <div class="price-row">
+        <span class="price-label">💰 Prix conseillé Vinted :</span>
+        <span id="recommended-price" class="price-value"></span>
+      </div>
+      <div class="price-row">
+        <span class="price-label">💵 Prix neuf en magasin :</span>
+        <span id="retail-price" class="price-value price-value--muted"></span>
       </div>
     </div>
 

@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Google Sans', Roboto, Arial, sans-serif; font-size: 14px; color: #202124; background: #f0f2f5; }
+    /* ===== Header ===== */
+    .header { background: #1a73e8; color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: 52px; flex-shrink: 0; }
+    .header h1 { font-size: 18px; font-weight: 500; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-icon { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .btn-icon:hover { background: rgba(255,255,255,0.3); }
+    /* ===== Two-column layout ===== */
+    .app-layout { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - 52px); }
+    .panel { overflow-y: auto; padding: 16px; }
+    .panel-left { background: #fff; border-right: 1px solid #e0e0e0; }
+    .panel-right { background: #f8f9fa; }
+    /* ===== Panel headers ===== */
+    .panel-header { font-size: 15px; font-weight: 600; color: #1a73e8; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 2px solid #e8f0fe; }
+    .panel-header .icon { font-size: 18px; }
+    /* ===== Sections inside panels ===== */
+    .section { margin-bottom: 14px; }
+    .section-title { font-size: 13px; font-weight: 500; color: #5f6368; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .section-title .step { background: #1a73e8; color: #fff; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+    /* ===== Forms ===== */
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; font-size: 11px; font-weight: 500; color: #5f6368; margin-bottom: 3px; }
+    .form-group input, .form-group select { width: 100%; padding: 7px 10px; border: 1px solid #dadce0; border-radius: 6px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.1); }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .form-group { flex: 1; }
+    .checkbox-group { display: flex; align-items: center; gap: 6px; }
+    .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1a73e8; }
+    .checkbox-group label { font-size: 12px; color: #3c4043; margin-bottom: 0; }
+    .form-group-full { grid-column: 1 / -1; }
+    .multicheck-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .multicheck-item { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #dadce0; border-radius: 16px; font-size: 12px; color: #3c4043; cursor: pointer; transition: all 0.15s; user-select: none; }
+    .multicheck-item:hover { border-color: #1a73e8; background: #e8f0fe; }
+    .multicheck-item.checked { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    .multicheck-item input[type="checkbox"] { display: none; }
+    /* ===== Buttons ===== */
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 9px 18px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s, opacity 0.2s; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #1a73e8; color: #fff; width: 100%; }
+    .btn-primary:hover:not(:disabled) { background: #1557b0; }
+    .btn-secondary { background: #e8eaed; color: #3c4043; }
+    .btn-secondary:hover:not(:disabled) { background: #d2d6db; }
+    .btn-success { background: #0d652d; color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #0a5024; }
+    .btn-warning { background: #e8a100; color: #fff; }
+    .btn-warning:hover:not(:disabled) { background: #c68900; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    /* ===== Upload zone (compact) ===== */
+    .upload-zone { border: 2px dashed #dadce0; border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+    .upload-zone:hover, .upload-zone.dragover { border-color: #1a73e8; background: #e8f0fe; }
+    .upload-zone p { font-size: 12px; color: #5f6368; margin-top: 4px; }
+    .upload-zone .upload-icon { font-size: 24px; color: #1a73e8; }
+    /* ===== Images grid (compact) ===== */
+    .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; margin: 8px 0; }
+    .img-item { position: relative; border-radius: 6px; overflow: hidden; border: 2px solid #e0e0e0; cursor: pointer; transition: border-color 0.2s, transform 0.1s; }
+    .img-item:hover { border-color: #1a73e8; transform: scale(1.03); }
+    .img-item img { width: 100%; height: 70px; object-fit: cover; display: block; }
+    .img-item .remove-btn { position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+    .img-item:hover .remove-btn { opacity: 1; }
+    .img-item .zoom-hint { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.45); color: #fff; font-size: 9px; text-align: center; padding: 2px 0; opacity: 0; transition: opacity 0.2s; }
+    .img-item:hover .zoom-hint { opacity: 1; }
+    .status-bar { font-size: 11px; color: #5f6368; text-align: center; padding: 4px; }
+    /* ===== Image lightbox ===== */
+    .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; flex-direction: column; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 92vw; max-height: 85vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 32px rgba(0,0,0,0.5); }
+    .lightbox-close { position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.15); border: none; color: #fff; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 22px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .lightbox-close:hover { background: rgba(255,255,255,0.3); }
+    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); border: none; color: #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }
+    .lightbox-nav.prev { left: 16px; }
+    .lightbox-nav.next { right: 16px; }
+    .lightbox-counter { color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 10px; }
+    /* ===== Correction grid ===== */
+    .correction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+    .correction-grid .form-group { margin-bottom: 2px; }
+    .correction-grid .form-group label { font-size: 11px; }
+    .correction-grid .form-group input,
+    .correction-grid .form-group select { padding: 6px 8px; font-size: 12px; }
+    .correction-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    /* ===== Correction images strip ===== */
+    .correction-images { display: flex; gap: 6px; padding: 8px 0; overflow-x: auto; border-bottom: 1px solid #e0e0e0; margin-bottom: 10px; }
+    .corr-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s; flex-shrink: 0; }
+    .corr-thumb:hover { border-color: #1a73e8; }
+    /* ===== Right panel: result ===== */
+    .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #9aa0a6; text-align: center; }
+    .placeholder .ph-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+    .placeholder p { font-size: 13px; max-width: 260px; line-height: 1.5; }
+    .result-box { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 12px; padding: 16px; }
+    .result-box h3 { color: #2e7d32; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+    .result-label { font-size: 11px; font-weight: 500; color: #2e7d32; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; margin-top: 12px; }
+    .result-label:first-of-type { margin-top: 0; }
+    .result-title { font-size: 15px; font-weight: 500; color: #1b5e20; word-break: break-word; background: #fff; border: 1px solid #c8e6c9; border-radius: 6px; padding: 8px 10px; cursor: text; }
+    .result-desc { font-size: 13px; color: #33691e; white-space: pre-wrap; word-break: break-word; line-height: 1.5; background: #fff; border: 1px solid #c8e6c9; border-radius: 6px; padding: 8px 10px; max-height: 45vh; overflow-y: auto; cursor: text; }
+    .result-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .copy-btn { background: #fff; border: 1px solid #a5d6a7; border-radius: 4px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: #2e7d32; font-weight: 500; transition: background 0.15s; }
+    .copy-btn:hover { background: #c8e6c9; }
+    .copy-btn.copied { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+    .error-box { background: #fce4ec; border: 1px solid #ef9a9a; border-radius: 12px; padding: 16px; color: #b71c1c; }
+    .sku-badge { display: inline-block; background: #e3f2fd; color: #1565c0; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; margin-left: 8px; }
+    /* ===== Divider ===== */
+    .divider { border: none; border-top: 1px solid #e8eaed; margin: 12px 0; }
+    /* ===== Spinner ===== */
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle; }
+    .spinner-dark { border-color: #1a73e8; border-top-color: transparent; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* ===== Config overlay ===== */
+    .config-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 100; }
+    .config-overlay.open { display: flex; align-items: center; justify-content: center; }
+    .config-panel { background: #fff; border-radius: 12px; padding: 24px; width: 90%; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .config-panel h2 { font-size: 18px; font-weight: 500; color: #1a73e8; margin-bottom: 16px; }
+    .config-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+    .config-status { margin-top: 10px; font-size: 12px; padding: 6px 10px; border-radius: 6px; }
+    .config-status.ok { background: #e8f5e9; color: #2e7d32; }
+    .config-status.err { background: #fce4ec; color: #b71c1c; }
+    .help-link { font-size: 11px; color: #1a73e8; text-decoration: none; display: inline-block; margin-top: 2px; }
+    .help-link:hover { text-decoration: underline; }
+    /* ===== Phase visibility ===== */
+    .phase-corrections { display: none; }
+    .phase-corrections.active { display: block; }
+    .phase-params.hidden { display: none; }
+    /* ===== Mobile layout (class set by JS to bypass GAS iframe issues) ===== */
+    /* -- Global mobile reset -- */
+    body.is-mobile { overflow: auto; font-size: 36px; -webkit-text-size-adjust: 100%; }
+    body.is-mobile .app-layout { grid-template-columns: 1fr; height: auto; }
+    body.is-mobile .panel { overflow-y: visible; padding: 36px; }
+    body.is-mobile .panel-left { border-right: none; border-bottom: 2px solid #e0e0e0; }
+    /* -- Header -- */
+    body.is-mobile .header { padding: 24px 36px; height: 108px; }
+    body.is-mobile .header h1 { font-size: 40px; }
+    body.is-mobile .btn-icon { width: 84px; height: 84px; font-size: 40px; }
+    /* -- Sections & titles -- */
+    body.is-mobile .section { margin-bottom: 36px; }
+    body.is-mobile .panel-header { font-size: 40px; margin-bottom: 32px; padding-bottom: 20px; flex-wrap: wrap; gap: 16px; }
+    body.is-mobile .section-title { font-size: 34px; margin-bottom: 24px; }
+    body.is-mobile .section-title .step { width: 48px; height: 48px; font-size: 26px; }
+    /* -- Forms: inputs, selects, labels -- */
+    body.is-mobile .form-row { flex-direction: column; gap: 0; }
+    body.is-mobile .form-group { margin-bottom: 32px; }
+    body.is-mobile .form-group label { font-size: 32px; margin-bottom: 12px; font-weight: 500; }
+    body.is-mobile .form-group input,
+    body.is-mobile .form-group select {
+      padding: 28px 32px; font-size: 36px; border-radius: 20px;
+      -webkit-appearance: none;
+    }
+    /* -- Checkboxes & multi-check pills -- */
+    body.is-mobile .checkbox-group input[type="checkbox"] { width: 48px; height: 48px; }
+    body.is-mobile .checkbox-group label { font-size: 34px; }
+    body.is-mobile .multicheck-item { padding: 24px 32px; font-size: 34px; min-height: 96px; border-radius: 48px; }
+    /* -- Correction grid: single column for readability -- */
+    body.is-mobile .correction-grid { grid-template-columns: 1fr; gap: 4px; }
+    body.is-mobile .correction-grid .form-group { margin-bottom: 24px; }
+    body.is-mobile .correction-grid .form-group label { font-size: 30px; margin-bottom: 10px; }
+    body.is-mobile .correction-grid .form-group input,
+    body.is-mobile .correction-grid .form-group select { padding: 24px 28px; font-size: 36px; border-radius: 20px; }
+    body.is-mobile .corr-thumb { width: 112px; height: 112px; }
+    body.is-mobile .correction-actions { flex-direction: column; gap: 20px; }
+    body.is-mobile .correction-actions .btn { width: 100%; }
+    /* -- Buttons -- */
+    body.is-mobile .btn { padding: 28px 44px; font-size: 36px; min-height: 104px; border-radius: 24px; }
+    body.is-mobile .btn-sm { padding: 24px 36px; font-size: 32px; min-height: 96px; }
+    /* -- Upload zone -- */
+    body.is-mobile .upload-zone { padding: 52px 36px; border-radius: 28px; }
+    body.is-mobile .upload-zone .upload-icon { font-size: 72px; }
+    body.is-mobile .upload-zone p { font-size: 34px; }
+    /* -- Images grid -- */
+    body.is-mobile .images-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+    body.is-mobile .img-item img { height: 160px; }
+    body.is-mobile .img-item .remove-btn { opacity: 1; width: 52px; height: 52px; font-size: 30px; }
+    body.is-mobile .img-item .zoom-hint { display: none; }
+    body.is-mobile .status-bar { font-size: 32px; padding: 16px; }
+    /* -- Lightbox -- */
+    body.is-mobile .lightbox img { max-width: 96vw; max-height: 78vh; border-radius: 12px; }
+    body.is-mobile .lightbox-close { top: 24px; right: 24px; width: 96px; height: 96px; font-size: 52px; background: rgba(0,0,0,0.5); }
+    body.is-mobile .lightbox-nav { width: 96px; height: 96px; font-size: 48px; background: rgba(0,0,0,0.5); }
+    body.is-mobile .lightbox-nav.prev { left: 16px; }
+    body.is-mobile .lightbox-nav.next { right: 16px; }
+    /* -- Config panel -- */
+    body.is-mobile .config-panel { width: 96%; max-width: none; padding: 48px 40px; border-radius: 32px; max-height: 92vh; overflow-y: auto; }
+    body.is-mobile .config-panel h2 { font-size: 40px; }
+    body.is-mobile .config-actions { flex-direction: column; gap: 20px; }
+    body.is-mobile .config-actions .btn { width: 100%; }
+    /* -- Result area -- */
+    body.is-mobile .result-box { padding: 36px; border-radius: 28px; }
+    body.is-mobile .result-box h3 { font-size: 38px; }
+    body.is-mobile .result-label { font-size: 28px; }
+    body.is-mobile .result-title { font-size: 36px; padding: 24px 28px; }
+    body.is-mobile .result-desc { font-size: 34px; padding: 24px 28px; max-height: 50vh; line-height: 1.6; }
+    body.is-mobile .result-actions { flex-direction: column; gap: 20px; }
+    body.is-mobile .result-actions .btn,
+    body.is-mobile .result-actions .copy-btn { width: 100%; text-align: center; padding: 28px; font-size: 34px; }
+    body.is-mobile .result-actions .btn[style*="margin-left"] { margin-left: 0 !important; }
+    body.is-mobile .sku-badge { font-size: 26px; padding: 6px 20px; }
+    /* -- Placeholder -- */
+    body.is-mobile .placeholder .ph-icon { font-size: 96px; }
+    body.is-mobile .placeholder p { font-size: 34px; max-width: 560px; line-height: 1.5; }
+    /* -- Divider -- */
+    body.is-mobile .divider { margin: 32px 0; }
+    /* -- Error box -- */
+    body.is-mobile .error-box { font-size: 34px; padding: 36px; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <h1>Vinted Assistant</h1>
+    <div class="header-actions">
+      <button class="btn-icon" onclick="openConfig()" title="Configuration">&#9881;</button>
+    </div>
+  </div>
+  <!-- Two-column layout -->
+  <div class="app-layout">
+    <!-- ===== LEFT PANEL ===== -->
+    <div class="panel panel-left">
+      <!-- Phase 1: Parametres (visible par defaut) -->
+      <div class="phase-params" id="phaseParams">
+        <div class="panel-header">
+          <span class="icon">&#9881;</span> Parametres
+        </div>
+        <!-- Upload images -->
+        <div class="section">
+          <div class="section-title"><span class="step">1</span> Photos</div>
+          <div class="upload-zone" id="uploadZone" onclick="pickPhotos()">
+            <div class="upload-icon">&#128247;</div>
+            <p><b>Ouvrir un dossier</b> ou glissez-deposez</p>
+            <p style="font-size:11px;">JPEG, PNG, WebP</p>
+          </div>
+          <input type="file" id="fileInput" multiple accept="image/*" style="display:none;" onchange="handleFiles(this.files)">
+        </div>
+        <!-- Images grid -->
+        <div class="section" id="imagesSection" style="display:none;">
+          <div class="images-grid" id="imagesGrid"></div>
+          <div class="status-bar" id="imagesStatus"></div>
+        </div>
+        <hr class="divider">
+        <!-- Parametres -->
+        <div class="section">
+          <div class="section-title"><span class="step">2</span> Reglages</div>
+          <div class="form-group">
+            <label>Profil d'analyse</label>
+            <select id="profileName">
+              <option value="jean_levis">Jean Levi's</option>
+              <option value="pull">Pull / Gilet</option>
+              <option value="jacket_carhart">Veste Carhartt</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Order ID</label>
+              <input type="text" id="orderId" placeholder="ex: 42">
+            </div>
+            <div class="form-group">
+              <!-- Prix calcule automatiquement par le bareme -->
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Genre</label>
+              <select id="gender">
+                <option value="">Auto (IA)</option>
+                <option value="femme">Femme</option>
+                <option value="homme">Homme</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Coupe</label>
+              <select id="fit">
+                <option value="">Auto (IA)</option>
+                <option value="skinny">Skinny</option>
+                <option value="droite">Droite</option>
+                <option value="evasee">Evasee</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Taille (rise)</label>
+            <select id="riseType">
+              <option value="">Auto (IA)</option>
+              <option value="basse">Taille basse</option>
+              <option value="moyenne">Taille moyenne</option>
+              <option value="haute">Taille haute</option>
+            </select>
+          </div>
+          <hr class="divider">
+        </div>
+        <!-- Bouton generer -->
+        <button class="btn btn-primary" id="btnGenerate" onclick="generate()">
+          Generer l'annonce
+        </button>
+      </div>
+      <!-- Phase 2: Corrections (masque par defaut) -->
+      <div class="phase-corrections" id="phaseCorrections">
+        <div class="panel-header">
+          <span class="icon">&#9998;</span> Corriger les champs IA
+          <button class="btn btn-secondary btn-sm" onclick="backToParams()" style="margin-left:auto; font-size:11px;">
+            &#8592; Parametres
+          </button>
+        </div>
+        <div class="correction-grid" id="correctionGrid">
+          <!-- Rempli dynamiquement -->
+        </div>
+        <div class="correction-actions">
+          <button class="btn btn-warning btn-sm" id="btnApplyCorr" onclick="applyCorrections()">Appliquer les corrections</button>
+        </div>
+      </div>
+    </div>
+    <!-- ===== RIGHT PANEL ===== -->
+    <div class="panel panel-right">
+      <!-- Placeholder (avant generation) -->
+      <div class="placeholder" id="rightPlaceholder">
+        <div class="ph-icon">&#128196;</div>
+        <p>Ajoutez des photos et cliquez sur <b>Generer l'annonce</b> pour voir le resultat ici.</p>
+      </div>
+      <!-- Resultat (apres generation) -->
+      <div id="resultArea" style="display:none;">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+  </div>
+  <!-- Config overlay -->
+  <div class="config-overlay" id="configOverlay">
+    <div class="config-panel">
+      <h2>Configuration</h2>
+      <div class="form-group">
+        <label>Cle API Gemini</label>
+        <input type="password" id="cfgGeminiApiKey" placeholder="AIzaSy...">
+        <a class="help-link" href="https://aistudio.google.com/app/apikey" target="_blank">Comment obtenir une cle ?</a>
+      </div>
+      <div class="form-group">
+        <label>Modele Gemini</label>
+        <select id="cfgGeminiModel">
+          <option value="gemini-2.5-flash">gemini-2.5-flash (rapide)</option>
+          <option value="gemini-2.5-pro-preview-05-06">gemini-2.5-pro (precis)</option>
+          <option value="gemini-2.0-flash">gemini-2.0-flash (economique)</option>
+          <option value="gemini-3-flash-preview">gemini-3-flash-preview (nouveau)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ID du Google Sheet de log (optionnel)</label>
+        <input type="text" id="cfgLogSheetId" placeholder="ID du spreadsheet pour les logs">
+        <small style="font-size:11px; color:#80868b; display:block; margin-top:2px;">
+          Ouvrez un Google Sheet, l'ID est dans l'URL :<br>
+          docs.google.com/spreadsheets/d/<b>[ID_ICI]</b>/edit
+        </small>
+      </div>
+      <div id="configStatus"></div>
+      <div class="config-actions">
+        <button class="btn btn-secondary btn-sm" onclick="closeConfig()">Annuler</button>
+        <button class="btn btn-primary btn-sm" onclick="saveConfigAction()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+  <!-- Image lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <button class="lightbox-nav prev" onclick="lightboxNav(-1)">&#8249;</button>
+    <button class="lightbox-nav next" onclick="lightboxNav(1)">&#8250;</button>
+    <img id="lightboxImg" src="" alt="">
+    <div class="lightbox-counter" id="lightboxCounter"></div>
+  </div>
+  <script>
+    // ==================== Mobile detection (GAS iframe bypass) ====================
+    // window.innerWidth is unreliable inside GAS iframes (reports iframe width,
+    // not device width). Use screen.width + userAgent which reflect the real device.
+    (function() {
+      function isMobileDevice() {
+        var sw = Math.min(screen.width, screen.height);
+        if (sw > 0 && sw <= 768) return true;
+        if (/Mobi|Android|iPhone|iPod/i.test(navigator.userAgent)) return true;
+        return false;
+      }
+      function apply() {
+        var mobile = isMobileDevice();
+        document.body.classList.toggle('is-mobile', mobile);
+        document.documentElement.style.overflow = mobile ? 'auto' : '';
+      }
+      if (document.body) apply();
+      else document.addEventListener('DOMContentLoaded', apply);
+      window.addEventListener('resize', apply);
+    })();
+    var MAX_WIDTH = 1024;
+    var JPEG_QUALITY = 0.75;
+    var allImages = [];
+    var lightboxIndex = -1;
+    var dirHandle = null;       // FileSystemDirectoryHandle (local folder)
+    var loadedFileNames = [];   // noms des fichiers charges depuis le dossier
+    // ==================== Config ====================
+    function openConfig() {
+      document.getElementById('configOverlay').classList.add('open');
+      google.script.run
+        .withSuccessHandler(function(config) {
+          if (config.geminiApiKey) document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey;
+          if (config.geminiModel) {
+            var sel = document.getElementById('cfgGeminiModel');
+            for (var i = 0; i < sel.options.length; i++) {
+              if (sel.options[i].value === config.geminiModel) { sel.selectedIndex = i; break; }
+            }
+          }
+          if (config.logSheetId) document.getElementById('cfgLogSheetId').value = config.logSheetId;
+        })
+        .getConfig();
+    }
+    function closeConfig() {
+      document.getElementById('configOverlay').classList.remove('open');
+      document.getElementById('configStatus').innerHTML = '';
+    }
+    function saveConfigAction() {
+      var config = {
+        geminiApiKey: document.getElementById('cfgGeminiApiKey').value.trim(),
+        geminiModel: document.getElementById('cfgGeminiModel').value,
+        logSheetId: document.getElementById('cfgLogSheetId').value.trim()
+      };
+      if (!config.geminiApiKey) {
+        showConfigStatus('Veuillez entrer une cle API Gemini.', 'err');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showConfigStatus('Configuration enregistree !', 'ok');
+            setTimeout(closeConfig, 1200);
+          } else {
+            showConfigStatus('Erreur lors de la sauvegarde.', 'err');
+          }
+        })
+        .withFailureHandler(function(err) {
+          showConfigStatus('Erreur: ' + err.message, 'err');
+        })
+        .saveConfig(config);
+    }
+    function showConfigStatus(msg, type) {
+      var el = document.getElementById('configStatus');
+      el.className = 'config-status ' + type;
+      el.textContent = msg;
+    }
+    // ==================== Upload & Images ====================
+    (function() {
+      var zone = document.getElementById('uploadZone');
+      zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', function() { zone.classList.remove('dragover'); });
+      zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+      });
+    })();
+    function pickPhotos() {
+      if (window.showDirectoryPicker) {
+        // File System Access API : ouvrir un dossier local
+        window.showDirectoryPicker({ mode: 'readwrite' }).then(function(handle) {
+          dirHandle = handle;
+          loadFromDirectory(handle);
+        }).catch(function(err) {
+          // L'utilisateur a annule ou API bloquee: fallback file input
+          if (err.name !== 'AbortError') {
+            document.getElementById('fileInput').click();
+          }
+        });
+      } else {
+        // Navigateur sans support : fallback classique
+        document.getElementById('fileInput').click();
+      }
+    }
+    function loadFromDirectory(handle) {
+      var filePromises = [];
+      loadedFileNames = [];
+      var reader = handle.values();
+      function readNext() {
+        return reader.next().then(function(result) {
+          if (result.done) return;
+          var entry = result.value;
+          if (entry.kind === 'file' && /\.(jpe?g|png|webp|heic)$/i.test(entry.name)) {
+            loadedFileNames.push(entry.name);
+            filePromises.push(entry.getFile());
+          }
+          return readNext();
+        });
+      }
+      readNext().then(function() {
+        return Promise.all(filePromises);
+      }).then(function(files) {
+        if (files.length === 0) {
+          alert('Aucune image trouvee dans ce dossier.');
+          return;
+        }
+        handleFiles(files);
+      });
+    }
+    function handleFiles(fileList) {
+      if (!fileList || fileList.length === 0) return;
+      var promises = [];
+      for (var i = 0; i < fileList.length; i++) {
+        var file = fileList[i];
+        if (file.type.indexOf('image/') !== 0) continue;
+        promises.push(resizeAndEncode(file));
+      }
+      Promise.all(promises).then(function(results) {
+        for (var i = 0; i < results.length; i++) {
+          allImages.push(results[i]);
+        }
+        document.getElementById('imagesSection').style.display = 'block';
+        renderImages();
+      });
+    }
+    function resizeAndEncode(file) {
+      return new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var img = new Image();
+          img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var scale = Math.min(1, MAX_WIDTH / img.width);
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            var dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+            resolve({
+              name: file.name,
+              mimeType: 'image/jpeg',
+              base64: dataUrl.split(',')[1],
+              previewUrl: e.target.result
+            });
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    function renderImages() {
+      var grid = document.getElementById('imagesGrid');
+      grid.innerHTML = '';
+      for (var i = 0; i < allImages.length; i++) {
+        var img = allImages[i];
+        var div = document.createElement('div');
+        div.className = 'img-item';
+        div.innerHTML =
+          '<button class="remove-btn" data-idx="' + i + '" title="Supprimer">&times;</button>' +
+          '<img src="' + img.previewUrl + '" alt="' + escapeHtml(img.name) + '">' +
+          '<div class="zoom-hint">Zoom</div>';
+        div.onclick = (function(idx) {
+          return function(e) {
+            if (e.target.classList.contains('remove-btn')) return;
+            openLightbox(idx);
+          };
+        })(i);
+        div.querySelector('.remove-btn').onclick = (function(idx) {
+          return function(e) {
+            e.stopPropagation();
+            removeImage(idx);
+          };
+        })(i);
+        grid.appendChild(div);
+      }
+      document.getElementById('imagesStatus').textContent =
+        allImages.length + ' image(s) ajoutee(s)';
+    }
+    function removeImage(idx) {
+      allImages.splice(idx, 1);
+      renderImages();
+      if (allImages.length === 0) {
+        document.getElementById('imagesSection').style.display = 'none';
+      }
+    }
+    // ==================== Lightbox ====================
+    function openLightbox(idx) {
+      lightboxIndex = idx;
+      var lb = document.getElementById('lightbox');
+      document.getElementById('lightboxImg').src = allImages[idx].previewUrl;
+      document.getElementById('lightboxCounter').textContent =
+        (idx + 1) + ' / ' + allImages.length;
+      lb.classList.add('open');
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      lightboxIndex = -1;
+    }
+    function lightboxNav(dir) {
+      if (allImages.length === 0) return;
+      lightboxIndex = (lightboxIndex + dir + allImages.length) % allImages.length;
+      document.getElementById('lightboxImg').src = allImages[lightboxIndex].previewUrl;
+      document.getElementById('lightboxCounter').textContent =
+        (lightboxIndex + 1) + ' / ' + allImages.length;
+    }
+    // Close lightbox on Escape, navigate with arrow keys
+    document.addEventListener('keydown', function(e) {
+      if (!document.getElementById('lightbox').classList.contains('open')) return;
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft') lightboxNav(-1);
+      else if (e.key === 'ArrowRight') lightboxNav(1);
+    });
+    // Close lightbox on backdrop click
+    document.getElementById('lightbox').addEventListener('click', function(e) {
+      if (e.target === this) closeLightbox();
+    });
+    // ==================== Phase switching ====================
+    function switchToCorrections(result, profile) {
+      var features = result.features || {};
+      var fields = PROFILE_FIELDS[profile] || [];
+      var grid = document.getElementById('correctionGrid');
+      // Auto-calcul is_stretch si non fourni : elasthane >= 3% OU viscose
+      if (features.is_stretch == null && profile === 'jean_levis') {
+        var mats = features.composition_materials || [];
+        var hasViscose = mats.some(function(m) { return m && m.toLowerCase() === 'viscose'; });
+        var elPct = parseFloat(features.elasthane_percent);
+        features.is_stretch = hasViscose || (elPct >= 3);
+      }
+      // Sauvegarder le model original pour le sheet (avant normalisation)
+      features._raw_model = features.model || '';
+      // Normaliser model : chiffre uniquement, sinon vide (pour titre/description)
+      if (features.model) {
+        var numOnly = String(features.model).replace(/\D/g, '');
+        features.model = numOnly || '';
+      }
+      // Normaliser size_us : retirer prefixe W
+      if (features.size_us) {
+        features.size_us = String(features.size_us).replace(/^[Ww]/, '');
+      }
+      // Normaliser length : retirer prefixe L
+      if (features.length) {
+        features.length = String(features.length).replace(/^[Ll]/, '');
+      }
+      // Build clickable image strip so user can reference photos while correcting
+      var html = '<div class="correction-images">';
+      for (var j = 0; j < allImages.length; j++) {
+        html += '<img src="' + allImages[j].previewUrl + '" class="corr-thumb" ' +
+          'onclick="openLightbox(' + j + ')" title="' + escapeAttr(allImages[j].name) + '">';
+      }
+      html += '</div>';
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        var val = features[f.key];
+        if (f.isArray && Array.isArray(val)) val = val.join(', ');
+        val = (val != null && val !== false) ? String(val) : '';
+        if (f.type === 'multicheck') {
+          var checkedArr = Array.isArray(features[f.key]) ? features[f.key] : [];
+          var checkedLow = checkedArr.map(function(m) { return m.toLowerCase(); });
+          // Fusionner options predefinies + materiaux IA non presents
+          var allOpts = f.options.slice();
+          var allOptsLow = allOpts.map(function(o) { return o.toLowerCase(); });
+          for (var k = 0; k < checkedArr.length; k++) {
+            if (allOptsLow.indexOf(checkedArr[k].toLowerCase()) === -1) {
+              allOpts.push(checkedArr[k]);
+              allOptsLow.push(checkedArr[k].toLowerCase());
+            }
+          }
+          html += '<div class="form-group form-group-full"><label>' + f.label + '</label>' +
+            '<div class="multicheck-group" id="corr_' + f.key + '">';
+          for (var j = 0; j < allOpts.length; j++) {
+            var mat = allOpts[j];
+            var isChecked = checkedLow.indexOf(mat.toLowerCase()) !== -1;
+            html += '<label class="multicheck-item' + (isChecked ? ' checked' : '') + '">' +
+              '<input type="checkbox" value="' + escapeAttr(mat) + '"' + (isChecked ? ' checked' : '') +
+              ' onchange="this.parentElement.classList.toggle(\'checked\', this.checked)">' +
+              escapeHtml(mat) + '</label>';
+          }
+          html += '</div></div>';
+        } else if (f.type === 'select') {
+          html += '<div class="form-group"><label>' + f.label + '</label><select id="corr_' + f.key + '">';
+          for (var j = 0; j < f.options.length; j++) {
+            var optVal = f.options[j][0], optLabel = f.options[j][1];
+            var sel = (val === optVal || val.toLowerCase() === optVal.toLowerCase()) ? ' selected' : '';
+            html += '<option value="' + escapeAttr(optVal) + '"' + sel + '>' + escapeHtml(optLabel) + '</option>';
+          }
+          html += '</select></div>';
+        } else if (f.type === 'checkbox') {
+          var checked = (val === 'true' || val === '1') ? ' checked' : '';
+          html += '<div class="form-group"><label>&nbsp;</label>' +
+            '<div class="checkbox-group" style="margin:0;padding-top:2px;">' +
+            '<input type="checkbox" id="corr_' + f.key + '"' + checked + '>' +
+            '<label for="corr_' + f.key + '">' + f.label + '</label></div></div>';
+        } else {
+          var inputType = f.type === 'number' ? 'number' : 'text';
+          html += '<div class="form-group"><label>' + f.label + '</label>' +
+            '<input type="' + inputType + '" id="corr_' + f.key + '" value="' + escapeAttr(val) + '"></div>';
+        }
+      }
+      grid.innerHTML = html;
+      document.getElementById('phaseParams').classList.add('hidden');
+      document.getElementById('phaseCorrections').classList.add('active');
+    }
+    function backToParams() {
+      document.getElementById('phaseCorrections').classList.remove('active');
+      document.getElementById('phaseParams').classList.remove('hidden');
+    }
+    // ==================== Generation ====================
+    function generate() {
+      if (allImages.length === 0) { alert('Ajoutez au moins une image.'); return; }
+      var imageDataArray = allImages.map(function(img) {
+        return { base64: img.base64, mimeType: img.mimeType, name: img.name };
+      });
+      var btn = document.getElementById('btnGenerate');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Generation...';
+      // Hide placeholder, show result area with loading state
+      document.getElementById('rightPlaceholder').style.display = 'none';
+      var resultArea = document.getElementById('resultArea');
+      resultArea.style.display = 'block';
+      resultArea.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#5f6368;">' +
+        '<div style="text-align:center;"><span class="spinner spinner-dark" style="width:28px;height:28px;border-width:3px;"></span>' +
+        '<p style="margin-top:12px;font-size:13px;">Analyse des images en cours...</p></div></div>';
+      var params = {
+        imageDataArray: imageDataArray,
+        profileName: document.getElementById('profileName').value,
+        uiData: {}
+      };
+      var fields = {
+        order_id: 'orderId',
+        gender: 'gender', fit: 'fit', rise_type: 'riseType',
+      };
+      for (var key in fields) {
+        var val = document.getElementById(fields[key]).value.trim();
+        if (val) params.uiData[key] = val;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.innerHTML = 'Generer l\'annonce';
+          showResult(result, params);
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          btn.innerHTML = 'Generer l\'annonce';
+          showError('Erreur: ' + err.message);
+        })
+        .generateListing(params);
+    }
+    // Touche Entree pour lancer la generation
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        var tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'textarea') return;
+        var btn = document.getElementById('btnGenerate');
+        if (btn && !btn.disabled) {
+          e.preventDefault();
+          generate();
+        }
+      }
+    });
+    // ==================== Champs editables par profil ====================
+    var CONDITION_OPTIONS = [['', '(non defini)'], ['tres bon etat', 'Tres bon etat'], ['bon etat', 'Bon etat'], ['neuf', 'Neuf'], ['satisfaisant', 'Satisfaisant']];
+    var JEAN_MATERIALS = ['Coton', 'Élasthanne', 'Viscose', 'Lyocell', 'Polyester', 'Lin', 'Spandex', 'Nylon'];
+    var PROFILE_FIELDS = {
+      jean_levis: [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'model', label: 'Modele', type: 'text'},
+        {key: 'fit', label: 'Coupe', type: 'select', options: [['', 'Auto'], ['Skinny', 'Skinny'], ['Droit', 'Droite'], ['\u00c9vas\u00e9', 'Evasee']]},
+        {key: 'color', label: 'Couleur', type: 'text'},
+        {key: 'size_fr', label: 'Taille FR', type: 'text'},
+        {key: 'size_us', label: 'Taille US', type: 'text'},
+        {key: 'length', label: 'Longueur', type: 'text'},
+        {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
+        {key: 'rise_type', label: 'Taille (rise)', type: 'select', options: [['', 'Auto'], ['low', 'Basse'], ['mid', 'Moyenne'], ['high', 'Haute']]},
+        {key: 'composition_materials', label: 'Composition', type: 'multicheck', options: JEAN_MATERIALS},
+        {key: 'is_stretch', label: 'Stretch', type: 'checkbox'},
+        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
+        {key: 'sku', label: 'SKU', type: 'text'},
+        {key: 'order_id', label: 'Order ID', type: 'text'}
+      ],
+      pull: [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'garment_type', label: 'Type', type: 'select', options: [['Pull', 'Pull'], ['Gilet', 'Gilet']]},
+        {key: 'neckline', label: 'Col', type: 'text'},
+        {key: 'pattern', label: 'Motif', type: 'text'},
+        {key: 'material', label: 'Matiere', type: 'text'},
+        {key: 'main_colors', label: 'Couleurs', type: 'text', isArray: true},
+        {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
+        {key: 'size', label: 'Taille', type: 'text'},
+        {key: 'cotton_percent', label: 'Coton %', type: 'number'},
+        {key: 'wool_percent', label: 'Laine %', type: 'number'},
+        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
+        {key: 'sku', label: 'SKU', type: 'text'},
+        {key: 'order_id', label: 'Order ID', type: 'text'}
+      ],
+      jacket_carhart: [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'model', label: 'Modele', type: 'text'},
+        {key: 'size', label: 'Taille', type: 'text'},
+        {key: 'color', label: 'Couleur', type: 'text'},
+        {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
+        {key: 'has_hood', label: 'Capuche', type: 'checkbox'},
+        {key: 'lining', label: 'Doublure', type: 'text'},
+        {key: 'pattern', label: 'Motif', type: 'text'},
+        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
+        {key: 'sku', label: 'SKU', type: 'text'},
+        {key: 'order_id', label: 'Order ID', type: 'text'}
+      ]
+    };
+    // ==================== Resultats ====================
+    function showResult(result, params) {
+      var resultArea = document.getElementById('resultArea');
+      if (result.error) {
+        resultArea.innerHTML = '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(result.error) + '</div>';
+        return;
+      }
+      var paramsLight = { profileName: params.profileName, uiData: params.uiData };
+      window._lastResult = result;
+      window._lastParams = paramsLight;
+      var skuHtml = result.sku ? '<span class="sku-badge">SKU: ' + escapeHtml(result.sku) + '</span>' : '';
+      var priceHtml = '';
+      if (result.recommended_price) {
+        priceHtml = '<div class="price-info-block" style="margin:10px 0;padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">' +
+          '<div style="font-size:14px;font-weight:600;color:#166534;">💰 Prix conseillé Vinted : ' + result.recommended_price + '€</div>' +
+          (result.retail_price_range ? '<div style="font-size:13px;color:#4b5563;margin-top:4px;">💵 Prix neuf en magasin : ' + escapeHtml(result.retail_price_range) + '</div>' : '') +
+          '</div>';
+      }
+      var html =
+        '<div class="result-box">' +
+          '<h3>Annonce generee' + skuHtml + '</h3>' + priceHtml +
+          '<div class="result-label">Titre</div>' +
+          '<div class="result-title" id="resultTitle">' + escapeHtml(result.title || '') + '</div>' +
+          '<div class="result-label">Description</div>' +
+          '<div class="result-desc" id="resultDesc">' + escapeHtml(result.description || '') + '</div>' +
+          '<div class="result-actions">' +
+            '<button class="copy-btn" onclick="copyText(\'resultTitle\', this)">Copier titre</button>' +
+            '<button class="copy-btn" onclick="copyText(\'resultDesc\', this)">Copier description</button>' +
+            '<button class="btn btn-success btn-sm" onclick="saveToSheet()" style="margin-left:auto;">Enregistrer dans le Sheet</button>' +
+          '</div>' +
+        '</div>';
+      resultArea.innerHTML = html;
+      // Switch left panel to correction phase
+      switchToCorrections(result, params.profileName);
+    }
+    function applyCorrections() {
+      var profile = (window._lastParams && window._lastParams.profileName) || 'jean_levis';
+      var fields = PROFILE_FIELDS[profile] || [];
+      var features = {};
+      var base = (window._lastResult && window._lastResult.features) || {};
+      for (var k in base) features[k] = base[k];
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        var el = document.getElementById('corr_' + f.key);
+        if (!el) continue;
+        if (f.type === 'multicheck') {
+          var checkboxes = el.querySelectorAll('input[type="checkbox"]');
+          var selected = [];
+          for (var j = 0; j < checkboxes.length; j++) {
+            if (checkboxes[j].checked) selected.push(checkboxes[j].value);
+          }
+          features[f.key] = selected;
+          continue;
+        } else if (f.type === 'checkbox') {
+          features[f.key] = el.checked;
+        } else if (f.isArray) {
+          var raw = el.value.trim();
+          features[f.key] = raw ? raw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+        } else if (f.type === 'number') {
+          var num = el.value.trim();
+          features[f.key] = num ? parseFloat(num) : null;
+        } else {
+          features[f.key] = el.value.trim() || null;
+        }
+      }
+      var btnCorr = document.getElementById('btnApplyCorr');
+      if (btnCorr) { btnCorr.disabled = true; btnCorr.innerHTML = '<span class="spinner"></span> Correction...'; }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (btnCorr) { btnCorr.disabled = false; btnCorr.textContent = 'Appliquer les corrections'; }
+          if (result.error) {
+            alert('Erreur: ' + result.error);
+            return;
+          }
+          document.getElementById('resultTitle').innerHTML = escapeHtml(result.title || '');
+          document.getElementById('resultDesc').innerHTML = escapeHtml(result.description || '');
+          window._lastResult.title = result.title;
+          window._lastResult.description = result.description;
+          window._lastResult.features = result.features;
+        })
+        .withFailureHandler(function(err) {
+          if (btnCorr) { btnCorr.disabled = false; btnCorr.textContent = 'Appliquer les corrections'; }
+          alert('Erreur: ' + err.message);
+        })
+        .rebuildListing({
+          profileName: profile,
+          features: features,
+          aiDescription: (window._lastResult && window._lastResult.aiDescription) || '',
+          aiDefects: (window._lastResult && window._lastResult.aiDefects) || null
+        });
+    }
+    function showError(msg) {
+      var resultArea = document.getElementById('resultArea');
+      resultArea.style.display = 'block';
+      resultArea.innerHTML = '<div class="error-box"><strong>Erreur :</strong> ' + escapeHtml(msg) + '</div>';
+    }
+    function copyText(elementId, btn) {
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      var text = el.innerText;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          if (btn) showCopied(btn);
+        });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (btn) showCopied(btn);
+      }
+    }
+    function showCopied(btn) {
+      var orig = btn.textContent;
+      btn.textContent = 'Copie !';
+      btn.classList.add('copied');
+      setTimeout(function() {
+        btn.textContent = orig;
+        btn.classList.remove('copied');
+      }, 1200);
+    }
+    function saveToSheet() {
+      if (!window._lastResult) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.error) { alert('Erreur: ' + res.error); return; }
+          // Supprimer les photos du dossier local puis reinitialiser
+          clearLocalPhotos().then(function(deleted) {
+            var msg = 'Enregistre a la ligne ' + res.row + ' !';
+            if (deleted > 0) {
+              msg += '\n' + deleted + ' photo(s) supprimee(s) du dossier.';
+            }
+            alert(msg);
+            resetAll();
+          });
+        })
+        .withFailureHandler(function(err) {
+          alert('Erreur: ' + err.message);
+        })
+        .logGenerationToSheet(window._lastResult, window._lastParams);
+    }
+    function clearLocalPhotos() {
+      if (!dirHandle || loadedFileNames.length === 0) {
+        return Promise.resolve(0);
+      }
+      var count = 0;
+      var chain = Promise.resolve();
+      loadedFileNames.forEach(function(name) {
+        chain = chain.then(function() {
+          return dirHandle.removeEntry(name).then(function() {
+            count++;
+          }).catch(function(err) {
+            console.warn('Impossible de supprimer ' + name + ': ' + err.message);
+          });
+        });
+      });
+      return chain.then(function() {
+        return count;
+      });
+    }
+    function resetAll() {
+      // 1. Supprimer toutes les photos
+      allImages = [];
+      document.getElementById('imagesGrid').innerHTML = '';
+      document.getElementById('imagesSection').style.display = 'none';
+      document.getElementById('fileInput').value = '';
+      // 2. Reinitialiser les champs parametres
+      document.getElementById('orderId').value = '';
+      // Prix calculé automatiquement
+      document.getElementById('gender').value = '';
+      document.getElementById('fit').value = '';
+      document.getElementById('riseType').value = '';
+      // 3. Vider le resultat genere
+      var resultArea = document.getElementById('resultArea');
+      resultArea.style.display = 'none';
+      resultArea.innerHTML = '';
+      document.getElementById('rightPlaceholder').style.display = '';
+      // 4. Revenir a la phase parametres
+      document.getElementById('phaseCorrections').classList.remove('active');
+      document.getElementById('phaseParams').classList.remove('hidden');
+      document.getElementById('correctionGrid').innerHTML = '';
+      // 5. Reinitialiser les donnees internes
+      window._lastResult = null;
+      window._lastParams = null;
+      dirHandle = null;
+      loadedFileNames = [];
+    }
+    // ==================== Utils ====================
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+    }
+    function escapeAttr(text) {
+      if (!text) return '';
+      return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>
