@@ -2,25 +2,31 @@
 """
 Serveur HTTP pour la communication entre l'app Python et l'extension Chrome.
 
-Architecture inspirée de Clem's :
+Architecture :
 - Polling HTTP (pas de WebSocket) pour compatibilité maximale (Chromebook, réseaux restreints)
 - Comportement humain simulé côté extension (délais, frappe progressive)
 - Une seule donnée à la fois (pas de queue/rafale)
 
 Endpoints:
-- GET  /status : Diagnostic - vérifie que le serveur est actif
-- GET  /check  : Récupère les données à transférer (titre/description)
-- POST /confirm: Confirme que les données ont été reçues par l'extension
+- GET  /status   : Diagnostic - vérifie que le serveur est actif
+- GET  /check    : Récupère les données à transférer (titre/description)
+- POST /confirm  : Confirme que les données ont été reçues par l'extension
+- GET  /profiles : Liste des profils d'analyse disponibles
+- POST /generate : Génère une annonce à partir d'images + profil + ui_data
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
+import tempfile
 import threading
+import time
 from dataclasses import dataclass, field
-from typing import Optional, Callable
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Callable
 
 from aiohttp import web
 
@@ -58,6 +64,7 @@ class BrowserBridge:
 
     port: int = DEFAULT_PORT
     on_transfer_complete: Optional[Callable[[], None]] = None
+    provider: Optional[Any] = None  # AIListingProvider (optional, for /generate)
 
     # État interne
     _data: TransferData = field(default_factory=TransferData)
@@ -142,6 +149,169 @@ class BrowserBridge:
 
         return web.json_response({"status": "confirmed"})
 
+    async def _handle_profiles(self, request: web.Request) -> web.Response:
+        """GET /profiles - Liste des profils d'analyse disponibles."""
+        from domain.templates import ALL_PROFILES
+        from domain.templates.base import AnalysisProfileName
+
+        # Champs par profil (correspond aux champs UI)
+        profile_fields = {
+            "jean_levis": {
+                "label": "Jean Levi's",
+                "fields": ["size_fr", "size_us", "length", "fit", "rise_type",
+                           "composition", "order_id", "has_defect"],
+            },
+            "pull": {
+                "label": "Pull",
+                "fields": ["measurement_mode", "order_id", "has_defect"],
+            },
+            "jacket_carhart": {
+                "label": "Veste Carhartt",
+                "fields": ["size_fr", "size_us", "length", "composition",
+                           "order_id", "has_defect"],
+            },
+            "polaire_outdoor": {
+                "label": "Polaire Outdoor",
+                "fields": ["measurement_mode", "order_id", "has_defect"],
+            },
+        }
+
+        profiles = []
+        for name, profile in ALL_PROFILES.items():
+            pf = profile_fields.get(name.value, {"label": name.value, "fields": []})
+            profiles.append({
+                "name": name.value,
+                "label": pf["label"],
+                "fields": pf["fields"],
+            })
+
+        return web.json_response({"profiles": profiles})
+
+    async def _handle_generate(self, request: web.Request) -> web.Response:
+        """
+        POST /generate - Génère une annonce Vinted à partir d'images + profil.
+
+        Body JSON attendu :
+        {
+            "images": [{"data": "<base64>", "filename": "img.jpg"}, ...],
+            "profile": "jean_levis",
+            "ui_data": {"size_fr": "42", ...}
+        }
+        """
+        if not self.provider:
+            return web.json_response(
+                {"error": "Aucun provider IA configuré sur le serveur."},
+                status=503,
+            )
+
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response(
+                {"error": "Corps de requête JSON invalide."}, status=400
+            )
+
+        # Valider les champs requis
+        images_raw = body.get("images", [])
+        profile_name = body.get("profile", "")
+        ui_data = body.get("ui_data", {})
+
+        if not images_raw:
+            return web.json_response(
+                {"error": "Au moins une image est requise."}, status=400
+            )
+
+        if not profile_name:
+            return web.json_response(
+                {"error": "Le champ 'profile' est requis."}, status=400
+            )
+
+        # Résoudre le profil
+        from domain.templates import ALL_PROFILES
+        from domain.templates.base import AnalysisProfileName
+
+        try:
+            profile_enum = AnalysisProfileName(profile_name)
+            profile = ALL_PROFILES[profile_enum]
+        except (ValueError, KeyError):
+            return web.json_response(
+                {"error": f"Profil inconnu: {profile_name}"}, status=400
+            )
+
+        # Décoder les images base64 en fichiers temporaires
+        tmp_files: List[Path] = []
+        try:
+            for i, img in enumerate(images_raw):
+                img_data = img.get("data", "")
+                filename = img.get("filename", f"image_{i}.jpg")
+
+                # Déterminer le suffixe
+                suffix = Path(filename).suffix or ".jpg"
+
+                # Décoder base64
+                try:
+                    raw_bytes = base64.b64decode(img_data)
+                except Exception:
+                    return web.json_response(
+                        {"error": f"Image {i} : base64 invalide."}, status=400
+                    )
+
+                tmp = tempfile.NamedTemporaryFile(
+                    delete=False, suffix=suffix, prefix="vinted_ext_"
+                )
+                tmp.write(raw_bytes)
+                tmp.close()
+                tmp_files.append(Path(tmp.name))
+
+            logger.info(
+                "POST /generate: %d images décodées, profil=%s",
+                len(tmp_files), profile_name,
+            )
+
+            # Appeler le provider dans un executor (non-bloquant)
+            loop = asyncio.get_event_loop()
+            t_start = time.time()
+            listing = await loop.run_in_executor(
+                None,
+                lambda: self.provider.generate_listing(
+                    tmp_files, profile, ui_data=ui_data
+                ),
+            )
+            listing.generation_time_s = round(time.time() - t_start, 2)
+
+            # Construire la réponse enrichie
+            result = listing.to_dict()
+
+            # Ajouter les valeurs par défaut pour l'extension
+            result["price"] = ui_data.get("price", 24)
+            result["shipping_size"] = ui_data.get("shipping_size", "Petit")
+
+            # Extraire matériaux depuis features si disponible
+            features = result.get("features", {})
+            materials = features.get("composition_materials") or features.get("material")
+            if not materials and result.get("manual_composition_text"):
+                materials = result["manual_composition_text"]
+            result["materials"] = materials
+
+            logger.info(
+                "POST /generate: succès en %.2fs (titre=%d chars)",
+                listing.generation_time_s, len(listing.title),
+            )
+            return web.json_response(result)
+
+        except Exception as exc:
+            logger.error("POST /generate: erreur: %s", exc, exc_info=True)
+            return web.json_response(
+                {"error": str(exc)}, status=500
+            )
+        finally:
+            # Nettoyer les fichiers temporaires
+            for tmp_path in tmp_files:
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
     async def _handle_cors_preflight(self, request: web.Request) -> web.Response:
         """Gère les requêtes OPTIONS pour CORS."""
         return web.Response(
@@ -179,12 +349,19 @@ class BrowserBridge:
 
     def _create_app(self) -> web.Application:
         """Crée l'application aiohttp avec les routes."""
-        app = web.Application(middlewares=[self._cors_middleware])
+        # 100MB max pour les images base64
+        app = web.Application(
+            middlewares=[self._cors_middleware],
+            client_max_size=100 * 1024 * 1024,
+        )
         app.router.add_get("/status", self._handle_status)
         app.router.add_get("/check", self._handle_check)
+        app.router.add_get("/profiles", self._handle_profiles)
         app.router.add_post("/confirm", self._handle_confirm)
+        app.router.add_post("/generate", self._handle_generate)
         app.router.add_route("OPTIONS", "/check", self._handle_cors_preflight)
         app.router.add_route("OPTIONS", "/confirm", self._handle_cors_preflight)
+        app.router.add_route("OPTIONS", "/generate", self._handle_cors_preflight)
         return app
 
     async def _run_server(self) -> None:
@@ -259,7 +436,8 @@ def get_bridge() -> BrowserBridge:
 
 def start_bridge(
     port: int = DEFAULT_PORT,
-    on_transfer_complete: Optional[Callable[[], None]] = None
+    on_transfer_complete: Optional[Callable[[], None]] = None,
+    provider: Optional[Any] = None,
 ) -> BrowserBridge:
     """
     Démarre le serveur Bridge et retourne l'instance.
@@ -267,6 +445,7 @@ def start_bridge(
     Args:
         port: Port HTTP (défaut: 8765)
         on_transfer_complete: Callback appelé quand l'extension confirme le transfert
+        provider: AIListingProvider pour le endpoint POST /generate
     """
     global _bridge_instance
 
@@ -276,7 +455,8 @@ def start_bridge(
 
     _bridge_instance = BrowserBridge(
         port=port,
-        on_transfer_complete=on_transfer_complete
+        on_transfer_complete=on_transfer_complete,
+        provider=provider,
     )
     _bridge_instance.start()
     return _bridge_instance
