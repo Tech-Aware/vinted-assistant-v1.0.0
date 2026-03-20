@@ -6,12 +6,7 @@
  */
 var Config = (function() {
   var KEYS = {
-    GEMINI_API_KEY: 'AIzaSyCf2bol5YwTjhS3wuX_mQlxPsOb5UMUsRo',
-    GEMINI_MODEL: 'gemini-2.5-flash',
-    LOG_SHEET_ID: '1pnkdcpgrJLPl9gtsuJUfVNQWPeYoXu1uzUthAkvoyOk',
-    LOG_LEVEL: 'INFO',
-    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbyrTLTMItIokiX040gXwFJmTLQhmMq_A5ZuLMZr8hTCEOFPm7n2X1_63OvfGXT1DjOa6Q/exec'
-  };
+    
   var DEFAULT_MODEL = 'gemini-3-flash-preview';
   function getProps_() {
     return PropertiesService.getScriptProperties();
