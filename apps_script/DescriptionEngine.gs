@@ -24,12 +24,13 @@ var DescriptionEngine = (function() {
       var modelLow = (model || '').toLowerCase();
       if (modelLow.indexOf('demi') !== -1 && modelLow.indexOf('curve') !== -1) fitEffective = 'Évasé';
       else if (modelLow.indexOf('curve') !== -1 && !fitEffective) fitEffective = 'Évasé';
-      // Compte Vinted selon SKU
+      // Compte Vinted selon SKU (HJL = homme, FJL = femme)
       var skuUpper = (sku || '').toUpperCase();
-      var isHomme = skuUpper.indexOf('JLH') !== -1;
+      var isHomme = skuUpper.indexOf('HJL') !== -1;
       var vintedAccountTag = isHomme ? '#gentlemen_corner' : '#ladies_and_gentlemen';
-      var sizeTagPrefix = isHomme ? '#GC_fr' : '#LG_fr';
-      var sizeTag = sizeTagPrefix + (sizeFr || 'nc').toLowerCase();
+      var sizeTag = isHomme
+        ? '#LSM_FR' + (sizeFr || 'nc').toLowerCase() + '_homme'
+        : '#LSM_FR' + (sizeFr || 'nc').toLowerCase() + '_femme';
       // Labels de coupe
       var fitLow = (fitEffective || '').toLowerCase();
       var fitLabel = '', fitHashtag = '';
@@ -87,6 +88,12 @@ var DescriptionEngine = (function() {
       if (riseHashtag) hashtagTokens.push('#' + riseHashtag);
       if (fitHashtag) { hashtagTokens.push('#' + fitHashtag); hashtagTokens.push('#jean' + fitHashtag); }
       if (color) hashtagTokens.push('#jean' + color.toLowerCase().replace(/\s/g, ''));
+      // Hashtags combinés coupe + genre + taille FR (et couleur)
+      if (fitHashtag && sizeFr) {
+        var genreToken = gender.toLowerCase().replace(/\s/g, '');
+        hashtagTokens.push('#' + fitHashtag + '_' + genreToken + '_FR' + sizeFr);
+        if (color) hashtagTokens.push('#' + fitHashtag + '_' + genreToken + '_FR' + sizeFr + '_' + color.toLowerCase().replace(/\s/g, ''));
+      }
       hashtagTokens.push(sizeTag);
       if (sku) {
         var skuClean = sku.toLowerCase().replace(/\s/g, '');

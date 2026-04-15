@@ -83,6 +83,23 @@ var DescriptionBuilder = (function() {
       add('#jean' + fitToken);
     }
     if (params.color) add('#jean' + params.color.toLowerCase().replace(/\s/g, ''));
+    // Hashtags combinés coupe + genre + taille FR (et couleur)
+    if (params.fit && params.gender && params.sizeFr) {
+      var fitKey = params.fit.toLowerCase().replace(/é/g, 'e');
+      var fitCombined;
+      if (fitKey.indexOf('evase') !== -1 || fitKey.indexOf('bootcut') !== -1 || fitKey.indexOf('flare') !== -1) {
+        fitCombined = 'évasé';
+      } else if (fitKey.indexOf('skinny') !== -1 || fitKey.indexOf('slim') !== -1) {
+        fitCombined = 'skinny';
+      } else if (fitKey.indexOf('droit') !== -1 || fitKey.indexOf('straight') !== -1) {
+        fitCombined = 'droit';
+      } else {
+        fitCombined = fitKey.replace(/[\s\/]/g, '');
+      }
+      var genreToken = params.gender.toLowerCase().replace(/\s/g, '');
+      add('#' + fitCombined + '_' + genreToken + '_FR' + params.sizeFr.toLowerCase());
+      if (params.color) add('#' + fitCombined + '_' + genreToken + '_FR' + params.sizeFr.toLowerCase() + '_' + params.color.toLowerCase().replace(/\s/g, ''));
+    }
     if (params.riseLabel) add('#' + params.riseLabel.toLowerCase().replace(/\s/g, ''));
     if (params.sizeFr) add('#fr' + params.sizeFr.toLowerCase());
     if (params.sizeUs) add('#w' + params.sizeUs.toLowerCase().replace('w', ''));
