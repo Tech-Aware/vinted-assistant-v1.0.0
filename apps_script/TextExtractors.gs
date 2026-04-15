@@ -88,8 +88,8 @@ var TextExtractors = (function() {
   function extractGenderFromSkuPrefix(sku) {
     if (!sku) return null;
     var upper = String(sku).trim().toUpperCase();
-    if (upper.indexOf('JLF') === 0) return 'femme';
-    if (upper.indexOf('JLH') === 0) return 'homme';
+    if (upper.indexOf('FJL') === 0) return 'femme';
+    if (upper.indexOf('HJL') === 0) return 'homme';
     if (upper.indexOf('PTF') === 0) return 'femme';
     if (upper.indexOf('PTH') === 0 || upper.indexOf('PTNF') === 0) return 'femme';
     return null;
