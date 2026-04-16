@@ -13,20 +13,20 @@ var DescriptionEngine = (function() {
       var color = DescriptionBuilder.safeClean(features.color);
       var sizeFr = DescriptionBuilder.safeClean(features.size_fr);
       var sizeUs = DescriptionBuilder.safeClean(features.size_us);
-      var gender = DescriptionBuilder.safeClean(features.gender) || 'femme';
       var sku = DescriptionBuilder.safeClean(features.sku);
       var orderId = DescriptionBuilder.safeClean(features.order_id);
       var riseLabel = DescriptionBuilder.formatRiseLabel(features.rise_type, features.rise_cm);
       var defects = aiDefects || features.defects;
       var compositionMaterials = features.composition_materials || [];
+      // Compte Vinted selon SKU (HJL = homme, JLF = femme) — calculé avant gender pour servir de fallback
+      var skuUpper = (sku || '').toUpperCase();
+      var isHomme = skuUpper.indexOf('HJL') !== -1;
+      var gender = DescriptionBuilder.safeClean(features.gender) || (isHomme ? 'homme' : 'femme');
       // Fit effectif
       var fitEffective = fit;
       var modelLow = (model || '').toLowerCase();
       if (modelLow.indexOf('demi') !== -1 && modelLow.indexOf('curve') !== -1) fitEffective = 'Évasé';
       else if (modelLow.indexOf('curve') !== -1 && !fitEffective) fitEffective = 'Évasé';
-      // Compte Vinted selon SKU (HJL = homme, FJL = femme)
-      var skuUpper = (sku || '').toUpperCase();
-      var isHomme = skuUpper.indexOf('HJL') !== -1;
       var vintedAccountTag = isHomme ? '#gentlemen_corner' : '#ladies_and_gentlemen';
       var sizeTag = isHomme
         ? '#LSM_FR' + (sizeFr || 'nc').toLowerCase() + '_homme'
