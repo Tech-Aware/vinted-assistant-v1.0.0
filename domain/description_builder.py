@@ -616,7 +616,7 @@ def build_jean_levis_description(
         size_fr = _safe_clean(features.get("size_fr"))
         size_us = _safe_clean(features.get("size_us"))
         length = _safe_clean(features.get("length"))
-        gender = _safe_clean(features.get("gender")) or "femme"
+        gender = _safe_clean(features.get("gender"))
         sku = _safe_clean(features.get("sku"))
         order_id = _safe_clean(features.get("order_id"))
         rise_label = _format_rise_label(features.get("rise_type"), features.get("rise_cm"))
@@ -639,6 +639,7 @@ def build_jean_levis_description(
         # --- Déterminer le compte Vinted selon le SKU ---
         sku_upper = (sku or "").upper()
         is_homme = "JLH" in sku_upper
+        gender = gender or ("homme" if is_homme else "femme")
 
         if is_homme:
             vinted_account_tag = "#gentlemen_corner"
