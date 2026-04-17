@@ -5,8 +5,10 @@
  * Utilise l'API REST Gemini directement avec UrlFetchApp.
  */
 var GeminiClient = (function() {
-  var MAX_RETRIES = 3;
+  var CLIENT_VERSION = '2026-04-17-r2';
+  var MAX_RETRIES = 5;
   var BASE_DELAY_MS = 2000;
+  var MAX_DELAY_MS = 60000;
   /**
    * Genere le contenu via l'API Gemini.
    *
@@ -43,6 +45,14 @@ var GeminiClient = (function() {
     // Log du nombre d'images effectivement ajoutees
     var imageCount = parts.length - 1; // -1 pour le part texte
     Logger.log('GeminiClient: ' + imageCount + ' image(s) ajoutee(s) sur ' + imageDataArray.length + ' recue(s)');
+    Logger.log(
+      'GeminiClient version=%s model=%s retries=%s baseDelayMs=%s maxDelayMs=%s',
+      CLIENT_VERSION,
+      normalizeModelName_(modelName),
+      MAX_RETRIES,
+      BASE_DELAY_MS,
+      MAX_DELAY_MS
+    );
     if (imageCount === 0) {
       return { error: 'Aucune image valide a envoyer a Gemini. Les donnees base64 sont absentes.' };
     }
@@ -75,7 +85,15 @@ var GeminiClient = (function() {
         return result;
       } catch (err) {
         lastError = err;
-        var errMsg = err.message.toLowerCase();
+        var errMsg = String(err && err.message ? err.message : '').toLowerCase();
+        var authPatterns = ['api key expired', 'api_key_expired', 'api key invalid', 'permission denied', 'unauthenticated', '401', '403'];
+        var isAuthError = authPatterns.some(function(pattern) {
+          return errMsg.indexOf(pattern) !== -1;
+        });
+        if (isAuthError) {
+          // Erreur non recuperable: inutile de retenter.
+          break;
+        }
         // Verifier si l'erreur est recuperable
         var retryable = ['timeout', 'rate limit', 'quota', '503', '502', '504',
                          'connection', 'network', 'temporarily unavailable',
@@ -84,7 +102,7 @@ var GeminiClient = (function() {
           return errMsg.indexOf(pattern) !== -1;
         });
         if (isRetryable && attempt < MAX_RETRIES - 1) {
-          var delay = BASE_DELAY_MS * Math.pow(2, attempt);
+          var delay = computeRetryDelayMs_(err, attempt);
           Logger.log('GeminiClient: erreur recuperable (tentative ' + (attempt + 1) + '/' + MAX_RETRIES + '). Retry dans ' + delay + 'ms. Erreur: ' + err.message);
           Utilities.sleep(delay);
         } else {
@@ -93,6 +111,24 @@ var GeminiClient = (function() {
       }
     }
     return { error: 'Erreur API Gemini apres ' + MAX_RETRIES + ' tentatives: ' + (lastError ? lastError.message : 'inconnue') };
+  }
+
+  /**
+   * Calcule le delai de retry en priorisant l'indication "Please retry in Xs"
+   * retournee par l'API, sinon backoff exponentiel.
+   */
+  function computeRetryDelayMs_(err, attempt) {
+    var msg = String(err && err.message ? err.message : '');
+    var explicitDelayMatch = msg.match(/please retry in\s+([0-9]+(?:\.[0-9]+)?)s/i);
+    if (explicitDelayMatch && explicitDelayMatch[1]) {
+      var apiDelayMs = Math.ceil(parseFloat(explicitDelayMatch[1]) * 1000);
+      if (!isNaN(apiDelayMs) && apiDelayMs > 0) {
+        // Petit buffer pour eviter de retomber sur la meme fenetre de quota.
+        return Math.min(apiDelayMs + 500, MAX_DELAY_MS);
+      }
+    }
+    var exponential = BASE_DELAY_MS * Math.pow(2, attempt);
+    return Math.min(exponential, MAX_DELAY_MS);
   }
   /**
    * Appel direct a l'API Gemini REST.
