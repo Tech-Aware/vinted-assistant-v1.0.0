@@ -370,87 +370,100 @@ function calculateRecommendedPrice_(features) {
   return result;
 }
 /**
- * Bareme "rotation rapide" femme.
- * Zone standard : 20-26 €. Zone haute exceptionnelle : 27-30 €. Jamais > 30 €.
- * Les defauts retirent ~4 €. Skinny en bas de grille, evase legerement valorise.
+ * Bareme "rotation ultra agressive" femme.
+ * Objectif : cashflow et rotation rapide, pas la marge max.
+ * Cible majoritaire : 18–23 €. 24–25 € = un peu meilleur. 26 € = zone haute.
+ * 28 € = cas exceptionnels seulement. Jamais 30 € en automatique.
  */
 function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
   var bigSize = !!(sizeNum && sizeNum >= 42);
   if (premium) {
-    var retailPremium = '110–140 €';
+    var retailPremium = '90–120 €';
     if (fit === 'évasé') {
-      return { price: bigSize ? (hasDefects ? 24 : 28) : (hasDefects ? 22 : 26), retail: retailPremium };
+      // big size sans defaut : 26 € (cap pourra autoriser 28 € en cas exceptionnel)
+      return { price: bigSize ? (hasDefects ? 22 : 26) : (hasDefects ? 21 : 24), retail: retailPremium };
     }
     if (fit === 'skinny') {
-      return { price: hasDefects ? 20 : 24, retail: retailPremium };
+      return { price: hasDefects ? 19 : 21, retail: retailPremium };
     }
     // droit (defaut)
-    return { price: hasDefects ? 22 : 26, retail: retailPremium };
+    return { price: hasDefects ? 20 : 23, retail: retailPremium };
   }
   if (budget) {
-    var retailBudget = '24–50 €';
-    return { price: bigSize ? (hasDefects ? 18 : 22) : (hasDefects ? 16 : 20), retail: retailBudget };
+    var retailBudget = '24–45 €';
+    // grande taille sans defaut : 20 € max
+    return { price: bigSize ? (hasDefects ? 16 : 20) : (hasDefects ? 16 : 19), retail: retailBudget };
   }
   // standard
-  var retailStandard = '90–120 €';
+  var retailStandard = '70–100 €';
   if (fit === 'évasé') {
-    return { price: bigSize ? (hasDefects ? 22 : 26) : (hasDefects ? 20 : 24), retail: retailStandard };
+    return { price: bigSize ? (hasDefects ? 20 : 24) : (hasDefects ? 20 : 23), retail: retailStandard };
   }
   if (fit === 'skinny') {
-    return { price: hasDefects ? 18 : 22, retail: retailStandard };
+    return { price: hasDefects ? 18 : 20, retail: retailStandard };
   }
   // droit (defaut)
-  return { price: hasDefects ? 20 : 24, retail: retailStandard };
+  return { price: hasDefects ? 20 : 22, retail: retailStandard };
 }
 /**
- * Bareme "rotation rapide" homme.
- * Zone standard : 20-26 €. Zone haute exceptionnelle : 27-30 €. Jamais > 30 €.
+ * Bareme "rotation ultra agressive" homme.
+ * Meme philosophie que femme : majorite 18–23 €, 26 € zone haute, 28 € exception.
  */
 function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
   var bigSize = !!(sizeNum && sizeNum >= 38);
   if (premium) {
-    var retailPremium = '110–140 €';
+    var retailPremium = '90–120 €';
     if (fit === 'évasé') {
-      return { price: bigSize ? (hasDefects ? 26 : 30) : (hasDefects ? 24 : 28), retail: retailPremium };
+      return { price: bigSize ? (hasDefects ? 22 : 26) : (hasDefects ? 21 : 24), retail: retailPremium };
     }
     if (fit === 'skinny') {
-      return { price: hasDefects ? 21 : 25, retail: retailPremium };
+      return { price: hasDefects ? 19 : 21, retail: retailPremium };
     }
     // droit (defaut)
-    return { price: hasDefects ? 24 : 28, retail: retailPremium };
+    return { price: hasDefects ? 20 : 23, retail: retailPremium };
   }
   if (budget) {
-    var retailBudget = '24–50 €';
-    return { price: bigSize ? (hasDefects ? 18 : 22) : (hasDefects ? 16 : 20), retail: retailBudget };
+    var retailBudget = '24–45 €';
+    return { price: bigSize ? (hasDefects ? 16 : 20) : (hasDefects ? 16 : 19), retail: retailBudget };
   }
   // standard
-  var retailStandard = '90–120 €';
+  var retailStandard = '70–100 €';
   if (fit === 'évasé') {
-    return { price: bigSize ? (hasDefects ? 22 : 26) : (hasDefects ? 20 : 24), retail: retailStandard };
+    return { price: bigSize ? (hasDefects ? 20 : 24) : (hasDefects ? 20 : 23), retail: retailStandard };
   }
   if (fit === 'skinny') {
-    return { price: hasDefects ? 18 : 22, retail: retailStandard };
+    return { price: hasDefects ? 18 : 20, retail: retailStandard };
   }
   // droit (defaut)
-  return { price: hasDefects ? 20 : 24, retail: retailStandard };
+  return { price: hasDefects ? 20 : 22, retail: retailStandard };
 }
 /**
- * Plafond commercial "rotation rapide".
- * - plafond par defaut : 26 €
- * - plafond exceptionnel : 28 € (premium, ou taille forte, ou coupe evasee, sans defaut)
- * - plafond ultra exceptionnel : 30 € (premium ET sans defaut ET (grande taille OU evase))
- * - jamais plus de 30 € en automatique
+ * Plafond commercial "rotation ultra agressive".
+ * Hierarchie :
+ * - plafond par defaut         : 23 €
+ * - plafond intermediaire       : 25 € si propre ET au moins un signal favorable
+ *                                 (premium, grande taille, ou coupe evasee)
+ * - plafond haut                : 26 € si propre ET au moins deux signaux favorables
+ * - plafond exceptionnel        : 28 € seulement si premium ET propre ET grande taille ET evase
+ * - jamais 30 € en automatique
  */
 function applyRotationCap_(price, premium, fit, sizeNum, hasDefects, gender) {
   if (typeof price !== 'number' || isNaN(price)) return price;
   var bigSize = !!(sizeNum && sizeNum >= ((gender === 'homme') ? 38 : 42));
   var attractiveFit = (fit === 'évasé');
-  var cap = 26;
-  if (!hasDefects && (premium || bigSize || attractiveFit)) {
-    cap = 28;
+  var signals = 0;
+  if (premium) signals++;
+  if (bigSize) signals++;
+  if (attractiveFit) signals++;
+  var cap = 23;
+  if (!hasDefects && signals >= 1) {
+    cap = 25;
   }
-  if (premium && !hasDefects && (bigSize || attractiveFit)) {
-    cap = 30;
+  if (!hasDefects && signals >= 2) {
+    cap = 26;
+  }
+  if (!hasDefects && premium && bigSize && attractiveFit) {
+    cap = 28;
   }
   if (price > cap) return cap;
   return price;
