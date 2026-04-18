@@ -813,7 +813,7 @@
       var priceHtml = '';
       if (result.recommended_price) {
         priceHtml = '<div class="price-info-block" style="margin:10px 0;padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">' +
-          '<div style="font-size:14px;font-weight:600;color:#166534;">💰 Prix conseillé Vinted : ' + result.recommended_price + '€</div>' +
+          '<div style="font-size:14px;font-weight:600;color:#166534;">💰 Prix conseillé (rotation rapide) : ' + result.recommended_price + '€</div>' +
           (result.retail_price_range ? '<div style="font-size:13px;color:#4b5563;margin-top:4px;">💵 Prix neuf en magasin : ' + escapeHtml(result.retail_price_range) + '</div>' : '') +
           '</div>';
       }
@@ -885,7 +885,7 @@
           }
           var priceBlock = document.querySelector('.price-info-block');
           if (result.recommended_price != null) {
-            var priceContent = '<div style="font-size:14px;font-weight:600;color:#166534;">💰 Prix conseillé Vinted : ' + result.recommended_price + '€</div>' +
+            var priceContent = '<div style="font-size:14px;font-weight:600;color:#166534;">💰 Prix conseillé (rotation rapide) : ' + result.recommended_price + '€</div>' +
               (result.retail_price_range ? '<div style="font-size:13px;color:#4b5563;margin-top:4px;">💵 Prix neuf en magasin : ' + escapeHtml(result.retail_price_range) + '</div>' : '');
             if (priceBlock) {
               priceBlock.innerHTML = priceContent;
