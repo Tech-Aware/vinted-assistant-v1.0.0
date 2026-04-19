@@ -51,6 +51,21 @@ var Normalizer = (function() {
     if (!num) return '';
     return ('00' + num).slice(-2);
   }
+  /**
+   * Zero-pad la partie numérique d'un SKU interne sur 4 chiffres.
+   * Ex : "HJL01" → "HJL0001", "HJL175" → "HJL0175", "HJL1234" → "HJL1234".
+   * Si le SKU ne correspond pas au format lettres+chiffres, retourne la valeur telle quelle.
+   *
+   * @param {string} sku  SKU brut (ex: "HJL01", "FJL175").
+   * @returns {string}    SKU avec partie numérique sur 4 chiffres.
+   */
+  function zeroPadSkuNumber(sku) {
+    if (!sku) return sku || '';
+    var s = String(sku).trim().toUpperCase();
+    var match = s.match(/^([A-Z]+)(\d+)$/);
+    if (!match) return s;
+    return match[1] + ('0000' + match[2]).slice(-4);
+  }
   // =====================================================
   // Premium Levi's detection
   // =====================================================
@@ -410,6 +425,7 @@ var Normalizer = (function() {
     coerceProfileName: coerceProfileName,
     normalizeSizes: normalizeSizes,
     zeroPadOrderId: zeroPadOrderId,
+    zeroPadSkuNumber: zeroPadSkuNumber,
     capitalizeMaterial: capitalizeMaterial,
     isElasticMaterial: isElasticMaterial
   };

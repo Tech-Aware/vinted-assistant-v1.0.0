@@ -214,7 +214,8 @@ var DescriptionBuilder = (function() {
   }
   /**
    * Construit le hashtag SKU final : forcé en MAJUSCULES, sans libellé,
-   * avec préfixe d'order id (zero-paddé) si fourni.
+   * avec préfixe d'order id (zero-paddé sur 2 chiffres) si fourni,
+   * et partie numérique du SKU toujours sur 4 chiffres.
    *
    * @param {Object} params - { sku, orderId }
    * @returns {string} Hashtag SKU (ex: "#HJL0175", "#01HJL0175") ou '' si pas de SKU.
@@ -223,10 +224,10 @@ var DescriptionBuilder = (function() {
     params = params || {};
     var sku = safeClean(params.sku);
     if (!sku) return '';
-    var clean = sku.replace(/\s/g, '').toUpperCase();
+    var clean = Normalizer.zeroPadSkuNumber(sku.replace(/\s/g, '').toUpperCase());
     var orderId = safeClean(params.orderId);
     if (orderId) {
-      var pad = ('00' + String(orderId).replace(/\D/g, '')).slice(-2);
+      var pad = Normalizer.zeroPadOrderId(orderId);
       if (pad !== '00') clean = pad + clean;
     }
     return '#' + clean;
