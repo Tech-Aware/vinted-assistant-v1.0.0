@@ -622,7 +622,7 @@ function logGenerationToSheet(result, params) {
     var skuForLog = paddedSku;
     if (rawSku && orderId) {
       var pad = Normalizer.zeroPadOrderId(orderId);
-      if (pad !== '00') skuForLog = pad + paddedSku;
+      if (pad) skuForLog = pad + paddedSku;
     }
     // Matiere : features.material ou construire depuis composition_materials
     var matiere = features.material || '';

@@ -228,7 +228,7 @@ var DescriptionBuilder = (function() {
     var orderId = safeClean(params.orderId);
     if (orderId) {
       var pad = Normalizer.zeroPadOrderId(orderId);
-      if (pad !== '00') clean = pad + clean;
+      if (pad) clean = pad + clean;
     }
     return '#' + clean;
   }
