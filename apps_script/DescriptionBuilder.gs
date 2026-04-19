@@ -135,6 +135,110 @@ var DescriptionBuilder = (function() {
     }
     return final.join('\n').trim();
   }
+  /**
+   * Supprime les accents d'une chaîne (utile pour les hashtags).
+   */
+  function stripAccents(value) {
+    if (!value) return '';
+    var s = String(value);
+    try {
+      s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch (e) {
+      // Fallback minimal si normalize() n'est pas dispo
+      s = s
+        .replace(/[àáâãäå]/g, 'a').replace(/[ÀÁÂÃÄÅ]/g, 'A')
+        .replace(/[èéêë]/g, 'e').replace(/[ÈÉÊË]/g, 'E')
+        .replace(/[ìíîï]/g, 'i').replace(/[ÌÍÎÏ]/g, 'I')
+        .replace(/[òóôõö]/g, 'o').replace(/[ÒÓÔÕÖ]/g, 'O')
+        .replace(/[ùúûü]/g, 'u').replace(/[ÙÚÛÜ]/g, 'U')
+        .replace(/ç/g, 'c').replace(/Ç/g, 'C');
+    }
+    return s;
+  }
+  /**
+   * Met en CamelCase chaque mot après nettoyage des accents/séparateurs.
+   * "bleu clair" → "BleuClair", "Évasé" → "Evase".
+   */
+  function camelCaseToken(value) {
+    var clean = stripAccents(safeClean(value));
+    if (!clean) return '';
+    return clean.split(/[\s_\-/]+/)
+      .filter(Boolean)
+      .map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); })
+      .join('');
+  }
+  /**
+   * Normalise une coupe en token de hashtag : Skinny / Droit / Evase.
+   * Retourne '' si la coupe ne peut pas être classée.
+   */
+  function normalizeFitToken(rawFit) {
+    var low = stripAccents(safeClean(rawFit)).toLowerCase();
+    if (!low) return '';
+    if (low.indexOf('skinny') !== -1 || low.indexOf('slim') !== -1) return 'Skinny';
+    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered'];
+    for (var i = 0; i < droitMarkers.length; i++) {
+      if (low.indexOf(droitMarkers[i]) !== -1) return 'Droit';
+    }
+    var evaseMarkers = ['boot', 'flare', 'evas', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'];
+    for (var j = 0; j < evaseMarkers.length; j++) {
+      if (low.indexOf(evaseMarkers[j]) !== -1) return 'Evase';
+    }
+    return camelCaseToken(rawFit);
+  }
+  /**
+   * Construit 2 à 3 hashtags de navigation dressing pour un jean Levi's.
+   * Format : #LSM_FR{size}_{Gender}[_{Fit}[_{Color}]]
+   *
+   * @param {Object} params - { sizeFr, gender, fit, color }
+   * @returns {string[]} Tableau de hashtags (avec le caractère #)
+   */
+  function buildJeanNavigationTags(params) {
+    params = params || {};
+    var sizeFr = safeClean(params.sizeFr);
+    if (!sizeFr) return [];
+    var sizeToken = 'FR' + stripAccents(sizeFr).replace(/\s/g, '').toUpperCase();
+    var genderRaw = safeClean(params.gender).toLowerCase();
+    var genderToken = genderRaw === 'femme' ? 'Femme' : 'Homme';
+    var base = 'LSM_' + sizeToken + '_' + genderToken;
+    var tags = ['#' + base];
+    var fitToken = normalizeFitToken(params.fit);
+    if (fitToken) {
+      var withFit = base + '_' + fitToken;
+      tags.push('#' + withFit);
+      var colorToken = camelCaseToken(params.color);
+      if (colorToken) {
+        tags.push('#' + withFit + '_' + colorToken);
+      }
+    }
+    return tags;
+  }
+  /**
+   * Construit le hashtag SKU final : forcé en MAJUSCULES, sans libellé,
+   * avec préfixe d'order id (zero-paddé) si fourni.
+   *
+   * @param {Object} params - { sku, orderId }
+   * @returns {string} Hashtag SKU (ex: "#HJL0175", "#01HJL0175") ou '' si pas de SKU.
+   */
+  function buildJeanSkuTag(params) {
+    params = params || {};
+    var sku = safeClean(params.sku);
+    if (!sku) return '';
+    var clean = sku.replace(/\s/g, '').toUpperCase();
+    var orderId = safeClean(params.orderId);
+    if (orderId) {
+      var pad = ('00' + String(orderId).replace(/\D/g, '')).slice(-2);
+      if (pad !== '00') clean = pad + clean;
+    }
+    return '#' + clean;
+  }
+  /**
+   * Retire un éventuel hashtag SKU déjà présent en fin de titre, pour éviter
+   * de le dupliquer (le SKU sera affiché seul en bas de description).
+   */
+  function stripSkuFromTitleLine(title) {
+    if (!title) return '';
+    return String(title).replace(/\s*#[A-Za-z0-9]+\s*$/, '').trim();
+  }
   return {
     safeClean: safeClean,
     formatPercent: formatPercent,
@@ -143,6 +247,12 @@ var DescriptionBuilder = (function() {
     normalizeFitDisplay: normalizeFitDisplay,
     normalizePullSize: normalizePullSize,
     buildHashtags: buildHashtags,
-    stripFooterLines: stripFooterLines
+    stripFooterLines: stripFooterLines,
+    stripAccents: stripAccents,
+    camelCaseToken: camelCaseToken,
+    normalizeFitToken: normalizeFitToken,
+    buildJeanNavigationTags: buildJeanNavigationTags,
+    buildJeanSkuTag: buildJeanSkuTag,
+    stripSkuFromTitleLine: stripSkuFromTitleLine
   };
 })();

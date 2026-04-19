@@ -474,8 +474,96 @@ function applyRotationCap_(price, premium, fit, sizeNum, hasDefects, gender) {
 var LOG_HEADERS = [
   'Date', 'Agent', 'Profil', 'Type article', 'Marque', 'Modele', 'Premium',
   'Taille FR', 'Taille US', 'Rise', 'Couleur', 'Matiere', 'Coupe',
-  'Genre', 'Prix', 'Etat', 'SKU', 'Timestamp', 'Duree (min)'
+  'Genre', 'Prix', 'Etat', 'SKU', 'Timestamp', 'Duree (min)', 'Défauts'
 ];
+/**
+ * Détermine si l'article présente un défaut, pour la colonne checkbox "Défauts".
+ *
+ * Règles :
+ *   - features.defects ou result.aiDefects contient un terme pertinent
+ *     (tache, trou, accroc, trace, effilochage, peinture, altération, etc.)
+ *   - features.condition vaut "satisfaisant" (implique un défaut visible)
+ *
+ * @param {Object} features - features de l'article
+ * @param {Object} result - résultat de generateListing()
+ * @returns {boolean} true si défaut détecté, false sinon
+ */
+function hasDefectsForLog_(features, result) {
+  features = features || {};
+  result = result || {};
+  var condition = String(features.condition || '').toLowerCase().trim();
+  if (condition === 'satisfaisant') return true;
+  var aiDefects = String((result && result.aiDefects) || '');
+  var rawDefects = String(features.defects || '') + ' ' + aiDefects;
+  var dl = rawDefects.toLowerCase().trim();
+  if (!dl) return false;
+  // Mentions explicites "aucun défaut" / "très bon état" → pas de défaut
+  // (sauf si un terme de défaut concret est aussi présent dans le texte)
+  var negatives = ['aucun défaut', 'aucun defaut', 'sans défaut', 'sans defaut',
+                   'parfait état', 'parfait etat', 'très bon état', 'tres bon etat',
+                   'tres bon état', 'très bon etat', 'bon état', 'bon etat',
+                   'comme neuf', 'impeccable', 'rien à signaler', 'rien a signaler'];
+  var hasNegative = false;
+  for (var n = 0; n < negatives.length; n++) {
+    if (dl.indexOf(negatives[n]) !== -1) { hasNegative = true; break; }
+  }
+  // Vocabulaire indiquant un défaut visible (une tâche compte comme défaut).
+  // Note: on n'inclut PAS le mot générique "défaut" pour éviter les faux positifs
+  // sur "aucun défaut".
+  var defectTerms = ['tache', 'tâche', 'tâché', 'tâcher', 'trou', 'trous',
+                     'accroc', 'déchirure', 'dechirure', 'usure', 'abîmé', 'abime',
+                     'trace', 'effilochage', 'effiloche',
+                     'décoloration', 'decoloration', 'jaunissement',
+                     'peluche', 'bouloché', 'bouloche', 'endommagé', 'endommage',
+                     'peinture', 'altération', 'alteration'];
+  for (var t = 0; t < defectTerms.length; t++) {
+    if (dl.indexOf(defectTerms[t]) !== -1) return true;
+  }
+  // Si un terme négatif explicite est présent et aucun défaut concret détecté,
+  // on considère qu'il n'y a pas de défaut.
+  if (hasNegative) return false;
+  // Texte non vide, non trivialement négatif → considéré comme un défaut
+  return dl.length > 0;
+}
+/**
+ * S'assure que la colonne "Défauts" existe et est rendue checkbox.
+ * Compatible avec une feuille déjà existante (ajoute la colonne si nécessaire).
+ *
+ * @param {Sheet} sheet
+ * @returns {number} index 1-based de la colonne "Défauts"
+ */
+function ensureDefectsCheckboxColumn_(sheet) {
+  var defectsHeader = 'Défauts';
+  var lastCol = sheet.getLastColumn();
+  // Lecture des en-têtes existants (s'ils existent)
+  var existingHeaders = lastCol > 0
+    ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(v) { return String(v).trim(); })
+    : [];
+  var hasDefects = existingHeaders.indexOf(defectsHeader) !== -1;
+  // Si la colonne "Défauts" n'existe pas, on (ré)écrit toute la ligne d'en-tête
+  // sur le canon LOG_HEADERS pour garantir l'alignement avec le tableau "row".
+  if (!hasDefects) {
+    sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
+    sheet.getRange(1, 1, 1, LOG_HEADERS.length).setFontWeight('bold');
+  }
+  // Calcul de l'index final (1-based) de la colonne Défauts
+  var newHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var defectsColIndex = -1;
+  for (var i = 0; i < newHeaders.length; i++) {
+    if (String(newHeaders[i]).trim() === defectsHeader) { defectsColIndex = i + 1; break; }
+  }
+  if (defectsColIndex === -1) defectsColIndex = LOG_HEADERS.length;
+  // Appliquer la validation checkbox sur toute la colonne (en dehors de l'en-tête)
+  try {
+    var maxRows = sheet.getMaxRows();
+    if (maxRows > 1) {
+      sheet.getRange(2, defectsColIndex, maxRows - 1, 1).insertCheckboxes();
+    }
+  } catch (eCk) {
+    Logger.log('ensureDefectsCheckboxColumn_ insertCheckboxes warning: ' + eCk.message);
+  }
+  return defectsColIndex;
+}
 /**
  * Formate un objet Date en horodatage precis : "YYYY-MM-DD HH:mm:ss"
  * Utilise le fuseau horaire du script (Europe/Paris).
@@ -506,6 +594,8 @@ function logGenerationToSheet(result, params) {
       sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
       sheet.getRange(1, 1, 1, LOG_HEADERS.length).setFontWeight('bold');
     }
+    // Garantit la présence de la colonne "Défauts" + checkbox (compat. feuilles existantes)
+    var defectsColIndex = ensureDefectsCheckboxColumn_(sheet);
     var features = result.features || {};
     var uiData = (params && params.uiData) || {};
     var profileName = (params && params.profileName) || '';
@@ -569,6 +659,7 @@ function logGenerationToSheet(result, params) {
         }
       }
     }
+    var hasDefectFlag = hasDefectsForLog_(features, result);
     var row = [
       now,
       agentEmail,
@@ -588,9 +679,21 @@ function logGenerationToSheet(result, params) {
       features.condition || '',
       skuForLog,
       timestamp,
-      dureeMins
+      dureeMins,
+      hasDefectFlag
     ];
     sheet.getRange(newRow, 1, 1, row.length).setValues([row]);
+    // Force la cellule "Défauts" en checkbox même si la colonne a été ajoutée
+    // manuellement à un autre index dans une feuille existante.
+    try {
+      if (defectsColIndex && defectsColIndex !== row.length) {
+        sheet.getRange(newRow, defectsColIndex).insertCheckboxes().setValue(hasDefectFlag);
+      } else {
+        sheet.getRange(newRow, row.length).insertCheckboxes().setValue(hasDefectFlag);
+      }
+    } catch (eCkRow) {
+      Logger.log('logGenerationToSheet checkbox warning: ' + eCkRow.message);
+    }
     return { success: true, row: newRow };
   } catch (err) {
     Logger.log('logGenerationToSheet error: ' + err.message);
