@@ -6,111 +6,76 @@
 var DescriptionEngine = (function() {
   function buildDescriptionJeanLevis(features, aiDescription, aiDefects) {
     try {
-      var brand = DescriptionBuilder.safeClean(features.brand) || "Levi's";
-      var model = DescriptionBuilder.safeClean(features.model);
-      var rawFit = DescriptionBuilder.safeClean(features.fit);
-      var fit = DescriptionBuilder.normalizeFitDisplay(rawFit, model);
-      var color = DescriptionBuilder.safeClean(features.color);
       var sizeFr = DescriptionBuilder.safeClean(features.size_fr);
       var sizeUs = DescriptionBuilder.safeClean(features.size_us);
       var sku = DescriptionBuilder.safeClean(features.sku);
       var orderId = DescriptionBuilder.safeClean(features.order_id);
-      var riseLabel = DescriptionBuilder.formatRiseLabel(features.rise_type, features.rise_cm);
-      var defects = aiDefects || features.defects;
-      var compositionMaterials = features.composition_materials || [];
-      // Compte Vinted selon SKU (HJL = homme, JLF = femme) — calculé avant gender pour servir de fallback
+      var color = DescriptionBuilder.safeClean(features.color);
+      var rawFit = DescriptionBuilder.safeClean(features.fit);
+      var model = DescriptionBuilder.safeClean(features.model);
+      var fit = DescriptionBuilder.normalizeFitDisplay(rawFit, model);
+      // Genre : fallback via SKU (HJL = homme, JLF = femme)
       var skuUpper = (sku || '').toUpperCase();
       var isHomme = skuUpper.indexOf('HJL') !== -1;
       var gender = DescriptionBuilder.safeClean(features.gender) || (isHomme ? 'homme' : 'femme');
-      // Fit effectif
-      var fitEffective = fit;
-      var modelLow = (model || '').toLowerCase();
-      if (modelLow.indexOf('demi') !== -1 && modelLow.indexOf('curve') !== -1) fitEffective = 'Évasé';
-      else if (modelLow.indexOf('curve') !== -1 && !fitEffective) fitEffective = 'Évasé';
-      var vintedAccountTag = isHomme ? '#gentlemen_corner' : '#ladies_and_gentlemen';
-      var sizeTag = isHomme
-        ? '#LSM_FR' + (sizeFr || 'nc').toLowerCase() + '_homme'
-        : '#LSM_FR' + (sizeFr || 'nc').toLowerCase() + '_femme';
-      // Labels de coupe
-      var fitLow = (fitEffective || '').toLowerCase();
-      var fitLabel = '', fitHashtag = '';
-      if (fitLow.indexOf('skinny') !== -1 || fitLow.indexOf('slim') !== -1) { fitLabel = 'skinny'; fitHashtag = 'skinny'; }
-      else if (['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered'].some(function(m) { return fitLow.indexOf(m) !== -1; })) { fitLabel = 'droits'; fitHashtag = 'droit'; }
-      else if (['boot', 'évas', 'evas', 'flare', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'].some(function(m) { return fitLow.indexOf(m) !== -1; })) { fitLabel = 'évasés'; fitHashtag = 'évasé'; }
-      // Rise
-      var riseLow = (riseLabel || '').toLowerCase();
-      var riseIntro, riseHashtag;
-      if (riseLow.indexOf('basse') !== -1) { riseIntro = 'de taille basse'; riseHashtag = 'lowrise'; }
-      else if (riseLow.indexOf('haute') !== -1) { riseIntro = 'de taille haute'; riseHashtag = 'highrise'; }
-      else { riseIntro = 'de taille moyenne'; riseHashtag = 'midrise'; }
-      // Silhouette
-      var silhouette;
-      if (fitLabel === 'évasés') silhouette = 'équilibre la silhouette et allonge la jambe';
-      else if (fitLabel === 'skinny') silhouette = 'épouse la silhouette et affine la jambe';
-      else if (fitLabel === 'droits') silhouette = 'offre une coupe classique et intemporelle';
-      else silhouette = 'offre un style polyvalent';
-      var isPremium = features.is_premium || false;
-      var premiumTag = isPremium ? ' (modèle Premium)' : '';
-      var intro = fitLabel
-        ? 'Ces Jeans ' + fitLabel + ' ' + brand + premiumTag + ' pour ' + gender + ' ' + riseIntro + ' ' + silhouette + '.'
-        : 'Ces Jeans ' + brand + premiumTag + ' pour ' + gender + ' ' + riseIntro + ' ' + silhouette + '.';
-      // Composition : utilise les noms reels des materiaux (pas de normalisation)
-      var compositionSentence;
-      if (Array.isArray(compositionMaterials) && compositionMaterials.length > 0) {
-        compositionSentence = 'Celui-ci est composé de ' + compositionMaterials.join(' et ') + ", disposant ainsi d'une toile de denim souple, bien tenue et confortable.";
-      } else {
-        compositionSentence = 'Toile de denim souple, bien tenue et confortable.';
+      // Première ligne = titre final généré (SKU retiré pour ne le garder qu'en bas)
+      var titleLine = '';
+      try {
+        titleLine = TitleEngine.buildTitle('jean_levis', features) || '';
+      } catch (eTitle) {
+        titleLine = '';
       }
-      var colorSentence = color
-        ? 'Sa couleur ' + color.toLowerCase() + ", intemporelle, s'intègre facilement à une garde-robe."
-        : "Sa couleur intemporelle s'intègre facilement à une garde-robe.";
-      var closure = 'Il est doté d\'une fermeture zippée et bouton gravé ' + brand + '.';
-      // Taille
+      titleLine = DescriptionBuilder.stripSkuFromTitleLine(titleLine);
+      // Ligne taille
       var sizeLine;
-      if (sizeFr && sizeUs) sizeLine = '👖 Taille FR' + sizeFr + ' équivalent US ' + sizeUs;
+      if (sizeFr && sizeUs) sizeLine = '👖 Taille FR' + sizeFr + ' / US' + sizeUs;
       else if (sizeFr) sizeLine = '👖 Taille FR' + sizeFr;
-      else if (sizeUs) sizeLine = '👖 Taille US ' + sizeUs;
+      else if (sizeUs) sizeLine = '👖 Taille US' + sizeUs;
       else sizeLine = '👖 Taille : voir photos';
-      var sizeNote = "*Les variations et écarts de mesure entre les tailles US et FR sont dues aux différentes proportions de fibres élastiques présentes dans le tissu.";
-      // Etat
-      var defectsClean = DescriptionBuilder.normalizeDefects(defects);
-      var stateLine = !defectsClean ? '👍 Très bon état : article impeccable !' : '👍 Très bon état : ' + defectsClean;
-      var hasLabels = Array.isArray(compositionMaterials) && compositionMaterials.length > 0;
-      var measuresLine = hasLabels
-        ? '🔎 Consultez les photos pour obtenir les mesures précises et la composition détaillée.'
-        : '🔎 Consultez les photos pour obtenir les mesures précises, étiquettes coupées pour plus de confort.';
+      // Mention écart taille étiquette / mesures à plat
+      var sizeNote = '📏 La taille indiquée correspond à l\'étiquette. '
+        + 'Les mesures à plat visibles en photo peuvent différer selon la coupe, '
+        + 'l\'élasticité du tissu ou le tombé du jean.';
+      // État + défauts
+      var defectsRaw = aiDefects || features.defects;
+      var defectsClean = DescriptionBuilder.normalizeDefects(defectsRaw);
+      var conditionLow = (DescriptionBuilder.safeClean(features.condition) || '').toLowerCase();
+      var conditionImpliesDefect = (conditionLow === 'satisfaisant');
+      var stateBlock;
+      if (defectsClean) {
+        var defectSentence = defectsClean.replace(/[.\s]+$/, '') + '.';
+        stateBlock = '👍 Bon état général\nDéfauts à noter : ' + defectSentence;
+      } else if (conditionImpliesDefect) {
+        stateBlock = '👍 Bon état général';
+      } else {
+        stateBlock = '👍 Très bon état';
+      }
+      var measuresLine = '🔎 Mesures précises et composition détaillée en photo.';
       var shippingLine = '📦 Envoi rapide et soigné';
-      var ctaSizeLine = '✨ Retrouvez tous mes articles Levi\'s à votre taille ici 👉 ' + sizeTag;
-      var ctaLotLine = '💡 Jusqu\'à 20% de réduction sur les lots, pensez y !';
-      // Hashtags
-      var hashtagTokens = ['#vintage', '#levis', '#jeanlevis', '#jeandenim'];
-      hashtagTokens.push(gender.toLowerCase() === 'femme' ? '#levisfemme' : '#levishomme');
-      if (riseHashtag) hashtagTokens.push('#' + riseHashtag);
-      if (fitHashtag) { hashtagTokens.push('#' + fitHashtag); hashtagTokens.push('#jean' + fitHashtag); }
-      if (color) hashtagTokens.push('#jean' + color.toLowerCase().replace(/\s/g, ''));
-      // Hashtags combinés coupe + genre + taille FR (et couleur)
-      if (fitHashtag && sizeFr) {
-        var genreToken = gender.toLowerCase().replace(/\s/g, '');
-        hashtagTokens.push('#' + fitHashtag + '_' + genreToken + '_FR' + sizeFr);
-        if (color) hashtagTokens.push('#' + fitHashtag + '_' + genreToken + '_FR' + sizeFr + '_' + color.toLowerCase().replace(/\s/g, ''));
+      var lotLine = '💡 Réduction possible sur lot';
+      // Bloc navigation dressing (2 à 3 hashtags)
+      var navTags = DescriptionBuilder.buildJeanNavigationTags({
+        sizeFr: sizeFr,
+        gender: gender,
+        fit: fit,
+        color: color
+      });
+      var navBlock = '';
+      if (navTags.length > 0) {
+        navBlock = 'Navigation dressing :\n' + navTags.join('\n');
       }
-      hashtagTokens.push(sizeTag);
-      if (sku) {
-        var skuClean = sku.toLowerCase().replace(/\s/g, '');
-        hashtagTokens.push(orderId ? '#' + orderId + skuClean : '#' + skuClean);
-      }
-      var paragraph1 = [intro, compositionSentence, colorSentence, closure].join(' ');
-      var infoBlock = [sizeLine, sizeNote, stateLine, measuresLine].join('\n');
-      var footerBlock = [shippingLine, '', ctaSizeLine, ctaLotLine, '', hashtagTokens.join(' ')].join('\n');
-      // Prix neuf en magasin (injecté dans features par Code.gs)
-      var retailLine = '';
-      if (features.retail_price_range) {
-        retailLine = '💵 Prix neuf en magasin : ' + features.retail_price_range;
-      }
-      if (retailLine) {
-        return retailLine + '\n\n' + paragraph1 + '\n\n' + infoBlock + '\n\n' + footerBlock;
-      }
-      return paragraph1 + '\n\n' + infoBlock + '\n\n' + footerBlock;
+      // Hashtag SKU seul, en MAJUSCULES, sur la dernière ligne
+      var skuTag = DescriptionBuilder.buildJeanSkuTag({ sku: sku, orderId: orderId });
+      // Assemblage
+      var sections = [];
+      if (titleLine) sections.push(titleLine);
+      sections.push(sizeLine);
+      sections.push(sizeNote);
+      sections.push(stateBlock);
+      sections.push([measuresLine, shippingLine, lotLine].join('\n'));
+      if (navBlock) sections.push(navBlock);
+      if (skuTag) sections.push(skuTag);
+      return sections.join('\n\n');
     } catch (e) {
       Logger.log('buildDescriptionJeanLevis error: ' + e.message);
       return DescriptionBuilder.safeClean(aiDescription);
