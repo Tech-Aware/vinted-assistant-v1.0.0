@@ -79,11 +79,31 @@ var TextExtractors = (function() {
   }
   function normalizeSkuValue(raw) {
     if (!raw) return null;
-    var cleaned = String(raw).trim().toUpperCase().replace(/\s/g, '');
+    var cleaned = String(raw).trim().toUpperCase().replace(/\s/g, '').replace(/^#/, '');
     if (!cleaned) return null;
     if (/^\d{2}-\d{2}-\d{1,2}$/.test(cleaned)) return null;
     if (/^[A-Z]{2,6}\d{1,8}$/.test(cleaned)) return cleaned;
     return null;
+  }
+  /**
+   * Parse une étiquette SKU complète de type "#0HJLXXXX" ou "01HJL0001".
+   * Accepte aussi le format standard sans préfixe numérique ("HJL0001").
+   *
+   * @param {string} raw  Valeur brute saisie ou lue depuis l'étiquette.
+   * @returns {{ sku: string|null, orderId: string|null }}
+   *   sku     = partie lettres + chiffres (ex: "HJL0001")
+   *   orderId = préfixe numérique brut avant les lettres (ex: "0", "01") ou null
+   */
+  function parseFullSkuLabel(raw) {
+    if (!raw) return { sku: null, orderId: null };
+    var s = String(raw).trim().toUpperCase().replace(/\s+/g, '').replace(/^#/, '');
+    if (!s) return { sku: null, orderId: null };
+    // Format avec préfixe numérique : ex. "0HJL0001", "01HJL0001"
+    var match = s.match(/^(\d+)([A-Z]{2,6}\d{1,8})$/);
+    if (match) return { sku: match[2], orderId: match[1] };
+    // Format standard : ex. "HJL0001"
+    if (/^[A-Z]{2,6}\d{1,8}$/.test(s)) return { sku: s, orderId: null };
+    return { sku: null, orderId: null };
   }
   function extractGenderFromSkuPrefix(sku) {
     if (!sku) return null;
@@ -171,6 +191,7 @@ var TextExtractors = (function() {
     extractSizesFromText: extractSizesFromText,
     normalizeFitLabel: normalizeFitLabel,
     normalizeSkuValue: normalizeSkuValue,
+    parseFullSkuLabel: parseFullSkuLabel,
     extractGenderFromSkuPrefix: extractGenderFromSkuPrefix,
     detectFlagFromText: detectFlagFromText,
     detectChestPocketFromText: detectChestPocketFromText,

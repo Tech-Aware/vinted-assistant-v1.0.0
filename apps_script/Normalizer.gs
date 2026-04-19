@@ -44,12 +44,31 @@ var Normalizer = (function() {
   }
   /**
    * Zero-pad un orderId sur 2 chiffres.
+   * Un préfixe "0" seul (étiquette imprimée avec le chiffre manquant) est
+   * traité comme le premier lot et donne "01".
    */
   function zeroPadOrderId(orderId) {
     if (!orderId) return '';
     var num = String(orderId).replace(/\D/g, '');
     if (!num) return '';
+    // "0" seul = premier lot dont le "1" a été omis à l'impression → "01"
+    if (num === '0') num = '1';
     return ('00' + num).slice(-2);
+  }
+  /**
+   * Zero-pad la partie numérique d'un SKU interne sur 4 chiffres.
+   * Ex : "HJL01" → "HJL0001", "HJL175" → "HJL0175", "HJL1234" → "HJL1234".
+   * Si le SKU ne correspond pas au format lettres+chiffres, retourne la valeur telle quelle.
+   *
+   * @param {string} sku  SKU brut (ex: "HJL01", "FJL175").
+   * @returns {string}    SKU avec partie numérique sur 4 chiffres.
+   */
+  function zeroPadSkuNumber(sku) {
+    if (!sku) return sku || '';
+    var s = String(sku).trim().toUpperCase();
+    var match = s.match(/^([A-Z]+)(\d+)$/);
+    if (!match) return s;
+    return match[1] + ('0000' + match[2]).slice(-4);
   }
   // =====================================================
   // Premium Levi's detection
@@ -142,9 +161,10 @@ var Normalizer = (function() {
     } else {
       riseType = rawFeatures.rise_type || aiData.rise_type;
     }
-    // SKU
+    // SKU — accepte le format d'étiquette complet "#0HJLXXXX" / "01HJL0001"
     var rawSku = uiData.sku || rawFeatures.sku || aiData.sku;
-    var sku = TextExtractors.normalizeSkuValue(rawSku);
+    var skuParsed = TextExtractors.parseFullSkuLabel(rawSku);
+    var sku = skuParsed.sku ? TextExtractors.normalizeSkuValue(skuParsed.sku) : null;
     var skuStatus = sku ? 'ok' : (rawSku ? 'invalid' : 'missing');
     // Genre
     var aiGender = uiData.gender || rawFeatures.gender || aiData.gender;
@@ -155,7 +175,10 @@ var Normalizer = (function() {
     } else {
       gender = skuGender || aiGender || null;
     }
-    var orderId = uiData.order_id;
+    // Order ID : priorité au préfixe extrait de l'étiquette > saisie UI
+    var orderId = skuParsed.orderId
+      ? zeroPadOrderId(skuParsed.orderId)
+      : zeroPadOrderId(uiData.order_id) || null;
     // Condition
     var condition = uiData.condition || rawFeatures.condition || aiData.condition || 'tres bon etat';
     // Premium: IA > detection par modele
@@ -233,9 +256,8 @@ var Normalizer = (function() {
     // Normalisation marque
     var normalizedBrand = normalizePullBrand(brand);
     var isVintage = normalizedBrand == null;
-    var orderId = uiData.order_id;
+    var orderId = zeroPadOrderId(uiData.order_id) || null;
     var condition = uiData.condition || rawFeatures.condition || 'tres bon etat';
-    // Pima cotton detection
     var descText = (aiData.description || '').toLowerCase();
     var materialText = (rawFeatures.material || '').toLowerCase();
     var isPima = descText.indexOf('pima coton') !== -1 || descText.indexOf('pima cotton') !== -1 ||
@@ -313,10 +335,8 @@ var Normalizer = (function() {
       if (normalizedAiSku) { sku = normalizedAiSku; skuStatus = 'ok'; }
       else { sku = null; skuStatus = 'missing'; }
     }
-    var orderId = uiData.order_id;
+    var orderId = zeroPadOrderId(uiData.order_id) || null;
     var condition = uiData.condition || rawFeatures.condition || 'tres bon etat';
-    // Premium: IA > detection WIP/vintage/Made in USA
-    var isPremium = rawFeatures.is_premium || false;
     if (!isPremium) {
       isPremium = TextExtractors.detectFlagFromText(fullText, ['carhartt wip', 'work in progress', 'made in usa', 'made in u.s.a']);
     }
@@ -410,6 +430,7 @@ var Normalizer = (function() {
     coerceProfileName: coerceProfileName,
     normalizeSizes: normalizeSizes,
     zeroPadOrderId: zeroPadOrderId,
+    zeroPadSkuNumber: zeroPadSkuNumber,
     capitalizeMaterial: capitalizeMaterial,
     isElasticMaterial: isElasticMaterial
   };
