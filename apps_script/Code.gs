@@ -615,14 +615,12 @@ function logGenerationToSheet(result, params) {
     if (!couleur && features.main_colors && features.main_colors.length > 0) {
       couleur = features.main_colors.join(', ');
     }
-    // SKU avec prefixe Order ID (ex: 01JLF0091) et partie numérique sur 4 chiffres
-    var rawSku = features.sku || result.sku || '';
+    // SKU avec prefixe Order ID (ex: 01JLF0091) – déjà paddé par le normalizer
+    var skuForLog = features.sku || result.sku || '';
     var orderId = features.order_id || '';
-    var paddedSku = rawSku ? Normalizer.zeroPadSkuNumber(rawSku) : rawSku;
-    var skuForLog = paddedSku;
-    if (rawSku && orderId) {
+    if (skuForLog && orderId) {
       var pad = Normalizer.zeroPadOrderId(orderId);
-      if (pad) skuForLog = pad + paddedSku;
+      if (pad) skuForLog = pad + skuForLog;
     }
     // Matiere : features.material ou construire depuis composition_materials
     var matiere = features.material || '';
