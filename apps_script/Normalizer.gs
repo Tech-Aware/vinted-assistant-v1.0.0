@@ -164,7 +164,7 @@ var Normalizer = (function() {
     // SKU — accepte le format d'étiquette complet "#0HJLXXXX" / "01HJL0001"
     var rawSku = uiData.sku || rawFeatures.sku || aiData.sku;
     var skuParsed = TextExtractors.parseFullSkuLabel(rawSku);
-    var sku = skuParsed.sku ? TextExtractors.normalizeSkuValue(skuParsed.sku) : null;
+    var sku = skuParsed.sku ? zeroPadSkuNumber(TextExtractors.normalizeSkuValue(skuParsed.sku)) : null;
     var skuStatus = sku ? 'ok' : (rawSku ? 'invalid' : 'missing');
     // Genre
     var aiGender = uiData.gender || rawFeatures.gender || aiData.gender;
@@ -245,10 +245,10 @@ var Normalizer = (function() {
     var skuStatus = skuStatusRaw != null ? String(skuStatusRaw).trim().toLowerCase() : null;
     var sku;
     if (skuFromUi != null) {
-      sku = skuFromUi;
+      sku = zeroPadSkuNumber(skuFromUi);
       if (!skuStatus || skuStatus !== 'ok') skuStatus = 'ok';
     } else if (skuFromAi && skuStatus === 'ok' && /^[A-Za-z]{2,}\s*[0-9]+$/.test(skuFromAi.replace(/\s+/g, ''))) {
-      sku = skuFromAi.replace(/\s+/g, '');
+      sku = zeroPadSkuNumber(skuFromAi.replace(/\s+/g, ''));
     } else {
       sku = null;
       skuStatus = skuFromAi ? 'invalid' : 'missing';
@@ -328,10 +328,10 @@ var Normalizer = (function() {
     var skuStatus = skuStatusRaw != null ? String(skuStatusRaw).trim().toLowerCase() : null;
     var sku = null;
     if (skuFromUi) {
-      sku = TextExtractors.normalizeJcrSku(skuFromUi);
+      sku = zeroPadSkuNumber(TextExtractors.normalizeJcrSku(skuFromUi));
       skuStatus = sku ? 'ok' : 'low_confidence';
     } else {
-      var normalizedAiSku = TextExtractors.normalizeJcrSku(skuFromAi);
+      var normalizedAiSku = zeroPadSkuNumber(TextExtractors.normalizeJcrSku(skuFromAi));
       if (normalizedAiSku) { sku = normalizedAiSku; skuStatus = 'ok'; }
       else { sku = null; skuStatus = 'missing'; }
     }
