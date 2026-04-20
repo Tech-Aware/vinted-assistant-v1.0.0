@@ -92,8 +92,7 @@ var TitleEngine = (function() {
       if (color) parts.push(color);
       if (sku && Validator.isValidInternalSku('jean_levis', sku)) {
         var skuPad = orderId ? Normalizer.zeroPadOrderId(orderId) : '';
-        var skuNumPadded = Normalizer.zeroPadSkuNumber(sku);
-        var skuDisplay = skuPad ? skuPad + skuNumPadded : skuNumPadded;
+        var skuDisplay = skuPad ? skuPad + sku : sku;
         parts.push(TitleBuilder.SKU_PREFIX + skuDisplay);
       }
       return TitleBuilder.safeJoin(parts);
