@@ -785,7 +785,6 @@ class GeminiListingClient(AIListingProvider):
                 generation_config={
                     "temperature": 0.2,
                     "top_p": 0.9,
-                    "thinking_budget": 0,
                 },
             )
 
