@@ -68,7 +68,7 @@ class Settings:
     - gemini_model    : nom du modèle Gemini
     """
     gemini_api_key: str
-    gemini_model: str = "gemini-3-pro-preview"
+    gemini_model: str = "gemini-2.5-flash"
 
 
 def load_settings() -> Settings:
@@ -109,7 +109,7 @@ def load_settings() -> Settings:
         if gemini_model_env is not None and gemini_model_env.strip():
             gemini_model = gemini_model_env.strip()
         else:
-            gemini_model = "gemini-3-pro-preview"
+            gemini_model = "gemini-2.5-flash"
             if gemini_model_env is not None:
                 logger.warning(
                     "GEMINI_MODEL est défini mais vide, utilisation du modèle par défaut '%s'.",
