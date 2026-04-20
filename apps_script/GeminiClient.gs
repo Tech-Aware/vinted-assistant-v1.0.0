@@ -144,7 +144,10 @@ var GeminiClient = (function() {
       generationConfig: {
         temperature: 0.2,
         topP: 0.9,
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingBudget: 0
+        }
       }
     };
     var options = {

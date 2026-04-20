@@ -720,7 +720,6 @@ class GeminiListingClient(AIListingProvider):
                     top_p=0.9,
                     response_mime_type="application/json",
                     response_json_schema=structured_schema,
-                    thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
                 )
 
                 response = self._structured_client.models.generate_content(
