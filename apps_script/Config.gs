@@ -9,10 +9,17 @@ var Config = (function() {
   var KEYS = {
     GEMINI_API_KEY: 'GEMINI_API_KEY',
     GEMINI_MODEL: 'GEMINI_MODEL',
+    OPENAI_API_KEY: 'OPENAI_API_KEY',
+    OPENAI_MODEL: 'OPENAI_MODEL',
+    AI_PROVIDER: 'AI_PROVIDER',
     LOG_SHEET_ID: 'LOG_SHEET_ID',
     LOG_LEVEL: 'LOG_LEVEL',
     WEBAPP_URL: 'WEBAPP_URL'
   };
+
+  var DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
+  var DEFAULT_AI_PROVIDER = 'gemini';
+  var ALLOWED_PROVIDERS = ['gemini', 'openai'];
 
   // Legacy keys introduites par erreur dans un ancien commit:
   // des VALEURS concretes etaient utilisees comme noms de proprietes.
@@ -89,6 +96,32 @@ var Config = (function() {
         LEGACY_KEYS.GEMINI_MODEL
       );
     },
+    getOpenAiApiKey: function() {
+      return getProps_().getProperty(KEYS.OPENAI_API_KEY) || '';
+    },
+    setOpenAiApiKey: function(key) {
+      getProps_().setProperty(KEYS.OPENAI_API_KEY, key || '');
+    },
+    getOpenAiModel: function() {
+      return getProps_().getProperty(KEYS.OPENAI_MODEL) || DEFAULT_OPENAI_MODEL;
+    },
+    setOpenAiModel: function(model) {
+      getProps_().setProperty(KEYS.OPENAI_MODEL, model || '');
+    },
+    getAiProvider: function() {
+      var raw = (getProps_().getProperty(KEYS.AI_PROVIDER) || '').toLowerCase().trim();
+      if (ALLOWED_PROVIDERS.indexOf(raw) === -1) {
+        return DEFAULT_AI_PROVIDER;
+      }
+      return raw;
+    },
+    setAiProvider: function(provider) {
+      var clean = (provider || '').toLowerCase().trim();
+      if (ALLOWED_PROVIDERS.indexOf(clean) === -1) {
+        clean = DEFAULT_AI_PROVIDER;
+      }
+      getProps_().setProperty(KEYS.AI_PROVIDER, clean);
+    },
     getLogSheetId: function() {
       return getPropertyWithLegacy_(KEYS.LOG_SHEET_ID, LEGACY_KEYS.LOG_SHEET_ID);
     },
@@ -117,8 +150,11 @@ var Config = (function() {
     },
     getAll: function() {
       return {
+        aiProvider: this.getAiProvider(),
         geminiApiKey: this.getGeminiApiKey(),
         geminiModel: this.getGeminiModel(),
+        openAiApiKey: this.getOpenAiApiKey(),
+        openAiModel: this.getOpenAiModel(),
         logSheetId: this.getLogSheetId(),
         logLevel: this.getLogLevel(),
         webAppUrl: this.getWebAppUrl()
