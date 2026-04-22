@@ -39,16 +39,24 @@ var DescriptionEngine = (function() {
       // État + défauts
       var defectsRaw = aiDefects || features.defects;
       var defectsClean = DescriptionBuilder.normalizeDefects(defectsRaw);
-      var conditionLow = (DescriptionBuilder.safeClean(features.condition) || '').toLowerCase();
-      var conditionImpliesDefect = (conditionLow === 'satisfaisant');
+      var conditionLabel = DescriptionBuilder.safeClean(features.condition).toLowerCase();
+      var defectSentence = defectsClean ? defectsClean.replace(/[.\s]+$/, '') + '.' : '';
       var stateBlock;
-      if (defectsClean) {
-        var defectSentence = defectsClean.replace(/[.\s]+$/, '') + '.';
-        stateBlock = '👍 Bon état général\nDéfauts à noter : ' + defectSentence;
-      } else if (conditionImpliesDefect) {
+      if (conditionLabel === 'bon état général') {
         stateBlock = '👍 Bon état général';
+        if (defectSentence) {
+          stateBlock += '\nDéfauts à noter : ' + defectSentence;
+        }
+      } else if (conditionLabel === 'satisfaisant') {
+        stateBlock = '👍 Satisfaisant';
+        if (defectSentence) {
+          stateBlock += '\nDéfauts à noter : ' + defectSentence;
+        }
       } else {
         stateBlock = '👍 Très bon état';
+        if (defectSentence) {
+          stateBlock += '\nÀ noter : ' + defectSentence;
+        }
       }
       var measuresLine = '🔎 Mesures précises et composition détaillée en photo.';
       var shippingLine = '📦 Envoi rapide et soigné';
