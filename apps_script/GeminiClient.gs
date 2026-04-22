@@ -425,7 +425,7 @@ var GeminiClient = (function() {
           model: modelName
         };
       }
-      var msg = 'Quota Gemini Free Tier sature (' + MAX_RETRIES + ' tentative(s), modele ' + modelName + ').';
+      var msg = 'Quota Gemini Free Tier sature (' + MAX_RETRIES + ' tentatives, modele ' + modelName + ').';
       if (waitSec > 0) {
         msg += ' Reessayez dans ' + waitSec + ' s.';
       }
@@ -446,7 +446,7 @@ var GeminiClient = (function() {
         authError: true
       };
     }
-    return { error: 'Erreur API Gemini apres ' + MAX_RETRIES + ' tentative(s): ' + raw };
+    return { error: 'Erreur API Gemini apres ' + MAX_RETRIES + ' tentatives: ' + raw };
   }
 
   // ============================================================
@@ -459,7 +459,7 @@ var GeminiClient = (function() {
    */
   function buildCacheKey_(modelName, parts) {
     var raw = modelName + '|' + JSON.stringify(parts);
-    var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, raw, Utilities.Charset.UTF_8);
+    var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw, Utilities.Charset.UTF_8);
     var hex = '';
     for (var i = 0; i < bytes.length; i++) {
       var b = bytes[i] & 0xff;
@@ -494,9 +494,16 @@ var GeminiClient = (function() {
     if (!cache) return;
     try {
       var serialized = JSON.stringify(value);
-      // CacheService limite la valeur a 100 Ko : on n'ecrit que si on tient.
-      if (serialized.length > CACHE_MAX_VALUE_BYTES) {
-        Logger.log('GeminiClient: resultat trop gros pour cache (' + serialized.length + ' bytes), skip.');
+      // CacheService limite la valeur a 100 Ko : on mesure la taille en
+      // octets UTF-8 reels (et pas en chars JS) pour ne pas sous-estimer.
+      var byteLength;
+      try {
+        byteLength = Utilities.newBlob(serialized).getBytes().length;
+      } catch (e) {
+        byteLength = serialized.length;
+      }
+      if (byteLength > CACHE_MAX_VALUE_BYTES) {
+        Logger.log('GeminiClient: resultat trop gros pour cache (' + byteLength + ' bytes), skip.');
         return;
       }
       cache.put(key, serialized, CACHE_TTL_SECONDS);
