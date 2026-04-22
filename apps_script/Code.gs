@@ -588,6 +588,8 @@ function ensureDefectsCheckboxColumn_(sheet) {
     : [];
   var hasDefects = existingHeaders.indexOf(defectsHeader) !== -1;
   var hasCout = existingHeaders.indexOf(coutHeader) !== -1;
+  var coutIdx = existingHeaders.indexOf(coutHeader);   // 0-based, -1 si absent
+  var defIdx  = existingHeaders.indexOf(defectsHeader); // 0-based, -1 si absent
   if (!hasDefects) {
     // Feuille vide ou sans colonne Défauts → réécriture complète des en-têtes
     sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
@@ -595,22 +597,44 @@ function ensureDefectsCheckboxColumn_(sheet) {
   } else if (!hasCout) {
     // Migration : "Défauts" existe mais "Coût ($)" est absent →
     // on insère la colonne "Coût ($)" juste avant "Défauts".
-    var defautsIdx = existingHeaders.indexOf(defectsHeader); // 0-based
-    sheet.insertColumnBefore(defautsIdx + 1); // 1-based
-    sheet.getRange(1, defautsIdx + 1).setValue(coutHeader).setFontWeight('bold');
+    sheet.insertColumnBefore(defIdx + 1); // 1-based
+    sheet.getRange(1, defIdx + 1).setValue(coutHeader).setFontWeight('bold');
+  } else if (coutIdx > defIdx) {
+    // "Coût ($)" existe mais est APRÈS "Défauts" (mauvais ordre) →
+    // on la supprime puis on la réinsère avant "Défauts".
+    sheet.deleteColumn(coutIdx + 1); // 1-based
+    var hdrsAfterDelete = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+      .map(function(v) { return String(v).trim(); });
+    var defIdxAfter = hdrsAfterDelete.indexOf(defectsHeader);
+    if (defIdxAfter !== -1) {
+      sheet.insertColumnBefore(defIdxAfter + 1);
+      sheet.getRange(1, defIdxAfter + 1).setValue(coutHeader).setFontWeight('bold');
+    }
   }
   // Calcul de l'index final (1-based) de la colonne Défauts
   var newHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   var defectsColIndex = -1;
+  var coutColIndex = -1;
   for (var i = 0; i < newHeaders.length; i++) {
-    if (String(newHeaders[i]).trim() === defectsHeader) { defectsColIndex = i + 1; break; }
+    var h = String(newHeaders[i]).trim();
+    if (h === defectsHeader) defectsColIndex = i + 1;
+    if (h === coutHeader)    coutColIndex    = i + 1;
   }
   if (defectsColIndex === -1) defectsColIndex = LOG_HEADERS.length;
-  // Appliquer la validation checkbox sur toute la colonne (en dehors de l'en-tête)
+  // Effacer toute validation checkbox parasite sur la colonne "Coût ($)"
   try {
     var maxRows = sheet.getMaxRows();
-    if (maxRows > 1) {
-      sheet.getRange(2, defectsColIndex, maxRows - 1, 1).insertCheckboxes();
+    if (coutColIndex !== -1 && maxRows > 1) {
+      sheet.getRange(2, coutColIndex, maxRows - 1, 1).clearDataValidations();
+    }
+  } catch (eCout) {
+    Logger.log('ensureDefectsCheckboxColumn_ clearDataValidations warning: ' + eCout.message);
+  }
+  // Appliquer la validation checkbox sur toute la colonne Défauts (hors en-tête)
+  try {
+    var maxRows2 = sheet.getMaxRows();
+    if (maxRows2 > 1) {
+      sheet.getRange(2, defectsColIndex, maxRows2 - 1, 1).insertCheckboxes();
     }
   } catch (eCk) {
     Logger.log('ensureDefectsCheckboxColumn_ insertCheckboxes warning: ' + eCk.message);
@@ -737,14 +761,9 @@ function logGenerationToSheet(result, params) {
       hasDefectFlag
     ];
     sheet.getRange(newRow, 1, 1, row.length).setValues([row]);
-    // Force la cellule "Défauts" en checkbox même si la colonne a été ajoutée
-    // manuellement à un autre index dans une feuille existante.
+    // Force la cellule "Défauts" en checkbox (toujours sur defectsColIndex, jamais sur Coût ($))
     try {
-      if (defectsColIndex && defectsColIndex !== row.length) {
-        sheet.getRange(newRow, defectsColIndex).insertCheckboxes().setValue(hasDefectFlag);
-      } else {
-        sheet.getRange(newRow, row.length).insertCheckboxes().setValue(hasDefectFlag);
-      }
+      sheet.getRange(newRow, defectsColIndex).insertCheckboxes().setValue(hasDefectFlag);
     } catch (eCkRow) {
       Logger.log('logGenerationToSheet checkbox warning: ' + eCkRow.message);
     }
