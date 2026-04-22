@@ -139,7 +139,7 @@ var Prompt = (function() {
     'Premium indicators: model numbers 501, 505, 517, 550, 560, 569, "Vintage Clothing",',
     '"Big E" logo, orange tab, red tab, "Made in USA", selvedge/selvedge denim, "LVC".',
     'Also true if the label explicitly says "Premium" or "Levi\'s Premium".',
-    'If none of these indicators are found, set to false.',,
+    'If none of these indicators are found, set to false.',
     '',
     '==============================================================',
     ' EXTENDED OUTPUT FOR PROFILE "pull"',

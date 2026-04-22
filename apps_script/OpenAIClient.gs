@@ -23,12 +23,12 @@ var OpenAIClient = (function() {
   var ENDPOINT = 'https://api.openai.com/v1/chat/completions';
   // Chaine de fallback : du plus capable au plus economique.
   var MODEL_FALLBACK_CHAIN = [
-    'gpt-4o-mini',
-    'gpt-4o'
+    'gpt-4o',
+    'gpt-4o-mini'
   ];
   var CACHE_TTL_SECONDS = 3600;
   var CACHE_MAX_VALUE_BYTES = 95 * 1024;
-  var USER_LOCK_TIMEOUT_MS = 0;
+  var USER_LOCK_TIMEOUT_MS = 500;
   // Page de gestion / facturation OpenAI.
   var BILLING_URL = 'https://platform.openai.com/account/billing';
 
@@ -200,14 +200,16 @@ var OpenAIClient = (function() {
   }
 
   /**
-   * Priorite : header Retry-After > "try again in Xs" / "retry after Xs" dans le texte > exponentiel.
+   * Priorite : header Retry-After > motifs textuels OpenAI > exponentiel.
    */
   function computeRetryDelayMs_(err, attempt) {
     if (err && typeof err.retryAfterMs === 'number' && err.retryAfterMs > 0) {
       return Math.min(err.retryAfterMs + 500, MAX_DELAY_MS);
     }
     var msg = String(err && err.message ? err.message : '');
-    var match = msg.match(/(?:try again in|retry after|please retry in)\s+([0-9]+(?:\.[0-9]+)?)\s*s/i);
+    // Couvre : "try again in Xs", "retry after Xs", "please retry in Xs",
+    //          "Rate limit ... in Xs", "Please try again in Xs".
+    var match = msg.match(/(?:try again in|retry after|please retry in|rate limit[^.]*?in)\s+([0-9]+(?:\.[0-9]+)?)\s*s/i);
     if (match && match[1]) {
       var ms = Math.ceil(parseFloat(match[1]) * 1000);
       if (!isNaN(ms) && ms > 0) {
@@ -222,6 +224,10 @@ var OpenAIClient = (function() {
     var payload = {
       model: modelName,
       messages: [
+        {
+          role: 'system',
+          content: 'You are a structured data extraction agent. Always respond with valid JSON only, no markdown, no extra text.'
+        },
         { role: 'user', content: content }
       ],
       temperature: 0.2,
