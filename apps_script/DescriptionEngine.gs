@@ -179,7 +179,18 @@ var DescriptionEngine = (function() {
       var durinTag = '#durin31tf' + sizeToken;
       var hashtagTokens = [];
       function addTag(t) { if (t && hashtagTokens.indexOf(t) === -1) hashtagTokens.push(t); }
-      addTag('#tommyhilfiger'); addTag('#pulltommy'); addTag('#tommy');
+      // Hashtags de marque : uniquement si la marque correspond réellement
+      var brandLow = (brand || '').toLowerCase();
+      if (brandLow.indexOf('tommy') !== -1 || brandLow.indexOf('hilfiger') !== -1) {
+        addTag('#tommyhilfiger'); addTag('#pulltommy'); addTag('#tommy');
+      } else if (brandLow.indexOf('ralph') !== -1 || brandLow.indexOf('lauren') !== -1) {
+        addTag('#ralphlauren'); addTag('#polo'); addTag('#ralph');
+      } else if (brandLow.indexOf('lacoste') !== -1) {
+        addTag('#lacoste');
+      } else if (brandLow && !isVintage) {
+        var brandToken = brandLow.replace(/[^a-z0-9]/g, '');
+        if (brandToken) addTag('#' + brandToken);
+      }
       addTag(gender.toLowerCase() === 'femme' ? '#pullfemme' : '#pullhomme');
       addTag('#mode'); addTag('#preloved'); addTag(durinTag); addTag('#ptf');
       if (colors) {
