@@ -376,6 +376,7 @@ var Normalizer = (function() {
     }
     var orderId = zeroPadOrderId(uiData.order_id) || null;
     var condition = uiData.condition || rawFeatures.condition || 'tres bon etat';
+    var isPremium = rawFeatures.is_premium || false;
     if (!isPremium) {
       isPremium = TextExtractors.detectFlagFromText(fullText, ['carhartt wip', 'work in progress', 'made in usa', 'made in u.s.a']);
     }
