@@ -84,6 +84,15 @@ function getConfig() {
 function saveConfig(config) {
   Config.setGeminiApiKey(config.geminiApiKey || '');
   Config.setGeminiModel(config.geminiModel || '');
+  if (config.openAiApiKey !== undefined) {
+    Config.setOpenAiApiKey(config.openAiApiKey || '');
+  }
+  if (config.openAiModel !== undefined) {
+    Config.setOpenAiModel(config.openAiModel || '');
+  }
+  if (config.aiProvider !== undefined) {
+    Config.setAiProvider(config.aiProvider || 'gemini');
+  }
   if (config.logSheetId !== undefined) {
     Config.setLogSheetId(config.logSheetId || '');
   }
@@ -123,19 +132,13 @@ function generateListing(params) {
       return { error: 'Les images ont ete perdues lors du transfert (payload trop volumineux). Reduisez le nombre de photos ou leur resolution, puis reessayez.' };
     }
     imageDataArray = validImages;
-    var apiKey = Config.getGeminiApiKey();
-    if (!apiKey) {
-      return { error: 'Cle API Gemini non configuree. Ouvrez la configuration (icone engrenage).' };
-    }
-    var modelName = Config.getGeminiModel() || 'gemini-2.5-flash';
     var profile = Templates.getProfile(profileName);
     if (!profile) {
       return { error: 'Profil d\'analyse inconnu : ' + profileName };
     }
-    // Appel Gemini
-    var geminiResult = GeminiClient.generateContent(
-      apiKey,
-      modelName,
+    // Appel IA (dispatcher provider : Gemini / OpenAI selon Config.AI_PROVIDER,
+    // avec fallback cross-provider automatique sur quota epuise).
+    var geminiResult = AIClient.generateContent(
       imageDataArray,
       profile,
       uiData

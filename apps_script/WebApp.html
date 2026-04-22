@@ -331,17 +331,39 @@
     <div class="config-panel">
       <h2>Configuration</h2>
       <div class="form-group">
+        <label>Fournisseur IA</label>
+        <select id="cfgAiProvider" onchange="updateProviderVisibility()">
+          <option value="gemini">Google Gemini</option>
+          <option value="openai">OpenAI (GPT-4o)</option>
+        </select>
+        <small style="font-size:11px; color:#80868b; display:block; margin-top:2px;">
+          Si l'autre fournisseur est aussi configure, un fallback automatique sera tente en cas de quota epuise.
+        </small>
+      </div>
+      <div class="form-group provider-block" data-provider="gemini">
         <label>Cle API Gemini</label>
         <input type="password" id="cfgGeminiApiKey" placeholder="AIzaSy...">
         <a class="help-link" href="https://aistudio.google.com/app/apikey" target="_blank">Comment obtenir une cle ?</a>
       </div>
-      <div class="form-group">
+      <div class="form-group provider-block" data-provider="gemini">
         <label>Modele Gemini</label>
         <select id="cfgGeminiModel">
           <option value="gemini-2.5-flash">gemini-2.5-flash (recommande)</option>
           <option value="gemini-2.5-pro-preview-05-06">gemini-2.5-pro-preview (precis)</option>
           <option value="gemini-2.0-flash">gemini-2.0-flash (economique)</option>
           <option value="gemini-1.5-flash">gemini-1.5-flash (stable)</option>
+        </select>
+      </div>
+      <div class="form-group provider-block" data-provider="openai">
+        <label>Cle API OpenAI</label>
+        <input type="password" id="cfgOpenAiApiKey" placeholder="sk-...">
+        <a class="help-link" href="https://platform.openai.com/api-keys" target="_blank">Comment obtenir une cle ?</a>
+      </div>
+      <div class="form-group provider-block" data-provider="openai">
+        <label>Modele OpenAI</label>
+        <select id="cfgOpenAiModel">
+          <option value="gpt-4o-mini">gpt-4o-mini (recommande, economique)</option>
+          <option value="gpt-4o">gpt-4o (precis)</option>
         </select>
       </div>
       <div class="form-group">
@@ -394,10 +416,25 @@
     var dirHandle = null;       // FileSystemDirectoryHandle (local folder)
     var loadedFileNames = [];   // noms des fichiers charges depuis le dossier
     // ==================== Config ====================
+    function updateProviderVisibility() {
+      var provider = (document.getElementById('cfgAiProvider').value || 'gemini').toLowerCase();
+      var blocks = document.querySelectorAll('.provider-block');
+      for (var i = 0; i < blocks.length; i++) {
+        var b = blocks[i];
+        b.style.display = (b.getAttribute('data-provider') === provider) ? '' : 'none';
+      }
+    }
     function openConfig() {
       document.getElementById('configOverlay').classList.add('open');
       google.script.run
         .withSuccessHandler(function(config) {
+          // Provider
+          var provSel = document.getElementById('cfgAiProvider');
+          var prov = (config.aiProvider || 'gemini').toLowerCase();
+          for (var p = 0; p < provSel.options.length; p++) {
+            if (provSel.options[p].value === prov) { provSel.selectedIndex = p; break; }
+          }
+          // Gemini
           if (config.geminiApiKey) document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey;
           var sel = document.getElementById('cfgGeminiModel');
           var modelFound = false;
@@ -412,7 +449,21 @@
               if (sel.options[j].value === 'gemini-2.5-flash') { sel.selectedIndex = j; break; }
             }
           }
+          // OpenAI
+          if (config.openAiApiKey) document.getElementById('cfgOpenAiApiKey').value = config.openAiApiKey;
+          var oaSel = document.getElementById('cfgOpenAiModel');
+          var oaModel = config.openAiModel || 'gpt-4o-mini';
+          var oaFound = false;
+          for (var k = 0; k < oaSel.options.length; k++) {
+            if (oaSel.options[k].value === oaModel) { oaSel.selectedIndex = k; oaFound = true; break; }
+          }
+          if (!oaFound) {
+            for (var m = 0; m < oaSel.options.length; m++) {
+              if (oaSel.options[m].value === 'gpt-4o-mini') { oaSel.selectedIndex = m; break; }
+            }
+          }
           if (config.logSheetId) document.getElementById('cfgLogSheetId').value = config.logSheetId;
+          updateProviderVisibility();
         })
         .getConfig();
     }
@@ -422,11 +473,19 @@
     }
     function saveConfigAction() {
       var config = {
+        aiProvider: document.getElementById('cfgAiProvider').value,
         geminiApiKey: document.getElementById('cfgGeminiApiKey').value.trim(),
         geminiModel: document.getElementById('cfgGeminiModel').value,
+        openAiApiKey: document.getElementById('cfgOpenAiApiKey').value.trim(),
+        openAiModel: document.getElementById('cfgOpenAiModel').value,
         logSheetId: document.getElementById('cfgLogSheetId').value.trim()
       };
-      if (!config.geminiApiKey) {
+      // Valider la cle du provider actif (l'autre est optionnel pour le fallback).
+      if (config.aiProvider === 'openai' && !config.openAiApiKey) {
+        showConfigStatus('Veuillez entrer une cle API OpenAI.', 'err');
+        return;
+      }
+      if (config.aiProvider !== 'openai' && !config.geminiApiKey) {
         showConfigStatus('Veuillez entrer une cle API Gemini.', 'err');
         return;
       }
