@@ -87,6 +87,45 @@ var Normalizer = (function() {
     return false;
   }
   // =====================================================
+  // Normalisation niveau d'état jean Levi's
+  // =====================================================
+  /**
+   * Normalise une valeur brute de condition (venant de l'IA ou de l'UI)
+   * vers exactement l'une des 3 valeurs françaises officielles :
+   *   "très bon état" | "bon état général" | "satisfaisant"
+   * Fallback : "très bon état" si la valeur est vide ou inconnue.
+   *
+   * @param {*} value  Valeur brute à normaliser.
+   * @returns {string} Valeur normalisée.
+   */
+  function normalizeJeanConditionLabel_(value) {
+    if (!value) return 'très bon état';
+    var v = String(value).trim().toLowerCase()
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ');
+    // Très bon état
+    if (v === 'très bon état' || v === 'tres bon etat' ||
+        v === 'very good' || v === 'very_good' ||
+        v === 'very good condition' || v === 'très bon' ||
+        v === 'tres bon') {
+      return 'très bon état';
+    }
+    // Bon état général
+    if (v === 'bon état général' || v === 'bon etat general' ||
+        v === 'good general' || v === 'good_general' ||
+        v === 'general good condition' || v === 'bon état' ||
+        v === 'bon etat' || v === 'good condition' || v === 'good') {
+      return 'bon état général';
+    }
+    // Satisfaisant
+    if (v === 'satisfaisant' || v === 'satisfactory' ||
+        v === 'fair' || v === 'fair condition') {
+      return 'satisfaisant';
+    }
+    // Fallback
+    return 'très bon état';
+  }
+  // =====================================================
   // Feature builders par profil
   // =====================================================
   function buildFeaturesForJeanLevis(aiData, uiData) {
@@ -179,8 +218,8 @@ var Normalizer = (function() {
     var orderId = skuParsed.orderId
       ? zeroPadOrderId(skuParsed.orderId)
       : zeroPadOrderId(uiData.order_id) || null;
-    // Condition
-    var condition = uiData.condition || rawFeatures.condition || aiData.condition || 'tres bon etat';
+    // Condition : normalisée vers exactement 3 valeurs françaises
+    var condition = normalizeJeanConditionLabel_(uiData.condition || rawFeatures.condition || aiData.condition);
     // Premium: IA > detection par modele
     var isPremium = rawFeatures.is_premium || false;
     if (!isPremium && model) {
@@ -432,6 +471,7 @@ var Normalizer = (function() {
     zeroPadOrderId: zeroPadOrderId,
     zeroPadSkuNumber: zeroPadSkuNumber,
     capitalizeMaterial: capitalizeMaterial,
-    isElasticMaterial: isElasticMaterial
+    isElasticMaterial: isElasticMaterial,
+    normalizeJeanConditionLabel: normalizeJeanConditionLabel_
   };
 })();
