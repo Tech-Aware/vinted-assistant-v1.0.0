@@ -108,9 +108,12 @@ var TitleEngine = (function() {
       if (!brand && !isVintage) isVintage = true;
       var garmentType = TitleBuilder.normalizeGarmentType(features.garment_type) || 'Pull';
       var rawGender = TitleBuilder.normalizeGender(TitleBuilder.normalizeStr(features.gender));
-      // Le profil pull cible principalement les femmes : on force 'femme' par défaut.
-      // Si le genre détecté est explicitement 'homme', on le respecte.
-      var gender = (rawGender && rawGender.toLowerCase() === 'homme') ? 'homme' : 'femme';
+      var gender = 'femme';
+      if (rawGender && rawGender.toLowerCase() !== 'femme') {
+        // force femme
+      } else if (rawGender) {
+        gender = rawGender;
+      }
       var size = TitleBuilder.normalizePullSize(TitleBuilder.normalizeStr(features.size));
       var neckline = TitleBuilder.formatNeckline(TitleBuilder.normalizeStr(features.neckline));
       var pattern = TitleBuilder.normalizeStr(features.pattern);
