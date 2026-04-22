@@ -195,6 +195,7 @@ function generateListing(params) {
     );
     // Construire le resultat final
     var listing = Models.createListing(normalized);
+    var generationCost = calculateGenerationCost_(geminiResult);
     return {
       success: true,
       title: listing.title,
@@ -205,6 +206,7 @@ function generateListing(params) {
       skuStatus: listing.skuStatus,
       recommended_price: pricingResult.price,
       retail_price_range: pricingResult.retail,
+      generation_cost: generationCost,
       aiDescription: parsed.description || '',
       aiDefects: parsed.defects || (parsed.features || {}).defects || null,
       rawText: geminiResult.text
@@ -477,7 +479,7 @@ function applyRotationCap_(price, premium, fit, sizeNum, hasDefects, gender) {
 var LOG_HEADERS = [
   'Date', 'Agent', 'Profil', 'Type article', 'Marque', 'Modele', 'Premium',
   'Taille FR', 'Taille US', 'Rise', 'Couleur', 'Matiere', 'Coupe',
-  'Genre', 'Prix', 'Etat', 'SKU', 'Timestamp', 'Duree (min)', 'Défauts'
+  'Genre', 'Prix', 'Etat', 'SKU', 'Timestamp', 'Duree (min)', 'Coût ($)', 'Défauts'
 ];
 /**
  * Détermine si l'article présente un défaut, pour la colonne checkbox "Défauts".
@@ -529,25 +531,73 @@ function hasDefectsForLog_(features, result) {
   return dl.length > 0;
 }
 /**
+ * Calcule le coût approximatif d'une génération IA en USD,
+ * à partir du modèle utilisé et des métadonnées d'utilisation des tokens.
+ *
+ * Tarifs approximatifs par million de tokens (input / output) :
+ *   Gemini 2.5 Flash       : $0.075 / $0.30
+ *   Gemini 2.5 Flash Lite  : $0.01875 / $0.075
+ *   Gemini 2.0 Flash       : $0.10 / $0.40
+ *   GPT-4o                 : $2.50 / $10.00
+ *   GPT-4o-mini            : $0.15 / $0.60
+ *
+ * @param {Object} aiResult - Résultat brut de AIClient.generateContent()
+ * @returns {number|null} Coût en USD arrondi à 6 décimales, ou null si inconnu
+ */
+function calculateGenerationCost_(aiResult) {
+  if (!aiResult) return null;
+  var model = String(aiResult._usedModel || aiResult.model || '').toLowerCase();
+  // Gemini renvoie usageMetadata, OpenAI renvoie usage
+  var meta = aiResult.usageMetadata || aiResult.usage || {};
+  var inputTokens  = meta.promptTokenCount  || meta.prompt_tokens     || 0;
+  var outputTokens = meta.candidatesTokenCount || meta.completion_tokens || 0;
+  if (!inputTokens && !outputTokens) return null;
+  var inputPrice, outputPrice;
+  if (model.indexOf('gemini-2.5-flash-lite') !== -1) {
+    inputPrice = 0.01875; outputPrice = 0.075;
+  } else if (model.indexOf('gemini-2.5-flash') !== -1) {
+    inputPrice = 0.075; outputPrice = 0.30;
+  } else if (model.indexOf('gemini-2.0-flash') !== -1) {
+    inputPrice = 0.10; outputPrice = 0.40;
+  } else if (model.indexOf('gpt-4o-mini') !== -1) {
+    inputPrice = 0.15; outputPrice = 0.60;
+  } else if (model.indexOf('gpt-4o') !== -1) {
+    inputPrice = 2.50; outputPrice = 10.0;
+  } else {
+    // Fallback générique : tarif Gemini Flash
+    inputPrice = 0.10; outputPrice = 0.40;
+  }
+  var cost = (inputTokens * inputPrice + outputTokens * outputPrice) / 1000000;
+  return Math.round(cost * 1000000) / 1000000;
+}
+/**
  * S'assure que la colonne "Défauts" existe et est rendue checkbox.
- * Compatible avec une feuille déjà existante (ajoute la colonne si nécessaire).
+ * Gère aussi la migration des feuilles existantes en ajoutant "Coût ($)"
+ * entre "Duree (min)" et "Défauts" si elle est absente.
  *
  * @param {Sheet} sheet
  * @returns {number} index 1-based de la colonne "Défauts"
  */
 function ensureDefectsCheckboxColumn_(sheet) {
   var defectsHeader = 'Défauts';
+  var coutHeader = 'Coût ($)';
   var lastCol = sheet.getLastColumn();
   // Lecture des en-têtes existants (s'ils existent)
   var existingHeaders = lastCol > 0
     ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(v) { return String(v).trim(); })
     : [];
   var hasDefects = existingHeaders.indexOf(defectsHeader) !== -1;
-  // Si la colonne "Défauts" n'existe pas, on (ré)écrit toute la ligne d'en-tête
-  // sur le canon LOG_HEADERS pour garantir l'alignement avec le tableau "row".
+  var hasCout = existingHeaders.indexOf(coutHeader) !== -1;
   if (!hasDefects) {
+    // Feuille vide ou sans colonne Défauts → réécriture complète des en-têtes
     sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
     sheet.getRange(1, 1, 1, LOG_HEADERS.length).setFontWeight('bold');
+  } else if (!hasCout) {
+    // Migration : "Défauts" existe mais "Coût ($)" est absent →
+    // on insère la colonne "Coût ($)" juste avant "Défauts".
+    var defautsIdx = existingHeaders.indexOf(defectsHeader); // 0-based
+    sheet.insertColumnBefore(defautsIdx + 1); // 1-based
+    sheet.getRange(1, defautsIdx + 1).setValue(coutHeader).setFontWeight('bold');
   }
   // Calcul de l'index final (1-based) de la colonne Défauts
   var newHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -662,6 +712,7 @@ function logGenerationToSheet(result, params) {
       }
     }
     var hasDefectFlag = hasDefectsForLog_(features, result);
+    var generationCost = (result.generation_cost != null) ? result.generation_cost : '';
     var row = [
       now,
       agentEmail,
@@ -682,6 +733,7 @@ function logGenerationToSheet(result, params) {
       skuForLog,
       timestamp,
       dureeMins,
+      generationCost,
       hasDefectFlag
     ];
     sheet.getRange(newRow, 1, 1, row.length).setValues([row]);

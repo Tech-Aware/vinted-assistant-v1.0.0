@@ -86,6 +86,7 @@ var OpenAIClient = (function() {
     var cached = readCache_(cacheKey);
     if (cached) {
       Logger.log('OpenAIClient: cache hit (key=' + cacheKey + '). Pas d\'appel API.');
+      if (!cached._usedModel) cached._usedModel = requestedModel;
       return cached;
     }
 
@@ -137,6 +138,7 @@ var OpenAIClient = (function() {
       }
       var result = callApiWithRetry_(apiKey, model, content);
       if (result && result.text) {
+        result._usedModel = model;
         return result;
       }
       lastResult = result;
@@ -297,7 +299,7 @@ var OpenAIClient = (function() {
         text = buf.join('');
       }
       if (text) {
-        return { text: text };
+        return { text: text, usage: responseData.usage || null };
       }
       if (choice.finish_reason && choice.finish_reason !== 'stop') {
         return { error: 'OpenAI a bloque la generation: ' + choice.finish_reason };

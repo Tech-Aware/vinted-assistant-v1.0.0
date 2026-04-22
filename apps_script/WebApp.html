@@ -110,6 +110,7 @@
     .copy-btn.copied { background: #2e7d32; color: #fff; border-color: #2e7d32; }
     .error-box { background: #fce4ec; border: 1px solid #ef9a9a; border-radius: 12px; padding: 16px; color: #b71c1c; }
     .sku-badge { display: inline-block; background: #e3f2fd; color: #1565c0; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; margin-left: 8px; }
+    .cost-badge { display: inline-block; background: #fff3e0; color: #e65100; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; margin-left: 8px; }
     /* ===== Divider ===== */
     .divider { border: none; border-top: 1px solid #e8eaed; margin: 12px 0; }
     /* ===== Spinner ===== */
@@ -203,6 +204,7 @@
     body.is-mobile .result-actions .copy-btn { width: 100%; text-align: center; padding: 28px; font-size: 34px; }
     body.is-mobile .result-actions .btn[style*="margin-left"] { margin-left: 0 !important; }
     body.is-mobile .sku-badge { font-size: 26px; padding: 6px 20px; }
+    body.is-mobile .cost-badge { font-size: 26px; padding: 6px 20px; }
     /* -- Placeholder -- */
     body.is-mobile .placeholder .ph-icon { font-size: 96px; }
     body.is-mobile .placeholder p { font-size: 34px; max-width: 560px; line-height: 1.5; }
@@ -878,6 +880,9 @@
       window._lastResult = result;
       window._lastParams = paramsLight;
       var skuHtml = result.sku ? '<span class="sku-badge">SKU: ' + escapeHtml(result.sku) + '</span>' : '';
+      var costHtml = (result.generation_cost != null)
+        ? '<span class="cost-badge">~$' + Number(result.generation_cost).toFixed(6) + '</span>'
+        : '';
       var priceHtml = '';
       if (result.recommended_price) {
         priceHtml = '<div class="price-info-block" style="margin:10px 0;padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">' +
@@ -887,7 +892,7 @@
       }
       var html =
         '<div class="result-box">' +
-          '<h3>Annonce generee' + skuHtml + '</h3>' + priceHtml +
+          '<h3>Annonce generee' + skuHtml + costHtml + '</h3>' + priceHtml +
           '<div class="result-label">Titre <span class="editable-hint">&#9998; modifiable</span></div>' +
           '<div class="result-title" id="resultTitle" contenteditable="true" spellcheck="false"></div>' +
           '<div class="result-label">Description <span class="editable-hint">&#9998; modifiable</span></div>' +

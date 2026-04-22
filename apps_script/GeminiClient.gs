@@ -91,6 +91,7 @@ var GeminiClient = (function() {
     var cached = readCache_(cacheKey);
     if (cached) {
       Logger.log('GeminiClient: cache hit (key=' + cacheKey + '). Pas d\'appel API.');
+      if (!cached._usedModel) cached._usedModel = requestedModel;
       return cached;
     }
 
@@ -160,6 +161,7 @@ var GeminiClient = (function() {
       }
       var result = callApiWithRetry_(apiKey, model, parts);
       if (result && result.text) {
+        result._usedModel = model;
         return result;
       }
       lastResult = result;
@@ -338,7 +340,7 @@ var GeminiClient = (function() {
       if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
         var text = candidate.content.parts[0].text;
         if (text) {
-          return { text: text };
+          return { text: text, usageMetadata: responseData.usageMetadata || null };
         }
       }
       // Verifier les raisons de blocage
