@@ -60,15 +60,23 @@ var DescriptionEngine = (function() {
         fit: fit,
         color: color
       });
+      var primaryNavTag = navTags.length > 0 ? navTags[0] : '';
+      var remainingNavTags = navTags.slice(1);
+      // Ligne de navigation taille (deuxième ligne, juste après le titre)
+      var navigationLine = primaryNavTag
+        ? '👖 Retrouvez tous mes jeans à votre taille → ' + primaryNavTag
+        : '';
+      // Bloc navigation dressing final (sans le premier tag)
       var navBlock = '';
-      if (navTags.length > 0) {
-        navBlock = 'Navigation dressing :\n' + navTags.join('\n');
+      if (remainingNavTags.length > 0) {
+        navBlock = 'Navigation dressing :\n' + remainingNavTags.join('\n');
       }
       // Hashtag SKU seul, en MAJUSCULES, sur la dernière ligne
       var skuTag = DescriptionBuilder.buildJeanSkuTag({ sku: sku, orderId: orderId });
       // Assemblage
       var sections = [];
       if (titleLine) sections.push(titleLine);
+      if (navigationLine) sections.push(navigationLine);
       sections.push(sizeLine);
       sections.push(sizeNote);
       sections.push(stateBlock);
