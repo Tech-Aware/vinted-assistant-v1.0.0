@@ -23,11 +23,12 @@ var Config = (function() {
 
   // Legacy keys introduites par erreur dans un ancien commit:
   // des VALEURS concretes etaient utilisees comme noms de proprietes.
+  // Note: les valeurs concretes ont ete retirees du code source pour des raisons de securite.
   var LEGACY_KEYS = {
-    GEMINI_API_KEY: ['AIzaSyCf2bol5YwTjhS3wuX_mQlxPsOb5UMUsRo'],
+    GEMINI_API_KEY: [],
     GEMINI_MODEL: ['gemini-2.5-flash'],
-    LOG_SHEET_ID: ['1pnkdcpgrJLPl9gtsuJUfVNQWPeYoXu1uzUthAkvoyOk'],
-    WEBAPP_URL: ['https://script.google.com/macros/s/AKfycbyrTLTMItIokiX040gXwFJmTLQhmMq_A5ZuLMZr8hTCEOFPm7n2X1_63OvfGXT1DjOa6Q/exec']
+    LOG_SHEET_ID: [],
+    WEBAPP_URL: []
   };
 
   // Modele stable recommande pour limiter les erreurs quota/free-tier.

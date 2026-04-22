@@ -138,20 +138,20 @@ function generateListing(params) {
     }
     // Appel IA (dispatcher provider : Gemini / OpenAI selon Config.AI_PROVIDER,
     // avec fallback cross-provider automatique sur quota epuise).
-    var geminiResult = AIClient.generateContent(
+    var aiResult = AIClient.generateContent(
       imageDataArray,
       profile,
       uiData
     );
-    if (geminiResult.error) {
-      return geminiResult;
+    if (aiResult.error) {
+      return aiResult;
     }
     // Parse JSON
-    var parsed = JsonUtils.safeJsonParse(geminiResult.text);
+    var parsed = JsonUtils.safeJsonParse(aiResult.text);
     if (!parsed) {
       return {
         error: 'Reponse IA illisible (JSON invalide).',
-        rawText: geminiResult.text
+        rawText: aiResult.text
       };
     }
     // Verifier le statut AI
@@ -161,7 +161,7 @@ function generateListing(params) {
       return {
         error: 'IA status: ' + aiStatus + ' - ' + (aiMeta.reason || 'raison inconnue'),
         missing: aiMeta.missing || [],
-        rawText: geminiResult.text
+        rawText: aiResult.text
       };
     }
     // Normalisation + post-traitement
@@ -207,7 +207,7 @@ function generateListing(params) {
       retail_price_range: pricingResult.retail,
       aiDescription: parsed.description || '',
       aiDefects: parsed.defects || (parsed.features || {}).defects || null,
-      rawText: geminiResult.text
+      rawText: aiResult.text
     };
   } catch (err) {
     Logger.log('generateListing error: ' + err.message + '\n' + err.stack);
@@ -358,11 +358,12 @@ function calculateRecommendedPrice_(features) {
     }
   }
   var result;
+  var sizeNum;
   if (gender === 'homme') {
-    var sizeNum = parseSizeNumeric_(features.size_us);
+    sizeNum = parseSizeNumeric_(features.size_us);
     result = priceHomme_(premium, budget, fit, sizeNum, hasDefects);
   } else {
-    var sizeNum = parseSizeNumeric_(features.size_fr);
+    sizeNum = parseSizeNumeric_(features.size_fr);
     result = priceFemme_(premium, budget, fit, sizeNum, hasDefects);
   }
   // Securite finale : plafonner le prix pour rester sur une logique de rotation rapide.
