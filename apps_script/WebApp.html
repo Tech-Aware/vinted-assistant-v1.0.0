@@ -99,8 +99,11 @@
     .result-box h3 { color: #2e7d32; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
     .result-label { font-size: 11px; font-weight: 500; color: #2e7d32; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; margin-top: 12px; }
     .result-label:first-of-type { margin-top: 0; }
-    .result-title { font-size: 15px; font-weight: 500; color: #1b5e20; word-break: break-word; background: #fff; border: 1px solid #c8e6c9; border-radius: 6px; padding: 8px 10px; cursor: text; }
+    .result-title { font-size: 15px; font-weight: 500; color: #1b5e20; word-break: break-word; background: #fff; border: 1px solid #c8e6c9; border-radius: 6px; padding: 8px 10px; cursor: text; white-space: pre-wrap; }
     .result-desc { font-size: 13px; color: #33691e; white-space: pre-wrap; word-break: break-word; line-height: 1.5; background: #fff; border: 1px solid #c8e6c9; border-radius: 6px; padding: 8px 10px; max-height: 45vh; overflow-y: auto; cursor: text; }
+    .result-title[contenteditable]:focus, .result-desc[contenteditable]:focus { border-color: #2e7d32; outline: none; box-shadow: 0 0 0 2px rgba(46,125,50,0.18); }
+    .result-title[contenteditable]:hover, .result-desc[contenteditable]:hover { border-color: #66bb6a; }
+    .editable-hint { font-size: 10px; color: #81c784; margin-left: 6px; font-weight: 400; }
     .result-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
     .copy-btn { background: #fff; border: 1px solid #a5d6a7; border-radius: 4px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: #2e7d32; font-weight: 500; transition: background 0.15s; }
     .copy-btn:hover { background: #c8e6c9; }
@@ -885,10 +888,10 @@
       var html =
         '<div class="result-box">' +
           '<h3>Annonce generee' + skuHtml + '</h3>' + priceHtml +
-          '<div class="result-label">Titre</div>' +
-          '<div class="result-title" id="resultTitle">' + escapeHtml(result.title || '') + '</div>' +
-          '<div class="result-label">Description</div>' +
-          '<div class="result-desc" id="resultDesc">' + escapeHtml(result.description || '') + '</div>' +
+          '<div class="result-label">Titre <span class="editable-hint">&#9998; modifiable</span></div>' +
+          '<div class="result-title" id="resultTitle" contenteditable="true" spellcheck="false"></div>' +
+          '<div class="result-label">Description <span class="editable-hint">&#9998; modifiable</span></div>' +
+          '<div class="result-desc" id="resultDesc" contenteditable="true" spellcheck="false"></div>' +
           '<div class="result-actions">' +
             '<button class="copy-btn" onclick="copyText(\'resultTitle\', this)">Copier titre</button>' +
             '<button class="copy-btn" onclick="copyText(\'resultDesc\', this)">Copier description</button>' +
@@ -896,6 +899,8 @@
           '</div>' +
         '</div>';
       resultArea.innerHTML = html;
+      document.getElementById('resultTitle').textContent = result.title || '';
+      document.getElementById('resultDesc').textContent = result.description || '';
       // Switch left panel to correction phase
       switchToCorrections(result, params.profileName);
     }
@@ -938,8 +943,8 @@
             alert('Erreur: ' + result.error);
             return;
           }
-          document.getElementById('resultTitle').innerHTML = escapeHtml(result.title || '');
-          document.getElementById('resultDesc').innerHTML = escapeHtml(result.description || '');
+          document.getElementById('resultTitle').textContent = result.title || '';
+          document.getElementById('resultDesc').textContent = result.description || '';
           window._lastResult.title = result.title;
           window._lastResult.description = result.description;
           window._lastResult.features = result.features;
@@ -1009,6 +1014,11 @@
     }
     function saveToSheet() {
       if (!window._lastResult) return;
+      // Sync any manual edits from the contenteditable divs before saving
+      var titleEl = document.getElementById('resultTitle');
+      var descEl = document.getElementById('resultDesc');
+      if (titleEl) window._lastResult.title = titleEl.innerText;
+      if (descEl) window._lastResult.description = descEl.innerText;
       google.script.run
         .withSuccessHandler(function(res) {
           if (res.error) { alert('Erreur: ' + res.error); return; }

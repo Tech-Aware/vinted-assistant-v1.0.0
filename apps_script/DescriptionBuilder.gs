@@ -156,6 +156,40 @@ var DescriptionBuilder = (function() {
     return s;
   }
   /**
+   * Normalise une couleur pour les hashtags de navigation : retourne toujours
+   * le nom de base sans variante (ex: "bleu clair", "bleu foncé", "navy" → "Bleu").
+   * Utilisé exclusivement dans buildJeanNavigationTags.
+   *
+   * @param {string} rawColor - Couleur brute (peut contenir accents, espaces, variantes)
+   * @returns {string} Token CamelCase simple (ex: "Bleu", "Noir") ou camelCaseToken en fallback.
+   */
+  function normalizeNavColorToken(rawColor) {
+    if (!rawColor) return '';
+    var base = stripAccents(safeClean(rawColor)).toLowerCase().replace(/[\s_\-]/g, '');
+    var palette = [
+      [['bleu', 'blue', 'marine', 'navy', 'turquoise', 'petrole', 'azur', 'cyan', 'ciel', 'indigo', 'cobalt', 'saphir'], 'Bleu'],
+      [['noir', 'black', 'anthracite', 'onyx'], 'Noir'],
+      [['blanc', 'white', 'ecru', 'ivoire', 'offwhite', 'creme', 'neige'], 'Blanc'],
+      [['gris', 'gray', 'grey', 'chine', 'charcoal', 'ardoise', 'perle', 'argent'], 'Gris'],
+      [['rouge', 'red', 'bordeaux', 'tomate', 'carmin', 'rubis', 'cerise'], 'Rouge'],
+      [['rose', 'pink', 'fuchsia', 'saumon', 'corail'], 'Rose'],
+      [['vert', 'green', 'kaki', 'khaki', 'olive', 'sauge', 'menthe', 'emeraude', 'bouteille'], 'Vert'],
+      [['jaune', 'yellow', 'moutarde', 'citron', 'or', 'dore'], 'Jaune'],
+      [['orange', 'rouille', 'brique', 'terracotta'], 'Orange'],
+      [['beige', 'sable', 'sand', 'taupe', 'camel', 'nude', 'naturel'], 'Beige'],
+      [['marron', 'brown', 'chocolat', 'caramel', 'cognac', 'noisette', 'cafe'], 'Marron'],
+      [['violet', 'purple', 'lilas', 'lavande', 'prune', 'mauve', 'aubergine'], 'Violet']
+    ];
+    for (var i = 0; i < palette.length; i++) {
+      var keywords = palette[i][0];
+      var label = palette[i][1];
+      for (var j = 0; j < keywords.length; j++) {
+        if (base.indexOf(keywords[j]) !== -1) return label;
+      }
+    }
+    return camelCaseToken(rawColor);
+  }
+  /**
    * Met en CamelCase chaque mot après nettoyage des accents/séparateurs.
    * "bleu clair" → "BleuClair", "Évasé" → "Evase".
    */
@@ -205,7 +239,7 @@ var DescriptionBuilder = (function() {
     if (fitToken) {
       var withFit = base + '_' + fitToken;
       tags.push('#' + withFit);
-      var colorToken = camelCaseToken(params.color);
+      var colorToken = normalizeNavColorToken(params.color);
       if (colorToken) {
         tags.push('#' + withFit + '_' + colorToken);
       }
@@ -252,6 +286,7 @@ var DescriptionBuilder = (function() {
     stripAccents: stripAccents,
     camelCaseToken: camelCaseToken,
     normalizeFitToken: normalizeFitToken,
+    normalizeNavColorToken: normalizeNavColorToken,
     buildJeanNavigationTags: buildJeanNavigationTags,
     buildJeanSkuTag: buildJeanSkuTag,
     stripSkuFromTitleLine: stripSkuFromTitleLine
