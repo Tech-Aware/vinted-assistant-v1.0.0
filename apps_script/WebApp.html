@@ -362,7 +362,7 @@
       <div class="form-group provider-block" data-provider="openai">
         <label>Modele OpenAI</label>
         <select id="cfgOpenAiModel">
-          <option value="gpt-4o-mini">gpt-4o-mini (recommande, economique)</option>
+          <option value="gpt-5.4">gpt-5.4 (recommande, par defaut)</option>
           <option value="gpt-4o">gpt-4o (precis)</option>
         </select>
       </div>
@@ -452,14 +452,14 @@
           // OpenAI
           if (config.openAiApiKey) document.getElementById('cfgOpenAiApiKey').value = config.openAiApiKey;
           var oaSel = document.getElementById('cfgOpenAiModel');
-          var oaModel = config.openAiModel || 'gpt-4o-mini';
+          var oaModel = config.openAiModel || 'gpt-5.4';
           var oaFound = false;
           for (var k = 0; k < oaSel.options.length; k++) {
             if (oaSel.options[k].value === oaModel) { oaSel.selectedIndex = k; oaFound = true; break; }
           }
           if (!oaFound) {
             for (var m = 0; m < oaSel.options.length; m++) {
-              if (oaSel.options[m].value === 'gpt-4o-mini') { oaSel.selectedIndex = m; break; }
+              if (oaSel.options[m].value === 'gpt-5.4') { oaSel.selectedIndex = m; break; }
             }
           }
           if (config.logSheetId) document.getElementById('cfgLogSheetId').value = config.logSheetId;

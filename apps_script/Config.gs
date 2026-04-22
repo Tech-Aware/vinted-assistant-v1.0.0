@@ -17,7 +17,7 @@ var Config = (function() {
     WEBAPP_URL: 'WEBAPP_URL'
   };
 
-  var DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
+  var DEFAULT_OPENAI_MODEL = 'gpt-5.4';
   var DEFAULT_AI_PROVIDER = 'gemini';
   var ALLOWED_PROVIDERS = ['gemini', 'openai'];
 
