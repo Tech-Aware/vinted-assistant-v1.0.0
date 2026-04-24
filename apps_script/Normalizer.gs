@@ -245,7 +245,8 @@ var Normalizer = (function() {
       sku_status: skuStatus,
       order_id: orderId,
       material: material,
-      condition: condition
+      condition: condition,
+      labels_cut: uiData.labels_cut || false
     };
     return normalizeSizes(features);
   }
@@ -323,7 +324,8 @@ var Normalizer = (function() {
       order_id: orderId,
       is_pima: isPima,
       is_premium: isPremium,
-      condition: condition
+      condition: condition,
+      labels_cut: uiData.labels_cut || false
     };
   }
   function buildFeaturesForJacketCarhart(aiData, uiData) {
@@ -403,7 +405,8 @@ var Normalizer = (function() {
       sku: sku,
       sku_status: skuStatus,
       order_id: orderId,
-      condition: condition
+      condition: condition,
+      labels_cut: uiData.labels_cut || false
     };
   }
   // =====================================================

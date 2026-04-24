@@ -58,7 +58,9 @@ var DescriptionEngine = (function() {
           stateBlock += '\nÀ noter : ' + defectSentence;
         }
       }
-      var measuresLine = '🔎 Mesures précises et composition détaillée en photo.';
+      var measuresLine = features.labels_cut
+        ? '🔎 Mesures précises en photo. Étiquettes coupées pour plus de confort.'
+        : '🔎 Mesures précises et composition détaillée en photo.';
       var shippingLine = '📦 Envoi rapide et soigné';
       var lotLine = '💡 Réduction possible sur lot';
       // Bloc navigation dressing (2 à 3 hashtags)
@@ -162,6 +164,8 @@ var DescriptionEngine = (function() {
         compositionSentence = 'Composition : ' + compTokens.join(' / ') + '.';
       } else if (material) {
         compositionSentence = 'Composition (étiquette) : ' + material.replace(/\.$/, '') + '.';
+      } else if (features.labels_cut) {
+        compositionSentence = 'Étiquettes coupées pour plus de confort.';
       } else {
         compositionSentence = 'Composition non lisible (voir photos).';
       }
@@ -254,7 +258,9 @@ var DescriptionEngine = (function() {
       var generalTag = '#durin31jc';
       var sTag = sizeToken ? generalTag + sizeToken : '#durin31jcnc';
       var colorTag = color ? '#' + color.toLowerCase().replace(/\s/g, '') : '';
-      var logisticsLine = '📏 Mesures détaillées visibles en photo pour plus de précisions.';
+      var logisticsLine = features.labels_cut
+        ? '📏 Mesures détaillées visibles en photo pour plus de précisions. Étiquettes coupées pour plus de confort.'
+        : '📏 Mesures détaillées visibles en photo pour plus de précisions.';
       var shippingLine = '📦 Envoi rapide et soigné.';
       var ctaLine = '✨ Retrouvez toutes mes vestes Carhartt ici 👉 ' + generalTag + ' et à votre taille 👉 ' + sTag;
       var bundleLine = "💡 Pensez à faire un lot pour bénéficier d'une réduction et économiser sur les frais d'envoi.";
