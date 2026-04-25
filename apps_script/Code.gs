@@ -13,6 +13,8 @@ function onOpen() {
     .createMenu('Vinted Assistant')
     .addItem('Lancer l\'assistant', 'launchAssistant')
     .addSeparator()
+    .addItem('Créer / Mettre à jour les statistiques', 'createOrUpdateStatistics')
+    .addSeparator()
     .addItem('Configurer le lien de l\'assistant', 'configureWebAppUrl')
     .addToUi();
 }
@@ -777,6 +779,44 @@ function logGenerationToSheet(result, params) {
   } catch (err) {
     Logger.log('logGenerationToSheet error: ' + err.message);
     return { error: 'Erreur ecriture log : ' + err.message };
+  }
+}
+// ============================================================
+// Menu : création / mise à jour des statistiques
+// ============================================================
+/**
+ * Crée ou recrée la feuille "Statistiques" dans le Google Sheet configuré.
+ * Accessible via le menu Sheets "Vinted Assistant > Créer / Mettre à jour les statistiques".
+ *
+ * - Si la feuille existe déjà, elle est supprimée puis reconstruite (mise à jour complète).
+ * - Le Google Sheet utilisé est celui configuré dans Config.LOG_SHEET_ID ;
+ *   si aucun ID n'est configuré, le classeur actif est utilisé en fallback.
+ */
+function createOrUpdateStatistics() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var sheetId = Config.getLogSheetId();
+    var spreadsheet = sheetId
+      ? SpreadsheetApp.openById(sheetId)
+      : SpreadsheetApp.getActiveSpreadsheet();
+    // Supprimer la feuille existante pour forcer la reconstruction complète
+    var existing = spreadsheet.getSheetByName('Statistiques');
+    if (existing) {
+      spreadsheet.deleteSheet(existing);
+    }
+    ensureStatisticsSheet_(spreadsheet);
+    ui.alert(
+      'Statistiques mises à jour',
+      'La feuille "Statistiques" a été créée / mise à jour avec succès.',
+      ui.ButtonSet.OK
+    );
+  } catch (err) {
+    Logger.log('createOrUpdateStatistics error: ' + err.message);
+    ui.alert(
+      'Erreur',
+      'Impossible de créer les statistiques : ' + err.message,
+      ui.ButtonSet.OK
+    );
   }
 }
 // ============================================================
