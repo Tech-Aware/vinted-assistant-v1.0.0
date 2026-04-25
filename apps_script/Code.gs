@@ -949,15 +949,18 @@ function ensureStatisticsSheet_(spreadsheet) {
   add('Satisfaisant',   '=COUNTIF(' + g + '!P2:P;"satisfaisant")');
   blank();
   hdr('🔑 Modèles Levi\'s');
-  add('501',     '=COUNTIF(' + g + '!F2:F;"501")');
-  add('505',     '=COUNTIF(' + g + '!F2:F;"505")');
-  add('517',     '=COUNTIF(' + g + '!F2:F;"517")');
-  add('550',     '=COUNTIF(' + g + '!F2:F;"550")');
-  add('560',     '=COUNTIF(' + g + '!F2:F;"560")');
-  add('569',     '=COUNTIF(' + g + '!F2:F;"569")');
+  var numberedModels = Normalizer.levisNumberedModels;
+  for (var i = 0; i < numberedModels.length; i++) {
+    var m = numberedModels[i];
+    add(m, '=COUNTIF(' + g + '!F2:F;"' + m + '")');
+  }
   add('Ribcage', '=COUNTIF(' + g + '!F2:F;"*ribcage*")');
-  // Note : mettre à jour cette formule si de nouveaux modèles suivis sont ajoutés ci-dessus.
-  add('Autres',  '=MAX(0;COUNTIF(' + g + '!C2:C;"jean_levis")-COUNTIF(' + g + '!F2:F;"501")-COUNTIF(' + g + '!F2:F;"505")-COUNTIF(' + g + '!F2:F;"517")-COUNTIF(' + g + '!F2:F;"550")-COUNTIF(' + g + '!F2:F;"560")-COUNTIF(' + g + '!F2:F;"569")-COUNTIF(' + g + '!F2:F;"*ribcage*"))');
+  var autresFormula = '=MAX(0;COUNTIF(' + g + '!C2:C;"jean_levis")';
+  for (var i = 0; i < numberedModels.length; i++) {
+    autresFormula += '-COUNTIF(' + g + '!F2:F;"' + numberedModels[i] + '")';
+  }
+  autresFormula += '-COUNTIF(' + g + '!F2:F;"*ribcage*"))';
+  add('Autres', autresFormula);
   blank();
   hdr('⚠️ Défauts');
   add('Avec défauts',  '=COUNTIF(' + g + '!U2:U;TRUE)');
