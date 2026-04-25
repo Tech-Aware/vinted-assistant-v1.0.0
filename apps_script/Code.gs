@@ -767,9 +767,96 @@ function logGenerationToSheet(result, params) {
     } catch (eCkRow) {
       Logger.log('logGenerationToSheet checkbox warning: ' + eCkRow.message);
     }
+    // Créer la feuille Statistiques si elle n'existe pas encore
+    try {
+      ensureStatisticsSheet_(spreadsheet);
+    } catch (eStats) {
+      Logger.log('ensureStatisticsSheet_ warning: ' + eStats.message);
+    }
     return { success: true, row: newRow };
   } catch (err) {
     Logger.log('logGenerationToSheet error: ' + err.message);
     return { error: 'Erreur ecriture log : ' + err.message };
+  }
+}
+// ============================================================
+// Feuille Statistiques
+// ============================================================
+/**
+ * Crée la feuille "Statistiques" si elle n'existe pas encore.
+ * Cette feuille contient des formules qui agrègent les données
+ * de la feuille Générations (modèle, prix, défauts, coût…).
+ *
+ * @param {Spreadsheet} spreadsheet
+ */
+function ensureStatisticsSheet_(spreadsheet) {
+  var statsName = 'Statistiques';
+  // La feuille existe déjà, rien à faire
+  if (spreadsheet.getSheetByName(statsName)) return;
+  // Insérer avant la feuille Générations (position 0)
+  var statsSheet = spreadsheet.insertSheet(statsName, 0);
+  statsSheet.setColumnWidth(1, 240);
+  statsSheet.setColumnWidth(2, 160);
+  var g = "'Générations'";
+  var rows = [];
+  function add(label, formula) { rows.push([label, formula != null ? formula : '']); }
+  function hdr(label) { rows.push([label, '']); }
+  function blank() { rows.push(['', '']); }
+  hdr('📊 Vue d\'ensemble');
+  add('Total articles traités', '=MAX(0,COUNTA(' + g + '!A:A)-1)');
+  add('Dernière mise à jour', '=IFERROR(TEXT(MAX(' + g + '!A2:A),"dd/mm/yyyy hh:mm"),"—")');
+  blank();
+  hdr('💰 Prix de vente (€)');
+  add('Prix moyen (€)',    '=IFERROR(ROUND(AVERAGE(' + g + '!O2:O),2),"—")');
+  add('Prix minimum (€)',  '=IFERROR(MIN(' + g + '!O2:O),"—")');
+  add('Prix maximum (€)',  '=IFERROR(MAX(' + g + '!O2:O),"—")');
+  blank();
+  hdr('👗 Par type d\'article');
+  add('Jean Levi\'s',    '=COUNTIF(' + g + '!C2:C,"jean_levis")');
+  add('Pull / Gilet',    '=COUNTIF(' + g + '!C2:C,"pull")');
+  add('Veste Carhartt',  '=COUNTIF(' + g + '!C2:C,"jacket_carhart")');
+  blank();
+  hdr('🏷️ Par état');
+  add('Très bon état',  '=COUNTIF(' + g + '!P2:P,"tres bon etat")');
+  add('Bon état',       '=COUNTIF(' + g + '!P2:P,"bon etat")');
+  add('Neuf',           '=COUNTIF(' + g + '!P2:P,"neuf")');
+  add('Satisfaisant',   '=COUNTIF(' + g + '!P2:P,"satisfaisant")');
+  blank();
+  hdr('🔑 Modèles Levi\'s');
+  add('501',     '=COUNTIF(' + g + '!F2:F,"501")');
+  add('505',     '=COUNTIF(' + g + '!F2:F,"505")');
+  add('550',     '=COUNTIF(' + g + '!F2:F,"550")');
+  add('Ribcage', '=COUNTIF(' + g + '!F2:F,"*ribcage*")');
+  // Note : mettre à jour cette formule si de nouveaux modèles suivis sont ajoutés ci-dessus.
+  add('Autres',  '=MAX(0,COUNTIF(' + g + '!C2:C,"jean_levis")-COUNTIF(' + g + '!F2:F,"501")-COUNTIF(' + g + '!F2:F,"505")-COUNTIF(' + g + '!F2:F,"550")-COUNTIF(' + g + '!F2:F,"*ribcage*"))');
+  blank();
+  hdr('⚠️ Défauts');
+  add('Avec défauts',  '=COUNTIF(' + g + '!U2:U,TRUE)');
+  add('Sans défauts',  '=COUNTIF(' + g + '!U2:U,FALSE)');
+  blank();
+  hdr('👥 Par genre');
+  add('Femme',  '=COUNTIF(' + g + '!N2:N,"femme")');
+  add('Homme',  '=COUNTIF(' + g + '!N2:N,"homme")');
+  blank();
+  hdr('🤖 Coûts IA ($)');
+  add('Coût total ($)',              '=IFERROR(ROUND(SUM(' + g + '!T2:T),6),"—")');
+  add('Coût moyen par article ($)',  '=IFERROR(ROUND(AVERAGE(' + g + '!T2:T),6),"—")');
+  // Écriture des données
+  statsSheet.getRange(1, 1, rows.length, 2).setValues(rows);
+  // Style des lignes d'en-tête (détectées par préfixe emoji)
+  var headerPrefixes = ['📊', '💰', '👗', '🏷', '🔑', '⚠', '👥', '🤖'];
+  for (var i = 0; i < rows.length; i++) {
+    var label = String(rows[i][0]);
+    var isHdr = false;
+    for (var p = 0; p < headerPrefixes.length; p++) {
+      if (label.indexOf(headerPrefixes[p]) === 0) { isHdr = true; break; }
+    }
+    if (isHdr) {
+      statsSheet.getRange(i + 1, 1, 1, 2)
+        .setBackground('#1a73e8').setFontColor('#ffffff').setFontWeight('bold');
+    } else if (label) {
+      // Alternance légère sur les lignes de données
+      statsSheet.getRange(i + 1, 2, 1, 1).setHorizontalAlignment('right');
+    }
   }
 }
