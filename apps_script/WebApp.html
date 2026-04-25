@@ -690,6 +690,12 @@
         var elPct = parseFloat(features.elasthane_percent);
         features.is_stretch = hasViscose || (elPct >= 3);
       }
+      // Pre-remplir user_price avec le prix conseille si pas encore defini
+      if (features.user_price === null || features.user_price === undefined) {
+        if (result.recommended_price !== null && result.recommended_price !== undefined) {
+          features.user_price = result.recommended_price;
+        }
+      }
       // Sauvegarder le model original pour le sheet (avant normalisation)
       features._raw_model = features.model || '';
       // Normaliser model : chiffre uniquement, sinon vide (pour titre/description)
@@ -830,6 +836,10 @@
     var PROFILE_FIELDS = {
       jean_levis: [
         {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'is_stretch', label: 'Stretch', type: 'checkbox'},
+        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
+        {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
+        {key: 'user_price', label: 'Prix de vente (€)', type: 'number'},
         {key: 'model', label: 'Modele', type: 'text'},
         {key: 'fit', label: 'Coupe', type: 'select', options: [['', 'Auto'], ['Skinny', 'Skinny'], ['Droit', 'Droite'], ['\u00c9vas\u00e9', 'Evasee']]},
         {key: 'color', label: 'Couleur', type: 'text'},
@@ -839,15 +849,15 @@
         {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
         {key: 'rise_type', label: 'Taille (rise)', type: 'select', options: [['', 'Auto'], ['low', 'Basse'], ['mid', 'Moyenne'], ['high', 'Haute']]},
         {key: 'composition_materials', label: 'Composition', type: 'multicheck', options: JEAN_MATERIALS},
-        {key: 'is_stretch', label: 'Stretch', type: 'checkbox'},
-        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
-        {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
         {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ],
       pull: [
         {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
+        {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
+        {key: 'user_price', label: 'Prix de vente (€)', type: 'number'},
         {key: 'garment_type', label: 'Type', type: 'select', options: [['Pull', 'Pull'], ['Gilet', 'Gilet']]},
         {key: 'neckline', label: 'Col', type: 'text'},
         {key: 'pattern', label: 'Motif', type: 'text'},
@@ -857,23 +867,22 @@
         {key: 'size', label: 'Taille', type: 'text'},
         {key: 'cotton_percent', label: 'Coton %', type: 'number'},
         {key: 'wool_percent', label: 'Laine %', type: 'number'},
-        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
-        {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
         {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ],
       jacket_carhart: [
         {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'has_hood', label: 'Capuche', type: 'checkbox'},
+        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
+        {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
+        {key: 'user_price', label: 'Prix de vente (€)', type: 'number'},
         {key: 'model', label: 'Modele', type: 'text'},
         {key: 'size', label: 'Taille', type: 'text'},
         {key: 'color', label: 'Couleur', type: 'text'},
         {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
-        {key: 'has_hood', label: 'Capuche', type: 'checkbox'},
         {key: 'lining', label: 'Doublure', type: 'text'},
         {key: 'pattern', label: 'Motif', type: 'text'},
-        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
-        {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
         {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
@@ -898,6 +907,7 @@
         priceHtml = '<div class="price-info-block" style="margin:10px 0;padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">' +
           '<div style="font-size:14px;font-weight:600;color:#166534;">💰 Prix conseillé (rotation rapide) : ' + result.recommended_price + '€</div>' +
           (result.retail_price_range ? '<div style="font-size:13px;color:#4b5563;margin-top:4px;">💵 Prix neuf en magasin : ' + escapeHtml(result.retail_price_range) + '</div>' : '') +
+          '<div style="font-size:11px;color:#6b7280;margin-top:4px;">✏️ Ajustez le prix de vente dans la grille de correction à gauche.</div>' +
           '</div>';
       }
       var html =
@@ -970,8 +980,12 @@
           }
           var priceBlock = document.querySelector('.price-info-block');
           if (result.recommended_price != null) {
+            var corrPriceEl = document.getElementById('corr_user_price');
+            var userPriceDisplay = (corrPriceEl && corrPriceEl.value.trim()) ? parseFloat(corrPriceEl.value.trim()) : result.recommended_price;
             var priceContent = '<div style="font-size:14px;font-weight:600;color:#166534;">💰 Prix conseillé (rotation rapide) : ' + result.recommended_price + '€</div>' +
-              (result.retail_price_range ? '<div style="font-size:13px;color:#4b5563;margin-top:4px;">💵 Prix neuf en magasin : ' + escapeHtml(result.retail_price_range) + '</div>' : '');
+              (result.retail_price_range ? '<div style="font-size:13px;color:#4b5563;margin-top:4px;">💵 Prix neuf en magasin : ' + escapeHtml(result.retail_price_range) + '</div>' : '') +
+              (userPriceDisplay !== result.recommended_price ? '<div style="font-size:13px;font-weight:600;color:#1e40af;margin-top:4px;">🏷️ Prix de vente choisi : ' + userPriceDisplay + '€</div>' : '') +
+              '<div style="font-size:11px;color:#6b7280;margin-top:4px;">✏️ Ajustez le prix de vente dans la grille de correction à gauche.</div>';
             if (priceBlock) {
               priceBlock.innerHTML = priceContent;
             } else {
@@ -1034,6 +1048,20 @@
       var descEl = document.getElementById('resultDesc');
       if (titleEl) window._lastResult.title = titleEl.innerText;
       if (descEl) window._lastResult.description = descEl.innerText;
+      // Lire le prix de vente : champ correction en priorite, sinon features, sinon conseille
+      var corrPriceEl = document.getElementById('corr_user_price');
+      var userPrice = null;
+      if (corrPriceEl && corrPriceEl.value.trim()) {
+        userPrice = parseFloat(corrPriceEl.value.trim());
+      } else if (window._lastResult.features && window._lastResult.features.user_price !== null && window._lastResult.features.user_price !== undefined) {
+        userPrice = window._lastResult.features.user_price;
+      } else if (window._lastResult.recommended_price !== null && window._lastResult.recommended_price !== undefined) {
+        userPrice = window._lastResult.recommended_price;
+      }
+      if (userPrice !== null && !isNaN(userPrice)) {
+        if (!window._lastParams.uiData) window._lastParams.uiData = {};
+        window._lastParams.uiData.price = userPrice;
+      }
       google.script.run
         .withSuccessHandler(function(res) {
           if (res.error) { alert('Erreur: ' + res.error); return; }
