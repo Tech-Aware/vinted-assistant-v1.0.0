@@ -325,14 +325,6 @@ class VintedAIApp(ctk.CTk):
 
     def _build_generate_button(self, parent: ctk.CTkFrame) -> None:
         try:
-            # Statut non affiché pour aligner les boutons mais conservé pour mise à jour interne
-            status_wrapper = ctk.CTkFrame(parent, fg_color="transparent")
-            self.status_label = ctk.CTkLabel(
-                status_wrapper,
-                text="",
-                font=self.fonts.get("small"),
-                text_color=self.palette.get("text_muted"),
-            )
             self.generate_btn = ctk.CTkButton(
                 parent,
                 text="Générer",
@@ -694,6 +686,17 @@ class VintedAIApp(ctk.CTk):
                 anchor="w",
             )
             composition_hint.grid(row=0, column=2, sticky="w", padx=(0, 0))
+
+            # Label état (statut de l'analyse IA)
+            status_wrapper = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
+            status_wrapper.pack(anchor="w", pady=(8, 0))
+            self.status_label = ctk.CTkLabel(
+                status_wrapper,
+                text="",
+                font=self.fonts.get("small"),
+                text_color=self.palette.get("text_muted"),
+            )
+            self.status_label.pack(side="left")
 
             # Checkbox défaut
             defect_row = ctk.CTkFrame(self.size_inputs_frame, fg_color="transparent")
