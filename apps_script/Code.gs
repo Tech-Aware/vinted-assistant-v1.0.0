@@ -967,10 +967,16 @@ function ensureStatisticsSheet_(spreadsheet) {
   hdr('🤖 Coûts IA ($)');
   add('Coût total ($)',              '=IFERROR(ROUND(SUM(' + g + '!T2:T);6);"—")');
   add('Coût moyen par article ($)',  '=IFERROR(ROUND(AVERAGE(' + g + '!T2:T);6);"—")');
+  blank();
+  hdr('📋 Tous les modèles');
   // Écriture des données
   statsSheet.getRange(1, 1, rows.length, 2).setValues(rows);
+  // Formule dynamique listant tous les modèles uniques loggés (spill QUERY)
+  statsSheet.getRange(rows.length + 1, 1).setFormula(
+    '=IFERROR(QUERY(' + g + '!F:F;"SELECT Col1,COUNT(Col1) WHERE Col1 IS NOT NULL GROUP BY Col1 ORDER BY COUNT(Col1) DESC LABEL Col1 \'Modele\',COUNT(Col1) \'Nb\'";1);"(aucun modele)")'
+  );
   // Style des lignes d'en-tête (détectées par préfixe emoji)
-  var headerPrefixes = ['📊', '💰', '👗', '🏷', '🔑', '⚠', '👥', '🤖'];
+  var headerPrefixes = ['📊', '💰', '👗', '🏷', '🔑', '⚠', '👥', '🤖', '📋'];
   for (var i = 0; i < rows.length; i++) {
     var label = String(rows[i][0]);
     var isHdr = false;
