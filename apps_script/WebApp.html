@@ -837,6 +837,7 @@
     var PROFILE_FIELDS = {
       jean_levis: [
         {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'is_stretch', label: 'Stretch', type: 'checkbox'},
         {key: 'is_premium', label: 'Premium', type: 'checkbox'},
         {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
@@ -850,12 +851,12 @@
         {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
         {key: 'rise_type', label: 'Taille (rise)', type: 'select', options: [['', 'Auto'], ['low', 'Basse'], ['mid', 'Moyenne'], ['high', 'Haute']]},
         {key: 'composition_materials', label: 'Composition', type: 'multicheck', options: JEAN_MATERIALS},
-        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ],
       pull: [
         {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'is_premium', label: 'Premium', type: 'checkbox'},
         {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
         {key: 'user_price', label: 'Prix de vente (€)', type: 'number'},
@@ -868,13 +869,13 @@
         {key: 'size', label: 'Taille', type: 'text'},
         {key: 'cotton_percent', label: 'Coton %', type: 'number'},
         {key: 'wool_percent', label: 'Laine %', type: 'number'},
-        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ],
       jacket_carhart: [
         {key: 'brand', label: 'Marque', type: 'text'},
         {key: 'has_hood', label: 'Capuche', type: 'checkbox'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'is_premium', label: 'Premium', type: 'checkbox'},
         {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
         {key: 'user_price', label: 'Prix de vente (€)', type: 'number'},
@@ -884,7 +885,6 @@
         {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
         {key: 'lining', label: 'Doublure', type: 'text'},
         {key: 'pattern', label: 'Motif', type: 'text'},
-        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
         {key: 'sku', label: 'SKU', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ]
