@@ -73,11 +73,11 @@ var Normalizer = (function() {
   // =====================================================
   // Premium Levi's detection
   // =====================================================
-  var PREMIUM_LEVIS_MODELS = [
-    '501', '505', '517', '550', '560', '569',
+  var LEVIS_NUMBERED_MODELS = ['501', '505', '517', '550', '560', '569'];
+  var PREMIUM_LEVIS_MODELS = LEVIS_NUMBERED_MODELS.concat([
     'vintage', 'big e', 'orange tab', 'red tab',
     'made in usa', 'selvedge', 'lvc', 'levis vintage clothing'
-  ];
+  ]);
   function isPremiumLevisModel(model) {
     if (!model) return false;
     var low = String(model).toLowerCase().trim();
@@ -476,6 +476,7 @@ var Normalizer = (function() {
     zeroPadSkuNumber: zeroPadSkuNumber,
     capitalizeMaterial: capitalizeMaterial,
     isElasticMaterial: isElasticMaterial,
-    normalizeJeanConditionLabel: normalizeJeanConditionLabel_
+    normalizeJeanConditionLabel: normalizeJeanConditionLabel_,
+    levisNumberedModels: LEVIS_NUMBERED_MODELS
   };
 })();
