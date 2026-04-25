@@ -308,20 +308,38 @@ function normalizeFitCategory_(fit) {
   return 'Droit';
 }
 // ============================================================
-// Pricing : bareme jean Levi's
+// Pricing : barème jean Levi's — stratégie La Seconde Main
 // ============================================================
+var DEFAULT_BUY_PRICE_HOMME = 9;
+var DEFAULT_BUY_PRICE_FEMME = 6;
+/**
+ * Modèles Levi's considérés comme plus désirables.
+ */
 function isPremiumModel_(model) {
   if (!model) return false;
   var low = String(model).toLowerCase();
-  var premiums = ['501', '505', '550', 'ribcage'];
+  var premiums = [
+    '501',
+    '505',
+    '550',
+    'ribcage',
+    'silver tab',
+    'silvertab'
+  ];
   for (var i = 0; i < premiums.length; i++) {
     if (low.indexOf(premiums[i]) !== -1) return true;
   }
   return false;
 }
+/**
+ * Sous-gammes Levi's à traiter avec prudence.
+ */
 function isBudgetBrand_(brand, model) {
   var combined = ((brand || '') + ' ' + (model || '')).toLowerCase();
-  return combined.indexOf('denizen') !== -1 || combined.indexOf('signature') !== -1;
+  return (
+    combined.indexOf('denizen') !== -1 ||
+    combined.indexOf('signature') !== -1
+  );
 }
 function parseSizeNumeric_(sizeRaw) {
   if (!sizeRaw) return null;
@@ -329,149 +347,217 @@ function parseSizeNumeric_(sizeRaw) {
   return digits ? parseInt(digits, 10) : null;
 }
 /**
- * Calcule le prix conseille pour un jean Levi's selon le bareme.
- * @param {Object} features
- * @returns {Object} { price: number, retail: string }
+ * Détection simple des défauts pour ajuster le prix.
+ */
+function hasPricingDefects_(features) {
+  features = features || {};
+  var condition = String(features.condition || '').toLowerCase().trim();
+  if (condition === 'satisfaisant') return true;
+  var defectsText = String(features.defects || '').toLowerCase().trim();
+  if (!defectsText) return false;
+  var negativeTerms = [
+    'aucun',
+    'sans défaut',
+    'sans defaut',
+    'parfait',
+    'très bon',
+    'tres bon',
+    'bon état',
+    'bon etat',
+    'neuf',
+    'comme neuf',
+    'impeccable',
+    'rien à signaler',
+    'rien a signaler'
+  ];
+  for (var n = 0; n < negativeTerms.length; n++) {
+    if (defectsText.indexOf(negativeTerms[n]) !== -1) return false;
+  }
+  var defectTerms = [
+    'tache',
+    'tâche',
+    'usure',
+    'déchirure',
+    'dechirure',
+    'trou',
+    'accroc',
+    'défaut',
+    'defaut',
+    'trace',
+    'usé',
+    'use',
+    'abîmé',
+    'abime',
+    'décoloration',
+    'decoloration',
+    'jaunissement',
+    'peluche',
+    'bouloché',
+    'bouloche',
+    'endommagé',
+    'endommage'
+  ];
+  for (var t = 0; t < defectTerms.length; t++) {
+    if (defectsText.indexOf(defectTerms[t]) !== -1) return true;
+  }
+  return defectsText.length > 0;
+}
+/**
+ * Calcule le prix conseillé pour un jean Levi's.
+ *
+ * Philosophie :
+ * - Homme acheté moyen 9 € → prix affiché standard 29 €
+ * - Femme achetée moyen 6 € → prix affiché standard 24–25 €
+ * - x3 comme règle boutique
+ * - prix affiché assez haut pour absorber la négociation
+ * - baisse si défaut visible
  */
 function calculateRecommendedPrice_(features) {
-  var gender = (features.gender || '').toLowerCase().trim();
+  features = features || {};
+  var gender = String(features.gender || '').toLowerCase().trim();
   var model = features.model || '';
   var brand = features.brand || '';
   var fit = normalizeFitCategory_(features.fit).toLowerCase();
-  var premium = isPremiumModel_(model) || (features.is_premium === true);
+  var premium = isPremiumModel_(model) || features.is_premium === true;
   var budget = !premium && isBudgetBrand_(brand, model);
-  var defectsText = features.defects || '';
-  var condition = (features.condition || '').toLowerCase().trim();
-  var hasDefects = false;
-  // 1) Condition "satisfaisant" implique des defauts
-  if (condition === 'satisfaisant') {
-    hasDefects = true;
-  }
-  // 2) Analyser le texte de defauts (si present)
-  if (!hasDefects && defectsText) {
-    var dl = defectsText.toLowerCase();
-    if (dl.indexOf('aucun') === -1 && dl.indexOf('sans défaut') === -1 && dl.indexOf('parfait') === -1
-        && dl.indexOf('tres bon') === -1 && dl.indexOf('très bon') === -1
-        && dl.indexOf('bon etat') === -1 && dl.indexOf('bon état') === -1
-        && dl.indexOf('neuf') === -1 && dl.indexOf('comme neuf') === -1) {
-      var terms = ['tache', 'usure', 'déchirure', 'trou', 'accroc', 'défaut', 'trace', 'usé', 'abîmé',
-                   'décoloration', 'jaunissement', 'peluche', 'bouloché', 'endommagé'];
-      for (var t = 0; t < terms.length; t++) { if (dl.indexOf(terms[t]) !== -1) { hasDefects = true; break; } }
-    }
-  }
+  var hasDefects = hasPricingDefects_(features);
+  var sizeNum;
   var result;
   if (gender === 'homme') {
-    var sizeNum = parseSizeNumeric_(features.size_us);
+    sizeNum = parseSizeNumeric_(features.size_us);
     result = priceHomme_(premium, budget, fit, sizeNum, hasDefects);
   } else {
-    var sizeNum = parseSizeNumeric_(features.size_fr);
+    sizeNum = parseSizeNumeric_(features.size_fr);
     result = priceFemme_(premium, budget, fit, sizeNum, hasDefects);
   }
-  // Securite finale : plafonner le prix pour rester sur une logique de rotation rapide.
-  result.price = applyRotationCap_(result.price, premium, fit, sizeNum, hasDefects, gender);
-  Logger.log('calculateRecommendedPrice_: gender=' + gender + ' model=' + model +
-    ' fit=' + fit + ' premium=' + premium + ' budget=' + budget +
-    ' hasDefects=' + hasDefects + ' size=' + sizeNum + ' => ' + result.price + '€');
+  Logger.log(
+    'calculateRecommendedPrice_: gender=' + gender +
+    ' model=' + model +
+    ' fit=' + fit +
+    ' premium=' + premium +
+    ' budget=' + budget +
+    ' hasDefects=' + hasDefects +
+    ' size=' + sizeNum +
+    ' => price=' + result.price + '€' +
+    ' acceptable=' + result.acceptable_price + '€' +
+    ' floor=' + result.floor_price + '€' +
+    ' coefficient=' + result.coefficient
+  );
   return result;
 }
 /**
- * Bareme "rotation ultra agressive" femme.
- * Objectif : cashflow et rotation rapide, pas la marge max.
- * Cible majoritaire : 18–23 €. 24–25 € = un peu meilleur. 26 € = zone haute.
- * 28 € = cas exceptionnels seulement. Jamais 30 € en automatique.
+ * Barème femme.
+ *
+ * Achat moyen : 6 €
+ * Standard : 24–25 €
+ * Premium : 27–29 €
  */
 function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
+  var buyPrice = DEFAULT_BUY_PRICE_FEMME;
   var bigSize = !!(sizeNum && sizeNum >= 42);
-  if (premium) {
-    var retailPremium = '90–120 €';
-    if (fit === 'évasé') {
-      // big size sans defaut : 26 € (cap pourra autoriser 28 € en cas exceptionnel)
-      return { price: bigSize ? (hasDefects ? 22 : 26) : (hasDefects ? 21 : 24), retail: retailPremium };
-    }
-    if (fit === 'skinny') {
-      return { price: hasDefects ? 19 : 21, retail: retailPremium };
-    }
-    // droit (defaut)
-    return { price: hasDefects ? 20 : 23, retail: retailPremium };
-  }
+  var price;
+  var retail;
   if (budget) {
-    var retailBudget = '24–45 €';
-    // grande taille sans defaut : 20 € max
-    return { price: bigSize ? (hasDefects ? 16 : 20) : (hasDefects ? 16 : 19), retail: retailBudget };
+    retail = '24–45 €';
+    if (hasDefects) {
+      price = 16;
+    } else {
+      price = bigSize ? 20 : 19;
+    }
+    return buildPricingResult_(price, buyPrice, retail);
   }
-  // standard
-  var retailStandard = '70–100 €';
-  if (fit === 'évasé') {
-    return { price: bigSize ? (hasDefects ? 20 : 24) : (hasDefects ? 20 : 23), retail: retailStandard };
+  if (premium) {
+    retail = '90–130 €';
+    if (hasDefects) {
+      price = 22;
+    } else if (fit === 'évasé') {
+      price = bigSize ? 29 : 27;
+    } else if (fit === 'skinny') {
+      price = 24;
+    } else {
+      price = bigSize ? 29 : 27;
+    }
+    return buildPricingResult_(price, buyPrice, retail);
   }
-  if (fit === 'skinny') {
-    return { price: hasDefects ? 18 : 20, retail: retailStandard };
+  retail = '70–110 €';
+  if (hasDefects) {
+    price = fit === 'skinny' ? 18 : 20;
+  } else if (fit === 'évasé') {
+    price = bigSize ? 26 : 25;
+  } else if (fit === 'skinny') {
+    price = 22;
+  } else {
+    price = bigSize ? 25 : 24;
   }
-  // droit (defaut)
-  return { price: hasDefects ? 20 : 22, retail: retailStandard };
+  return buildPricingResult_(price, buyPrice, retail);
 }
 /**
- * Bareme "rotation ultra agressive" homme.
- * Meme philosophie que femme : majorite 18–23 €, 26 € zone haute, 28 € exception.
+ * Barème homme.
+ *
+ * Achat moyen : 9 €
+ * Standard : 29 €
+ * Premium : 32–35 €
  */
 function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
+  var buyPrice = DEFAULT_BUY_PRICE_HOMME;
   var bigSize = !!(sizeNum && sizeNum >= 38);
-  if (premium) {
-    var retailPremium = '90–120 €';
-    if (fit === 'évasé') {
-      return { price: bigSize ? (hasDefects ? 22 : 26) : (hasDefects ? 21 : 24), retail: retailPremium };
-    }
-    if (fit === 'skinny') {
-      return { price: hasDefects ? 19 : 21, retail: retailPremium };
-    }
-    // droit (defaut)
-    return { price: hasDefects ? 20 : 23, retail: retailPremium };
-  }
+  var price;
+  var retail;
   if (budget) {
-    var retailBudget = '24–45 €';
-    return { price: bigSize ? (hasDefects ? 16 : 20) : (hasDefects ? 16 : 19), retail: retailBudget };
+    retail = '24–45 €';
+    if (hasDefects) {
+      price = 19;
+    } else {
+      price = bigSize ? 24 : 22;
+    }
+    return buildPricingResult_(price, buyPrice, retail);
   }
-  // standard
-  var retailStandard = '70–100 €';
-  if (fit === 'évasé') {
-    return { price: bigSize ? (hasDefects ? 20 : 24) : (hasDefects ? 20 : 23), retail: retailStandard };
+  if (premium) {
+    retail = '90–130 €';
+    if (hasDefects) {
+      price = 25;
+    } else if (fit === 'évasé') {
+      price = bigSize ? 35 : 32;
+    } else if (fit === 'skinny') {
+      price = 29;
+    } else {
+      price = bigSize ? 35 : 32;
+    }
+    return buildPricingResult_(price, buyPrice, retail);
   }
-  if (fit === 'skinny') {
-    return { price: hasDefects ? 18 : 20, retail: retailStandard };
+  retail = '70–110 €';
+  if (hasDefects) {
+    price = fit === 'skinny' ? 21 : 23;
+  } else if (fit === 'évasé') {
+    price = bigSize ? 32 : 29;
+  } else if (fit === 'skinny') {
+    price = 26;
+  } else {
+    price = bigSize ? 32 : 29;
   }
-  // droit (defaut)
-  return { price: hasDefects ? 20 : 22, retail: retailStandard };
+  return buildPricingResult_(price, buyPrice, retail);
 }
 /**
- * Plafond commercial "rotation ultra agressive".
- * Hierarchie :
- * - plafond par defaut         : 23 €
- * - plafond intermediaire       : 25 € si propre ET au moins un signal favorable
- *                                 (premium, grande taille, ou coupe evasee)
- * - plafond haut                : 26 € si propre ET au moins deux signaux favorables
- * - plafond exceptionnel        : 28 € seulement si premium ET propre ET grande taille ET evase
- * - jamais 30 € en automatique
+ * Résultat enrichi.
+ *
+ * price = prix affiché conseillé
+ * acceptable_price = prix acceptable après négociation
+ * floor_price = prix plancher à ne pas descendre sous peine de casser la marge
  */
-function applyRotationCap_(price, premium, fit, sizeNum, hasDefects, gender) {
-  if (typeof price !== 'number' || isNaN(price)) return price;
-  var bigSize = !!(sizeNum && sizeNum >= ((gender === 'homme') ? 38 : 42));
-  var attractiveFit = (fit === 'évasé');
-  var signals = 0;
-  if (premium) signals++;
-  if (bigSize) signals++;
-  if (attractiveFit) signals++;
-  var cap = 23;
-  if (!hasDefects && signals >= 1) {
-    cap = 25;
-  }
-  if (!hasDefects && signals >= 2) {
-    cap = 26;
-  }
-  if (!hasDefects && premium && bigSize && attractiveFit) {
-    cap = 28;
-  }
-  if (price > cap) return cap;
-  return price;
+function buildPricingResult_(price, buyPrice, retail) {
+  var acceptablePrice = Math.max(Math.round(price * 0.90), buyPrice * 2.5);
+  var floorPrice = Math.max(Math.round(price * 0.80), buyPrice * 2);
+  var margin = price - buyPrice;
+  var coefficient = buyPrice > 0 ? price / buyPrice : null;
+  return {
+    price: Math.round(price),
+    retail: retail,
+    buy_price_estimate: buyPrice,
+    margin_estimate: Math.round(margin * 100) / 100,
+    coefficient: coefficient ? Math.round(coefficient * 100) / 100 : null,
+    acceptable_price: Math.round(acceptablePrice),
+    floor_price: Math.round(floorPrice)
+  };
 }
 // ============================================================
 // Logging dans Google Sheets
