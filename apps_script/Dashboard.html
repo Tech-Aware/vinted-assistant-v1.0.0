@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<title>Vinted Assistant — Dashboard</title>
+<style>
+  :root {
+    --primary: #09B1BA;
+    --primary-dark: #078a91;
+    --bg: #f6f8fa;
+    --card: #ffffff;
+    --border: #e3e6ea;
+    --text: #1f2933;
+    --text-muted: #5b6573;
+    --accent: #1a73e8;
+    --warn: #f9ab00;
+    --danger: #d93025;
+    --good: #1e8e3e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Google Sans', Roboto, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff; padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 500; letter-spacing: .2px; }
+  header .meta { font-size: 12px; opacity: .85; }
+  header button {
+    background: rgba(255,255,255,.18); color: #fff; border: 1px solid rgba(255,255,255,.4);
+    padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
+    transition: background .15s;
+  }
+  header button:hover { background: rgba(255,255,255,.3); }
+  main { padding: 16px 20px 32px; }
+
+  .kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px; margin-bottom: 18px;
+  }
+  .kpi {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .kpi .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+  .kpi .value { font-size: 24px; font-weight: 600; margin-top: 4px; color: var(--text); }
+  .kpi .sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .section { margin-top: 22px; }
+  .section h2 {
+    font-size: 15px; font-weight: 600; color: var(--text);
+    margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--primary);
+    display: inline-block;
+  }
+  .grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; min-height: 280px;
+  }
+  .card h3 {
+    margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--text);
+  }
+  .card .chart { width: 100%; height: 240px; }
+  .card .empty { color: var(--text-muted); font-size: 12px; text-align: center; padding: 80px 0; }
+
+  .loader-wrap {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,.85); z-index: 50;
+  }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid #d4dde6; border-top-color: var(--primary);
+    border-radius: 50%; animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error {
+    background: #fdecea; color: var(--danger); border: 1px solid #f5c6c2;
+    padding: 12px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>📊 Vinted Assistant — Dashboard Générations</h1>
+      <div class="meta" id="meta">Chargement…</div>
+    </div>
+    <button id="refreshBtn" type="button">↻ Actualiser</button>
+  </header>
+
+  <main>
+    <div id="errorBox"></div>
+
+    <!-- Vue d'ensemble -->
+    <div class="section">
+      <h2>📊 Vue d'ensemble</h2>
+      <div class="kpis" id="kpis"></div>
+    </div>
+
+    <!-- Performance des agents IA -->
+    <div class="section">
+      <h2>🤖 Performance des agents IA</h2>
+      <div class="grid">
+        <div class="card"><h3>Générations par agent</h3><div id="chart-agent-count" class="chart"></div></div>
+        <div class="card"><h3>Coût total ($) par agent</h3><div id="chart-agent-cost" class="chart"></div></div>
+        <div class="card"><h3>Durée moyenne (min) par agent</h3><div id="chart-agent-duration" class="chart"></div></div>
+      </div>
+    </div>
+
+    <!-- Catalogue produit -->
+    <div class="section">
+      <h2>👗 Catalogue produit</h2>
+      <div class="grid">
+        <div class="card"><h3>Répartition par profil</h3><div id="chart-profil" class="chart"></div></div>
+        <div class="card"><h3>Répartition par type d'article</h3><div id="chart-type" class="chart"></div></div>
+        <div class="card"><h3>Top marques</h3><div id="chart-marque" class="chart"></div></div>
+        <div class="card"><h3>Modèles Levi's</h3><div id="chart-modele" class="chart"></div></div>
+        <div class="card"><h3>Articles Premium</h3><div id="chart-premium" class="chart"></div></div>
+      </div>
+    </div>
+
+    <!-- Dimensions & caractéristiques -->
+    <div class="section">
+      <h2>📐 Dimensions &amp; caractéristiques</h2>
+      <div class="grid">
+        <div class="card"><h3>Tailles FR</h3><div id="chart-taille-fr" class="chart"></div></div>
+        <div class="card"><h3>Tailles US</h3><div id="chart-taille-us" class="chart"></div></div>
+        <div class="card"><h3>Rise</h3><div id="chart-rise" class="chart"></div></div>
+        <div class="card"><h3>Top couleurs</h3><div id="chart-couleur" class="chart"></div></div>
+        <div class="card"><h3>Top matières</h3><div id="chart-matiere" class="chart"></div></div>
+        <div class="card"><h3>Coupe</h3><div id="chart-coupe" class="chart"></div></div>
+        <div class="card"><h3>Genre</h3><div id="chart-genre" class="chart"></div></div>
+      </div>
+    </div>
+
+    <!-- Pricing -->
+    <div class="section">
+      <h2>💰 Pricing</h2>
+      <div class="grid">
+        <div class="card"><h3>Distribution des prix (€)</h3><div id="chart-price-distribution" class="chart"></div></div>
+        <div class="card"><h3>Prix moyen (€) par profil</h3><div id="chart-price-profil" class="chart"></div></div>
+        <div class="card"><h3>Prix moyen (€) par état</h3><div id="chart-price-etat" class="chart"></div></div>
+        <div class="card"><h3>Prix moyen (€) par genre</h3><div id="chart-price-genre" class="chart"></div></div>
+        <div class="card"><h3>Évolution du prix moyen (€)</h3><div id="chart-price-time" class="chart"></div></div>
+      </div>
+    </div>
+
+    <!-- État & défauts -->
+    <div class="section">
+      <h2>🏷️ État &amp; défauts</h2>
+      <div class="grid">
+        <div class="card"><h3>Répartition par état</h3><div id="chart-etat" class="chart"></div></div>
+        <div class="card"><h3>Articles avec / sans défauts</h3><div id="chart-defects" class="chart"></div></div>
+        <div class="card"><h3>Prix moyen (€) — avec vs sans défauts</h3><div id="chart-defects-price" class="chart"></div></div>
+      </div>
+    </div>
+
+    <!-- Tendances temporelles -->
+    <div class="section">
+      <h2>📈 Tendances temporelles</h2>
+      <div class="grid">
+        <div class="card"><h3>Générations par jour</h3><div id="chart-trend-count" class="chart"></div></div>
+        <div class="card"><h3>Coût IA cumulé ($)</h3><div id="chart-trend-cost" class="chart"></div></div>
+        <div class="card"><h3>Durée moyenne (min) par jour</h3><div id="chart-trend-duration" class="chart"></div></div>
+        <div class="card"><h3>Prix moyen (€) par semaine</h3><div id="chart-trend-price-week" class="chart"></div></div>
+      </div>
+    </div>
+
+    <!-- Coûts IA -->
+    <div class="section">
+      <h2>💸 Coûts IA</h2>
+      <div class="grid">
+        <div class="card"><h3>Coût total ($) par agent</h3><div id="chart-cost-agent" class="chart"></div></div>
+        <div class="card"><h3>Corrélation durée (min) ↔ coût ($)</h3><div id="chart-cost-scatter" class="chart"></div></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="loader-wrap" id="loader"><div class="spinner"></div></div>
+
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+<script>
+  google.charts.load('current', { packages: ['corechart', 'bar'] });
+
+  var DATA = null;
+  var CHARTS_READY = false;
+
+  google.charts.setOnLoadCallback(function () {
+    CHARTS_READY = true;
+    if (DATA) renderAll(DATA);
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', loadData);
+
+  function loadData() {
+    document.getElementById('loader').style.display = 'flex';
+    document.getElementById('errorBox').innerHTML = '';
+    google.script.run
+      .withSuccessHandler(function (data) {
+        document.getElementById('loader').style.display = 'none';
+        if (!data) { showError('Aucune donnée reçue.'); return; }
+        if (data.error) { showError(data.error); return; }
+        DATA = data;
+        if (CHARTS_READY) renderAll(data);
+      })
+      .withFailureHandler(function (err) {
+        document.getElementById('loader').style.display = 'none';
+        showError((err && err.message) || 'Erreur inconnue.');
+      })
+      .getDashboardData();
+  }
+
+  function showError(msg) {
+    var el = document.getElementById('errorBox');
+    el.innerHTML = '<div class="error">⚠️ ' + escapeHtml(msg) + '</div>';
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  // ============================================================
+  // Rendu
+  // ============================================================
+  function renderAll(d) {
+    document.getElementById('meta').textContent =
+      'Source : feuille « Générations » — ' + d.totalRows + ' ligne(s) — généré le ' +
+      new Date(d.generatedAt).toLocaleString('fr-FR');
+
+    renderKpis(d);
+
+    // Agents
+    renderBarFromKV('chart-agent-count', d.byAgent.map(function (a) { return [shortAgent(a.agent), a.count]; }), 'Générations');
+    renderBarFromKV('chart-agent-cost', d.byAgent.map(function (a) { return [shortAgent(a.agent), a.totalCost]; }), 'Coût ($)');
+    renderBarFromKV('chart-agent-duration', d.byAgent.map(function (a) { return [shortAgent(a.agent), a.avgDuration || 0]; }), 'Durée (min)');
+
+    // Catalogue
+    renderPie('chart-profil', d.byProfil);
+    renderBar('chart-type', d.byArticleType, 'Articles');
+    renderBar('chart-marque', d.byMarque, 'Articles', { horizontal: true });
+    renderBar('chart-modele', d.byModele, 'Articles', { horizontal: true });
+    renderPie('chart-premium', [
+      { key: 'Premium', count: d.premium.yes },
+      { key: 'Standard', count: d.premium.no }
+    ]);
+
+    // Dimensions
+    renderBar('chart-taille-fr', d.byTailleFr, 'Articles');
+    renderBar('chart-taille-us', d.byTailleUs, 'Articles');
+    renderPie('chart-rise', d.byRise);
+    renderBar('chart-couleur', d.byCouleur, 'Articles', { horizontal: true });
+    renderBar('chart-matiere', d.byMatiere, 'Articles', { horizontal: true });
+    renderBar('chart-coupe', d.byCoupe, 'Articles');
+    renderPie('chart-genre', d.byGenre);
+
+    // Pricing
+    renderColumn('chart-price-distribution', d.pricing.distribution, 'Articles');
+    renderBar('chart-price-profil', d.pricing.avgByProfil.map(function (x) {
+      return { key: x.key, count: x.avg };
+    }), 'Prix moyen (€)', { horizontal: true });
+    renderBar('chart-price-etat', d.pricing.avgByEtat.map(function (x) {
+      return { key: x.key, count: x.avg };
+    }), 'Prix moyen (€)', { horizontal: true });
+    renderBar('chart-price-genre', d.pricing.avgByGenre.map(function (x) {
+      return { key: x.key, count: x.avg };
+    }), 'Prix moyen (€)');
+    renderLine('chart-price-time', d.pricing.avgOverTime.map(function (x) {
+      return [x.date, x.avg];
+    }), ['Date', 'Prix moyen (€)']);
+
+    // État & défauts
+    renderBar('chart-etat', d.byEtat, 'Articles');
+    renderPie('chart-defects', [
+      { key: 'Avec défauts', count: d.defects.withDefects },
+      { key: 'Sans défauts', count: d.defects.withoutDefects }
+    ]);
+    renderBar('chart-defects-price', [
+      { key: 'Avec défauts', count: d.defects.avgPriceWith || 0 },
+      { key: 'Sans défauts', count: d.defects.avgPriceWithout || 0 }
+    ], 'Prix moyen (€)');
+
+    // Tendances
+    renderLine('chart-trend-count', d.trends.perDay.map(function (x) { return [x.date, x.count]; }),
+      ['Date', 'Générations']);
+    renderLine('chart-trend-cost', d.trends.cumulativeCost.map(function (x) { return [x.date, x.total]; }),
+      ['Date', 'Coût cumulé ($)']);
+    renderLine('chart-trend-duration', d.trends.avgDurationPerDay.map(function (x) { return [x.date, x.avg]; }),
+      ['Date', 'Durée moy. (min)']);
+    renderLine('chart-trend-price-week', d.trends.avgPricePerWeek.map(function (x) { return [x.week, x.avg]; }),
+      ['Semaine', 'Prix moyen (€)']);
+
+    // Coûts IA
+    renderBar('chart-cost-agent', d.costs.byAgent.map(function (a) {
+      return { key: shortAgent(a.agent), count: a.totalCost };
+    }), 'Coût ($)');
+    renderScatter('chart-cost-scatter',
+      d.costs.durationCostScatter.map(function (p) { return [p.duration, p.cost]; }),
+      ['Durée (min)', 'Coût ($)']);
+  }
+
+  function renderKpis(d) {
+    var kpis = [
+      { label: 'Total articles', value: d.overview.total },
+      { label: 'Dernière génération', value: d.overview.lastGeneration || '—' },
+      { label: 'Durée moy. (min)', value: d.overview.avgDuration != null ? d.overview.avgDuration : '—' },
+      { label: 'Générations sur 7j', value: d.overview.last7DaysCount },
+      { label: 'Prix moy. (€)', value: d.pricing.avg != null ? d.pricing.avg : '—',
+        sub: d.pricing.count + ' article(s) avec prix' },
+      { label: 'Prix min / max (€)',
+        value: (d.pricing.min != null ? d.pricing.min : '—') + ' / ' +
+               (d.pricing.max != null ? d.pricing.max : '—') },
+      { label: 'Coût IA total ($)', value: d.costs.total != null ? d.costs.total : '—',
+        sub: d.costs.avg != null ? ('moy. ' + d.costs.avg + ' $/article') : '' },
+      { label: 'Articles avec défauts',
+        value: d.defects.withDefects + ' / ' + (d.defects.withDefects + d.defects.withoutDefects) }
+    ];
+    var html = kpis.map(function (k) {
+      return '<div class="kpi"><div class="label">' + escapeHtml(k.label) + '</div>' +
+        '<div class="value">' + escapeHtml(String(k.value)) + '</div>' +
+        (k.sub ? '<div class="sub">' + escapeHtml(k.sub) + '</div>' : '') +
+        '</div>';
+    }).join('');
+    document.getElementById('kpis').innerHTML = html;
+  }
+
+  // ----- Helpers chart -----
+  function shortAgent(email) {
+    if (!email) return '(inconnu)';
+    var at = email.indexOf('@');
+    return at > 0 ? email.substring(0, at) : email;
+  }
+
+  function emptyMessage(elId) {
+    document.getElementById(elId).innerHTML = '<div class="empty">Aucune donnée disponible</div>';
+  }
+
+  function commonOptions(extra) {
+    var base = {
+      legend: { position: 'none', textStyle: { fontSize: 11 } },
+      chartArea: { left: 60, top: 16, right: 16, bottom: 50, width: '85%', height: '75%' },
+      backgroundColor: 'transparent',
+      colors: ['#09B1BA', '#1a73e8', '#f9ab00', '#1e8e3e', '#d93025', '#9334e6', '#ff7043', '#5c6bc0'],
+      tooltip: { textStyle: { fontSize: 12 } },
+      hAxis: { textStyle: { fontSize: 10 } },
+      vAxis: { textStyle: { fontSize: 10 }, minValue: 0 }
+    };
+    if (extra) Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    return base;
+  }
+
+  function renderBar(elId, items, valueLabel, opts) {
+    if (!items || items.length === 0) { emptyMessage(elId); return; }
+    opts = opts || {};
+    var data = google.visualization.arrayToDataTable(
+      [['Label', valueLabel || 'Valeur']].concat(items.map(function (x) {
+        return [String(x.key || '(vide)'), Number(x.count) || 0];
+      }))
+    );
+    var ChartCtor = opts.horizontal ? google.visualization.BarChart : google.visualization.ColumnChart;
+    var chart = new ChartCtor(document.getElementById(elId));
+    chart.draw(data, commonOptions({
+      legend: { position: 'none' },
+      bars: opts.horizontal ? 'horizontal' : 'vertical'
+    }));
+  }
+
+  function renderBarFromKV(elId, rows, valueLabel) {
+    if (!rows || rows.length === 0) { emptyMessage(elId); return; }
+    var data = google.visualization.arrayToDataTable(
+      [['Label', valueLabel]].concat(rows.map(function (r) { return [String(r[0]), Number(r[1]) || 0]; }))
+    );
+    new google.visualization.ColumnChart(document.getElementById(elId))
+      .draw(data, commonOptions());
+  }
+
+  function renderColumn(elId, items, valueLabel) {
+    renderBar(elId, items, valueLabel, { horizontal: false });
+  }
+
+  function renderPie(elId, items) {
+    var nonZero = (items || []).filter(function (x) { return Number(x.count) > 0; });
+    if (nonZero.length === 0) { emptyMessage(elId); return; }
+    var data = google.visualization.arrayToDataTable(
+      [['Label', 'Valeur']].concat(nonZero.map(function (x) {
+        return [String(x.key || '(vide)'), Number(x.count) || 0];
+      }))
+    );
+    new google.visualization.PieChart(document.getElementById(elId)).draw(data, commonOptions({
+      legend: { position: 'right', textStyle: { fontSize: 11 } },
+      pieHole: 0.4,
+      chartArea: { left: 16, top: 16, right: 16, bottom: 16, width: '95%', height: '85%' }
+    }));
+  }
+
+  function renderLine(elId, rows, headers) {
+    if (!rows || rows.length === 0) { emptyMessage(elId); return; }
+    var data = google.visualization.arrayToDataTable([headers].concat(rows));
+    new google.visualization.LineChart(document.getElementById(elId)).draw(data, commonOptions({
+      curveType: 'function', pointSize: 4
+    }));
+  }
+
+  function renderScatter(elId, rows, headers) {
+    if (!rows || rows.length === 0) { emptyMessage(elId); return; }
+    var data = google.visualization.arrayToDataTable([headers].concat(rows));
+    new google.visualization.ScatterChart(document.getElementById(elId)).draw(data, commonOptions({
+      legend: { position: 'none' },
+      hAxis: { title: headers[0], textStyle: { fontSize: 10 } },
+      vAxis: { title: headers[1], textStyle: { fontSize: 10 }, minValue: 0 }
+    }));
+  }
+
+  // ----- Bootstrap -----
+  loadData();
+</script>
+</body>
+</html>

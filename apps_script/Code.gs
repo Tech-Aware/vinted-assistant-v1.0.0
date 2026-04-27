@@ -14,6 +14,7 @@ function onOpen() {
     .addItem('Lancer l\'assistant', 'launchAssistant')
     .addSeparator()
     .addItem('Créer / Mettre à jour les statistiques', 'createOrUpdateStatistics')
+    .addItem('📊 Ouvrir le dashboard', 'openDashboard')
     .addSeparator()
     .addItem('Configurer le lien de l\'assistant', 'configureWebAppUrl')
     .addToUi();
