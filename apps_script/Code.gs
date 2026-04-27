@@ -1016,10 +1016,11 @@ function ensureStatisticsSheet_(spreadsheet) {
   // Section modèles Levi's : agrégation côté Apps Script (plus robuste qu'une
   // formule QUERY qui souffre de l'inférence de type sur les colonnes mixtes).
   // Règle demandée : sur les lignes où Profil = jean_levis, toute valeur de
-  // la colonne Modèle composée uniquement de chiffres (INT ou STR : 501,
-  // "501", "0501") est comptée sous ce modèle ; tout le reste (Boyfriend,
-  // Signature, Denizen, Mile High Super Skinny, Chino, vide, etc.) est
-  // agrégé dans une ligne "Autres".
+  // la colonne Modèle composée d'exactement 3 chiffres (INT ou STR : 501,
+  // "501") est comptée sous ce modèle ; tout le reste — y compris les
+  // valeurs purement numériques de longueur différente (ex. "0501", "5010",
+  // "12") ainsi que les noms (Boyfriend, Signature, Denizen, Mile High Super
+  // Skinny, Chino, vide, etc.) — est agrégé dans une ligne "Autres".
   var generationsSheet = spreadsheet.getSheetByName('Générations');
   var modelHeaderRow = ['Modèle', 'Nb'];
   var modelDataRows = [];
@@ -1029,7 +1030,7 @@ function ensureStatisticsSheet_(spreadsheet) {
     // Colonnes C (Profil) à F (Modèle) — 4 colonnes contiguës
     var values = generationsSheet.getRange(2, 3, lastDataRow - 1, 4).getValues();
     var counts = {};
-    var digitsRe = /^\d+$/;
+    var digitsRe = /^\d{3}$/;
     for (var r = 0; r < values.length; r++) {
       var profil = String(values[r][0] || '').toLowerCase().trim();
       if (profil !== 'jean_levis') continue;
