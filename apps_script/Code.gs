@@ -576,7 +576,7 @@ function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
   // Grande taille : W ≥ 38 → droit / évasé valorisés à 32 € max si pièce propre.
   // Jamais sur Denizen / Signature.
   if (bigSize && !hasDefects && fit !== 'skinny') {
-    price = Math.min(32, Math.max(price, 32));
+    price = 32;
   }
   return buildPricingResult_(price, buyPrice, retail);
 }
