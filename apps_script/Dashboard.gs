@@ -2,7 +2,7 @@
  * Dashboard.gs - Dashboard interactif HTML pour la feuille "Générations".
  *
  * Approche "HtmlService" : la feuille Générations est lue côté Apps Script,
- * agrégée par cette couche, puis transmise en JSON à Dashboard.html qui rend
+ * agrégée par cette couche, puis transmise en JSON à DashboardHtml.html qui rend
  * les graphiques avec Google Charts (chargé depuis gstatic.com).
  *
  * Structure des colonnes (LOG_HEADERS, voir Code.gs) :
@@ -33,7 +33,7 @@
 // Entrée de menu : ouverture du dashboard
 // ============================================================
 function openDashboard() {
-  var html = HtmlService.createHtmlOutputFromFile('Dashboard')
+  var html = HtmlService.createHtmlOutputFromFile('DashboardHtml')
     .setWidth(1280)
     .setHeight(820)
     .setTitle('Vinted Assistant — Dashboard');
@@ -46,7 +46,7 @@ function openDashboard() {
 /**
  * Lit la feuille "Générations" du Google Sheet configuré (LOG_SHEET_ID,
  * fallback sur le classeur actif) et renvoie un objet agrégé prêt à
- * être consommé par Dashboard.html / Google Charts.
+ * être consommé par DashboardHtml.html / Google Charts.
  *
  * @returns {Object} Données agrégées (voir DashboardData_ ci-dessous) ou
  *                   { error: string } en cas d'échec.
