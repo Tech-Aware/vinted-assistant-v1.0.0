@@ -1004,14 +1004,13 @@ function ensureStatisticsSheet_(spreadsheet) {
   var numberedModels = Normalizer.levisNumberedModels;
   for (var i = 0; i < numberedModels.length; i++) {
     var m = numberedModels[i];
-    add(m, '=COUNTIF(' + g + '!F2:F;"' + m + '")');
+    add(m, '=COUNTIF(' + g + '!F2:F;"*' + m + '*")');
   }
-  add('Ribcage', '=COUNTIF(' + g + '!F2:F;"*ribcage*")');
   var autresFormula = '=MAX(0;COUNTIF(' + g + '!C2:C;"jean_levis")';
   for (var i = 0; i < numberedModels.length; i++) {
-    autresFormula += '-COUNTIF(' + g + '!F2:F;"' + numberedModels[i] + '")';
+    autresFormula += '-COUNTIF(' + g + '!F2:F;"*' + numberedModels[i] + '*")';
   }
-  autresFormula += '-COUNTIF(' + g + '!F2:F;"*ribcage*"))';
+  autresFormula += ')';
   add('Autres', autresFormula);
   blank();
   hdr('⚠️ Défauts');
