@@ -316,6 +316,28 @@ function normalizeFitCategory_(fit) {
 var DEFAULT_BUY_PRICE_HOMME = 9;
 var DEFAULT_BUY_PRICE_FEMME = 6;
 /**
+ * Table canonique des modèles Levi's nommés reconnus.
+ * Source unique utilisée par normalizeLevisModel_(), KNOWN_NAMED_MODELS et
+ * categorizePremiumSegment_().
+ *
+ * Règle d'ordre : les variantes les plus longues en premier pour éviter
+ * les captures partielles (ex : "mile high" avant "mile").
+ */
+var LEVIS_NAMED_MODELS_ = [
+  { keys: ['mile high'],               label: 'Mile High'  },
+  { keys: ['silver tab', 'silvertab'], label: 'Silver Tab' },
+  { keys: ['ribcage'],                 label: 'Ribcage'    },
+  { keys: ['wedgie'],                  label: 'Wedgie'     },
+  { keys: ['boyfriend'],               label: 'Boyfriend'  },
+  { keys: ['girlfriend'],              label: 'Girlfriend' },
+  { keys: ['denizen'],                 label: 'Denizen'    },
+  { keys: ['signature'],               label: 'Signature'  },
+  { keys: ['chino'],                   label: 'Chino'      },
+  { keys: ['barstow'],                 label: 'Barstow'    }
+];
+/** Labels des modèles nommés dans leur ordre canonique d'affichage. */
+var KNOWN_NAMED_MODELS_ = LEVIS_NAMED_MODELS_.map(function (nm) { return nm.label; });
+/**
  * Modèles Levi's considérés comme désirables / candidats au premium.
  *
  * IMPORTANT : cette fonction sert UNIQUEMENT à signaler qu'une pièce
@@ -332,12 +354,13 @@ function isPremiumCandidateModel_(model) {
   if (!model) return false;
   var low = String(model).toLowerCase();
   var candidates = [
-    '501',
-    '505',
-    '550',
-    'ribcage',
-    'silver tab',
-    'silvertab'
+    // Modèles iconiques à forte cote sur le marché de la seconde main
+    '501', '505', '550',
+    // Coupes contemporaines slim/skinny à forte demande
+    '720', '721', '724', '725',
+    // Modèles nommés à cote secondaire notable
+    'ribcage', 'wedgie', 'mile high',
+    'silver tab', 'silvertab'
   ];
   for (var i = 0; i < candidates.length; i++) {
     if (low.indexOf(candidates[i]) !== -1) return true;
@@ -360,8 +383,57 @@ function isBudgetBrand_(brand, model) {
   var combined = ((brand || '') + ' ' + (model || '')).toLowerCase();
   return (
     combined.indexOf('denizen') !== -1 ||
-    combined.indexOf('signature') !== -1
+    combined.indexOf('signature') !== -1 ||
+    combined.indexOf('chino') !== -1 ||
+    combined.indexOf('barstow') !== -1
   );
+}
+/**
+ * Normalise le modèle d'un jean Levi's en une clé canonique.
+ *
+ *   - 3 chiffres exacts (ex : 501, 505, 550)  → renvoie tel quel
+ *   - Modèle nommé reconnu (ex : Boyfriend, Mile High) → renvoie le nom normalisé
+ *   - Tout le reste                            → renvoie 'Autres'
+ *
+ * Insensible à la casse, tolère les variantes orthographiques
+ * (ex : "Mile High Super Skinny" → "Mile High", "silvertab" → "Silver Tab").
+ *
+ * @param {*} rawModel - Valeur brute de la cellule (number | string | null)
+ * @returns {string}
+ */
+function normalizeLevisModel_(rawModel) {
+  var modelStr;
+  if (typeof rawModel === 'number' && isFinite(rawModel)) {
+    modelStr = String(Math.trunc(rawModel));
+  } else {
+    modelStr = String(rawModel == null ? '' : rawModel).trim();
+  }
+  if (!modelStr) return 'Autres';
+  // Modèles numériques — exactement 3 chiffres
+  if (/^\d{3}$/.test(modelStr)) return modelStr;
+  // Modèles nommés — utilise la table canonique LEVIS_NAMED_MODELS_
+  var low = modelStr.toLowerCase();
+  for (var i = 0; i < LEVIS_NAMED_MODELS_.length; i++) {
+    var nm = LEVIS_NAMED_MODELS_[i];
+    for (var j = 0; j < nm.keys.length; j++) {
+      if (low.indexOf(nm.keys[j]) !== -1) return nm.label;
+    }
+  }
+  return 'Autres';
+}
+/**
+ * Catégorise un jean Levi's dans l'un des 4 segments premium.
+ *
+ * @param {string} brand          - Marque brute (ex : "Levi's", "Denizen")
+ * @param {string} normalizedModel - Résultat de normalizeLevisModel_()
+ * @param {boolean} isPremium     - Valeur de la colonne Premium / is_premium
+ * @returns {'budget'|'confirmed'|'candidate'|'standard'}
+ */
+function categorizePremiumSegment_(brand, normalizedModel, isPremium) {
+  if (isBudgetBrand_(brand, normalizedModel)) return 'budget';
+  if (isPremium) return 'confirmed';
+  if (isPremiumCandidateModel_(normalizedModel)) return 'candidate';
+  return 'standard';
 }
 function parseSizeNumeric_(sizeRaw) {
   if (!sizeRaw) return null;
@@ -1016,38 +1088,37 @@ function ensureStatisticsSheet_(spreadsheet) {
   hdr('🔑 Modèles Levi\'s');
   // Section modèles Levi's : agrégation côté Apps Script (plus robuste qu'une
   // formule QUERY qui souffre de l'inférence de type sur les colonnes mixtes).
-  // Règle demandée : sur les lignes où Profil = jean_levis, toute valeur de
-  // la colonne Modèle composée d'exactement 3 chiffres (INT ou STR : 501,
-  // "501") est comptée sous ce modèle ; tout le reste — y compris les
-  // valeurs purement numériques de longueur différente (ex. "0501", "5010",
-  // "12") ainsi que les noms (Boyfriend, Signature, Denizen, Mile High Super
-  // Skinny, Chino, vide, etc.) — est agrégé dans une ligne "Autres".
+  // La fonction normalizeLevisModel_() identifie les modèles 3 chiffres (501…)
+  // et les modèles nommés (Boyfriend, Ribcage…) séparément.
+  // Seul le résidu vraiment inconnu tombe dans "Autres".
   var generationsSheet = spreadsheet.getSheetByName('Générations');
   var modelHeaderRow = ['Modèle', 'Nb'];
   var modelDataRows = [];
+  var namedCounts = {};   // modèles nommés reconnus
+  var premiumBreakdown = { budget: 0, standard: 0, candidate: 0, confirmed: 0 };
   var autresCount = 0;
   if (generationsSheet && generationsSheet.getLastRow() >= 2) {
     var lastDataRow = generationsSheet.getLastRow();
-    // Colonnes C (Profil) à F (Modèle) — 4 colonnes contiguës
-    var values = generationsSheet.getRange(2, 3, lastDataRow - 1, 4).getValues();
+    // Colonnes C (Profil) à G (Premium) — 5 colonnes contiguës
+    var values = generationsSheet.getRange(2, 3, lastDataRow - 1, 5).getValues();
     var counts = {};
-    var digitsRe = /^\d{3}$/;
     for (var r = 0; r < values.length; r++) {
       var profil = String(values[r][0] || '').toLowerCase().trim();
       if (profil !== 'jean_levis') continue;
-      var rawModel = values[r][3]; // index 3 = colonne F (Modèle), Profil étant en C (index 0)
-      // INT JS : on convertit en chaîne sans notation flottante avant test
-      var modelStr;
-      if (typeof rawModel === 'number' && isFinite(rawModel)) {
-        modelStr = String(Math.trunc(rawModel));
-      } else {
-        modelStr = String(rawModel == null ? '' : rawModel).trim();
-      }
-      if (modelStr && digitsRe.test(modelStr)) {
-        counts[modelStr] = (counts[modelStr] || 0) + 1;
+      var rawModel = values[r][3]; // index 3 = col F (Modèle)
+      var normalized = normalizeLevisModel_(rawModel);
+      if (/^\d{3}$/.test(normalized)) {
+        counts[normalized] = (counts[normalized] || 0) + 1;
+      } else if (normalized !== 'Autres') {
+        namedCounts[normalized] = (namedCounts[normalized] || 0) + 1;
       } else {
         autresCount++;
       }
+      // Répartition premium (4 catégories)
+      var marqueVal = String(values[r][2] || ''); // index 2 = col E (Marque)
+      var isPremVal = (values[r][4] === true) || String(values[r][4]).toLowerCase() === 'true'; // index 4 = col G
+      var segment = categorizePremiumSegment_(marqueVal, normalized, isPremVal);
+      premiumBreakdown[segment]++;
     }
     var modelKeys = Object.keys(counts);
     modelKeys.sort(function (a, b) {
@@ -1057,6 +1128,14 @@ function ensureStatisticsSheet_(spreadsheet) {
     });
     for (var k = 0; k < modelKeys.length; k++) {
       modelDataRows.push([modelKeys[k], counts[modelKeys[k]]]);
+    }
+    // Modèles nommés triés par fréquence décroissante
+    var namedKeys = Object.keys(namedCounts).sort(function (a, b) {
+      var diff = namedCounts[b] - namedCounts[a];
+      return diff !== 0 ? diff : (a < b ? -1 : (a > b ? 1 : 0));
+    });
+    for (var k2 = 0; k2 < namedKeys.length; k2++) {
+      modelDataRows.push([namedKeys[k2], namedCounts[namedKeys[k2]]]);
     }
     if (autresCount > 0) {
       modelDataRows.push(['Autres', autresCount]);
@@ -1068,10 +1147,38 @@ function ensureStatisticsSheet_(spreadsheet) {
     rows.push(modelDataRows[d]);
   }
   var modelHeaderRowIndex = rows.length - modelDataRows.length; // 1-based row of "Modèle | Nb"
+
+  // ---- Section : Modèles nommés Levi's (liste fixe, toujours visible) ----
+  blank();
+  hdr('🏷 Modèles nommés Levi\'s');
+  var namedModelHeader = ['Modèle', 'Nb'];
+  rows.push(namedModelHeader);
+  var namedModelHeaderRowIndex = rows.length; // 1-based
+  for (var nm = 0; nm < KNOWN_NAMED_MODELS_.length; nm++) {
+    rows.push([KNOWN_NAMED_MODELS_[nm], namedCounts[KNOWN_NAMED_MODELS_[nm]] || 0]);
+  }
+
+  // ---- Section : Par coupe ----
+  blank();
+  hdr('📐 Par coupe');
+  add('Skinny', '=COUNTIF(' + g + '!M2:M;"Skinny")');
+  add('Droit',  '=COUNTIF(' + g + '!M2:M;"Droit")');
+  add('Évasé',  '=COUNTIF(' + g + '!M2:M;"Évasé")');
+
+  // ---- Section : Candidats premium ----
+  blank();
+  hdr('💡 Candidats premium');
+  var premiumHeader = ['Catégorie', 'Nb'];
+  rows.push(premiumHeader);
+  var premiumHeaderRowIndex = rows.length; // 1-based
+  rows.push(['Budget (Denizen / Signature / Chino / Barstow)', premiumBreakdown.budget]);
+  rows.push(['Standard',           premiumBreakdown.standard]);
+  rows.push(['Candidat premium',   premiumBreakdown.candidate]);
+  rows.push(['Premium confirmé',   premiumBreakdown.confirmed]);
   // Écriture des données
   statsSheet.getRange(1, 1, rows.length, 2).setValues(rows);
   // Style des lignes d'en-tête (détectées par préfixe emoji)
-  var headerPrefixes = ['📊', '💰', '👗', '🏷', '🔑', '⚠', '👥', '🤖'];
+  var headerPrefixes = ['📊', '💰', '👗', '🏷', '🔑', '⚠', '👥', '🤖', '📐', '💡'];
   for (var i = 0; i < rows.length; i++) {
     var label = String(rows[i][0]);
     var isHdr = false;
@@ -1088,5 +1195,10 @@ function ensureStatisticsSheet_(spreadsheet) {
   }
   // Style spécifique de la ligne d'en-tête de tableau "Modèle | Nb"
   statsSheet.getRange(modelHeaderRowIndex, 1, 1, 2)
+    .setFontWeight('bold').setBackground('#e8f0fe');
+  // Style des en-têtes de tableaux des nouvelles sections
+  statsSheet.getRange(namedModelHeaderRowIndex, 1, 1, 2)
+    .setFontWeight('bold').setBackground('#e8f0fe');
+  statsSheet.getRange(premiumHeaderRowIndex, 1, 1, 2)
     .setFontWeight('bold').setBackground('#e8f0fe');
 }
