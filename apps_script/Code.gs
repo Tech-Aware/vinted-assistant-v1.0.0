@@ -1000,19 +1000,6 @@ function ensureStatisticsSheet_(spreadsheet) {
   add('Neuf',           '=COUNTIF(' + g + '!P2:P;"neuf")');
   add('Satisfaisant',   '=COUNTIF(' + g + '!P2:P;"satisfaisant")');
   blank();
-  hdr('🔑 Modèles Levi\'s');
-  var numberedModels = Normalizer.levisNumberedModels;
-  for (var i = 0; i < numberedModels.length; i++) {
-    var m = numberedModels[i];
-    add(m, '=COUNTIF(' + g + '!F2:F;"*' + m + '*")');
-  }
-  var autresFormula = '=MAX(0;COUNTIF(' + g + '!C2:C;"jean_levis")';
-  for (var i = 0; i < numberedModels.length; i++) {
-    autresFormula += '-COUNTIF(' + g + '!F2:F;"*' + numberedModels[i] + '*")';
-  }
-  autresFormula += ')';
-  add('Autres', autresFormula);
-  blank();
   hdr('⚠️ Défauts');
   add('Avec défauts',  '=COUNTIF(' + g + '!U2:U;TRUE)');
   add('Sans défauts',  '=COUNTIF(' + g + '!U2:U;FALSE)');
@@ -1028,7 +1015,7 @@ function ensureStatisticsSheet_(spreadsheet) {
   // Écriture des données
   statsSheet.getRange(1, 1, rows.length, 2).setValues(rows);
   // Style des lignes d'en-tête (détectées par préfixe emoji)
-  var headerPrefixes = ['📊', '💰', '👗', '🏷', '🔑', '⚠', '👥', '🤖'];
+  var headerPrefixes = ['📊', '💰', '👗', '🏷', '⚠', '👥', '🤖'];
   for (var i = 0; i < rows.length; i++) {
     var label = String(rows[i][0]);
     var isHdr = false;
@@ -1043,4 +1030,23 @@ function ensureStatisticsSheet_(spreadsheet) {
       statsSheet.getRange(i + 1, 2, 1, 1).setHorizontalAlignment('right');
     }
   }
+  // Section modèles Levi's : QUERY dynamique sur la feuille Générations.
+  // Extrait automatiquement tous les modèles numérotés (3 chiffres ou plus)
+  // présents dans la colonne Modèle, triés alphabétiquement, avec leur comptage.
+  // Aucune liste hardcodée : tout nouveau modèle apparaît dès la prochaine
+  // mise à jour des statistiques.
+  var modelHdrRow = rows.length + 1;
+  statsSheet.getRange(modelHdrRow, 1, 1, 2)
+    .setValues([['🔑 Modèles Levi\'s (numérotés)', '']])
+    .setBackground('#1a73e8').setFontColor('#ffffff').setFontWeight('bold');
+  // QUERY : Col1=Profil(C), Col4=Modèle(F) dans la plage C2:F
+  // MATCHES utilise la syntaxe RE2 : [0-9]{3}.* = commence par au moins 3 chiffres
+  var queryStr =
+    "SELECT Col4, COUNT(Col4) " +
+    "WHERE Col1 = 'jean_levis' AND Col4 MATCHES '[0-9]{3}.*' AND Col4 <> '' " +
+    "GROUP BY Col4 ORDER BY Col4 " +
+    "LABEL Col4 'Modele', COUNT(Col4) 'Nb'";
+  statsSheet.getRange(modelHdrRow + 1, 1)
+    .setFormula('IFERROR(QUERY(' + g + '!C2:F;"' + queryStr + '";0);"—")');
+  statsSheet.getRange(modelHdrRow + 1, 2).setHorizontalAlignment('right');
 }
