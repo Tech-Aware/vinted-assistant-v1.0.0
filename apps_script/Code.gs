@@ -1013,6 +1013,59 @@ function ensureStatisticsSheet_(spreadsheet) {
   add('Coût moyen par article ($)',  '=IFERROR(ROUND(AVERAGE(' + g + '!T2:T);6);"—")');
   blank();
   hdr('🔑 Modèles Levi\'s');
+  // Section modèles Levi's : agrégation côté Apps Script (plus robuste qu'une
+  // formule QUERY qui souffre de l'inférence de type sur les colonnes mixtes).
+  // Règle demandée : sur les lignes où Profil = jean_levis, toute valeur de
+  // la colonne Modèle composée uniquement de chiffres (INT ou STR : 501,
+  // "501", "0501") est comptée sous ce modèle ; tout le reste (Boyfriend,
+  // Signature, Denizen, Mile High Super Skinny, Chino, vide, etc.) est
+  // agrégé dans une ligne "Autres".
+  var generationsSheet = spreadsheet.getSheetByName('Générations');
+  var modelHeaderRow = ['Modèle', 'Nb'];
+  var modelDataRows = [];
+  var autresCount = 0;
+  if (generationsSheet && generationsSheet.getLastRow() >= 2) {
+    var lastDataRow = generationsSheet.getLastRow();
+    // Colonnes C (Profil) à F (Modèle) — 4 colonnes contiguës
+    var values = generationsSheet.getRange(2, 3, lastDataRow - 1, 4).getValues();
+    var counts = {};
+    var digitsRe = /^\d+$/;
+    for (var r = 0; r < values.length; r++) {
+      var profil = String(values[r][0] || '').toLowerCase().trim();
+      if (profil !== 'jean_levis') continue;
+      var rawModel = values[r][3]; // index 3 = colonne F (Modèle), Profil étant en C (index 0)
+      // INT JS : on convertit en chaîne sans notation flottante avant test
+      var modelStr;
+      if (typeof rawModel === 'number' && isFinite(rawModel)) {
+        modelStr = String(Math.trunc(rawModel));
+      } else {
+        modelStr = String(rawModel == null ? '' : rawModel).trim();
+      }
+      if (modelStr && digitsRe.test(modelStr)) {
+        counts[modelStr] = (counts[modelStr] || 0) + 1;
+      } else {
+        autresCount++;
+      }
+    }
+    var modelKeys = Object.keys(counts);
+    modelKeys.sort(function (a, b) {
+      var diff = counts[b] - counts[a];
+      if (diff !== 0) return diff;
+      return a < b ? -1 : (a > b ? 1 : 0);
+    });
+    for (var k = 0; k < modelKeys.length; k++) {
+      modelDataRows.push([modelKeys[k], counts[modelKeys[k]]]);
+    }
+    if (autresCount > 0) {
+      modelDataRows.push(['Autres', autresCount]);
+    }
+  }
+  // Ajoute l'en-tête de tableau (Modèle / Nb) puis les données.
+  rows.push(modelHeaderRow);
+  for (var d = 0; d < modelDataRows.length; d++) {
+    rows.push(modelDataRows[d]);
+  }
+  var modelHeaderRowIndex = rows.length - modelDataRows.length; // 1-based row of "Modèle | Nb"
   // Écriture des données
   statsSheet.getRange(1, 1, rows.length, 2).setValues(rows);
   // Style des lignes d'en-tête (détectées par préfixe emoji)
@@ -1031,25 +1084,7 @@ function ensureStatisticsSheet_(spreadsheet) {
       statsSheet.getRange(i + 1, 2, 1, 1).setHorizontalAlignment('right');
     }
   }
-  // Section modèles Levi's : QUERY dynamique sur la feuille Générations.
-  // Agrège TOUS les modèles non vides (numérotés ou nommés : 511, 514, 627,
-  // Signature, Denizen, Mile High Super Skinny, Boyfriend, Chino, etc.) où
-  // Profil = jean_levis, triés par fréquence décroissante. Aucune liste
-  // hardcodée : tout nouveau modèle apparaît automatiquement à la prochaine
-  // mise à jour des statistiques.
-  var queryRow = rows.length + 1;
-  var queryStr =
-    "SELECT Col4, COUNT(Col4) " +
-    "WHERE Col1 = 'jean_levis' AND Col4 IS NOT NULL AND Col4 <> '' " +
-    "GROUP BY Col4 ORDER BY COUNT(Col4) DESC " +
-    "LABEL Col4 'Modèle', COUNT(Col4) 'Nb'";
-  statsSheet.getRange(queryRow, 1)
-    .setFormula('=IFERROR(QUERY(' + g + '!C2:F;"' + queryStr + '";0);"—")');
-  // Aligne à droite la colonne des comptes sur toute la plage que la QUERY
-  // peut potentiellement remplir (jusqu'au bas de la feuille).
-  var lastRow = statsSheet.getMaxRows();
-  if (lastRow >= queryRow) {
-    statsSheet.getRange(queryRow, 2, lastRow - queryRow + 1, 1)
-      .setHorizontalAlignment('right');
-  }
+  // Style spécifique de la ligne d'en-tête de tableau "Modèle | Nb"
+  statsSheet.getRange(modelHeaderRowIndex, 1, 1, 2)
+    .setFontWeight('bold').setBackground('#e8f0fe');
 }
