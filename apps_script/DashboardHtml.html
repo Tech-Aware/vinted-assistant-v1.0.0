@@ -123,8 +123,9 @@
         <div class="card"><h3>Répartition par profil</h3><div id="chart-profil" class="chart"></div></div>
         <div class="card"><h3>Répartition par type d'article</h3><div id="chart-type" class="chart"></div></div>
         <div class="card"><h3>Top marques</h3><div id="chart-marque" class="chart"></div></div>
-        <div class="card"><h3>Modèles Levi's</h3><div id="chart-modele" class="chart"></div></div>
-        <div class="card"><h3>Articles Premium</h3><div id="chart-premium" class="chart"></div></div>
+        <div class="card"><h3>Modèles Levi's (numérotés)</h3><div id="chart-modele" class="chart"></div></div>
+        <div class="card"><h3>Modèles nommés Levi's</h3><div id="chart-modele-named" class="chart"></div></div>
+        <div class="card"><h3>Répartition premium</h3><div id="chart-premium" class="chart"></div></div>
       </div>
     </div>
 
@@ -172,6 +173,7 @@
         <div class="card"><h3>Coût IA cumulé ($)</h3><div id="chart-trend-cost" class="chart"></div></div>
         <div class="card"><h3>Durée moyenne (min) par jour</h3><div id="chart-trend-duration" class="chart"></div></div>
         <div class="card"><h3>Prix moyen (€) par semaine</h3><div id="chart-trend-price-week" class="chart"></div></div>
+        <div class="card"><h3>Évolution des top modèles par semaine</h3><div id="chart-trend-models" class="chart"></div></div>
       </div>
     </div>
 
@@ -250,9 +252,14 @@
     renderBar('chart-type', d.byArticleType, 'Articles');
     renderBar('chart-marque', d.byMarque, 'Articles', { horizontal: true });
     renderBar('chart-modele', d.byModele, 'Articles', { horizontal: true });
+    renderBar('chart-modele-named', d.byModeleNamed, 'Articles', { horizontal: true });
+    // Répartition premium : 4 segments (Budget / Standard / Candidat / Confirmé)
+    var pb = d.premiumBreakdown || {};
     renderPie('chart-premium', [
-      { key: 'Premium', count: d.premium.yes },
-      { key: 'Standard', count: d.premium.no }
+      { key: 'Budget (Denizen…)', count: pb.budget || 0 },
+      { key: 'Standard',          count: pb.standard || 0 },
+      { key: 'Candidat premium',  count: pb.candidate || 0 },
+      { key: 'Premium confirmé',  count: pb.confirmed || 0 }
     ]);
 
     // Dimensions
@@ -299,6 +306,7 @@
       ['Date', 'Durée moy. (min)']);
     renderLine('chart-trend-price-week', d.trends.avgPricePerWeek.map(function (x) { return [x.week, x.avg]; }),
       ['Semaine', 'Prix moyen (€)']);
+    renderMultiLine('chart-trend-models', d.trends.modelByWeek, d.trends.topModels);
 
     // Coûts IA
     renderBar('chart-cost-agent', d.costs.byAgent.map(function (a) {
@@ -408,6 +416,22 @@
     var data = google.visualization.arrayToDataTable([headers].concat(rows));
     new google.visualization.LineChart(document.getElementById(elId)).draw(data, commonOptions({
       curveType: 'function', pointSize: 4
+    }));
+  }
+
+  // Multi-series line chart (évolution de N modèles par semaine)
+  function renderMultiLine(elId, weekRows, seriesKeys) {
+    if (!weekRows || weekRows.length === 0 || !seriesKeys || seriesKeys.length === 0) {
+      emptyMessage(elId); return;
+    }
+    var headers = ['Semaine'].concat(seriesKeys);
+    var dataRows = weekRows.map(function (r) {
+      return [r.week].concat(seriesKeys.map(function (k) { return r[k] || 0; }));
+    });
+    var data = google.visualization.arrayToDataTable([headers].concat(dataRows));
+    new google.visualization.LineChart(document.getElementById(elId)).draw(data, commonOptions({
+      curveType: 'function', pointSize: 4,
+      legend: { position: 'bottom', textStyle: { fontSize: 11 } }
     }));
   }
 

@@ -95,7 +95,9 @@ var DashboardData_ = (function () {
       totalRows: 0,
       overview: { total: 0, lastGeneration: null, avgDuration: null, last7DaysCount: 0 },
       byAgent: [], byProfil: [], byArticleType: [], byMarque: [], byModele: [],
+      byModeleNamed: [],
       premium: { yes: 0, no: 0 },
+      premiumBreakdown: { budget: 0, standard: 0, candidate: 0, confirmed: 0 },
       byTailleFr: [], byTailleUs: [], byRise: [], byCouleur: [], byMatiere: [],
       byCoupe: [], byGenre: [], byEtat: [],
       pricing: {
@@ -104,7 +106,8 @@ var DashboardData_ = (function () {
         avgOverTime: []
       },
       defects: { withDefects: 0, withoutDefects: 0, avgPriceWith: null, avgPriceWithout: null },
-      trends: { perDay: [], cumulativeCost: [], avgDurationPerDay: [], avgPricePerWeek: [] },
+      trends: { perDay: [], cumulativeCost: [], avgDurationPerDay: [], avgPricePerWeek: [],
+                modelByWeek: [], topModels: [] },
       costs: { total: 0, avg: null, byAgent: [], durationCostScatter: [] }
     };
   }
@@ -212,7 +215,7 @@ var DashboardData_ = (function () {
 
     // Maps d'agrégation
     var agentCount = {}, agentCost = {}, agentDuration = {};
-    var profilMap = {}, typeMap = {}, marqueMap = {}, modeleMap = {};
+    var profilMap = {}, typeMap = {}, marqueMap = {}, modeleMap = {}, modeleNamedMap = {};
     var tailleFrMap = {}, tailleUsMap = {}, riseMap = {};
     var couleurMap = {}, matiereMap = {}, coupeMap = {}, genreMap = {}, etatMap = {};
 
@@ -223,6 +226,8 @@ var DashboardData_ = (function () {
     var scatter = [];
 
     var premiumYes = 0, premiumNo = 0;
+    var premiumBreakdown = { budget: 0, standard: 0, candidate: 0, confirmed: 0 };
+    var modelByWeek = {}; // { weekKey: { modelKey: count } }
     var totalCost = 0, costCount = 0;
     var defectsTrue = 0, defectsFalse = 0;
     var sumPriceDefects = 0, cntPriceDefects = 0;
@@ -260,18 +265,33 @@ var DashboardData_ = (function () {
       bumpCount(marqueMap, s(r[COL.MARQUE]));
       var profil = s(r[COL.PROFIL]).toLowerCase();
       var modeleRaw = r[COL.MODELE];
-      var modeleStr;
-      if (typeof modeleRaw === 'number' && isFinite(modeleRaw)) {
-        modeleStr = String(Math.trunc(modeleRaw));
-      } else {
-        modeleStr = s(modeleRaw);
-      }
-      // On agrège les modèles uniquement pour le profil jean_levis
-      // (cohérent avec la feuille Statistiques) mais en gardant tout le monde
-      // dans "Autres" si la valeur n'est pas un code 3 chiffres.
+      // On agrège les modèles uniquement pour le profil jean_levis,
+      // en utilisant normalizeLevisModel_() pour séparer numériques, nommés et Autres.
       if (profil === 'jean_levis') {
-        if (/^\d{3}$/.test(modeleStr)) bumpCount(modeleMap, modeleStr);
-        else bumpCount(modeleMap, 'Autres');
+        var normModel = normalizeLevisModel_(modeleRaw);
+        bumpCount(modeleMap, normModel);
+        // Modèles nommés seuls (pas les codes 3 chiffres ni "Autres")
+        if (normModel !== 'Autres' && !/^\d{3}$/.test(normModel)) {
+          bumpCount(modeleNamedMap, normModel);
+        }
+        // Répartition premium en 4 catégories
+        var brand_ = s(r[COL.MARQUE]);
+        var isPrem_ = bool(r[COL.PREMIUM]);
+        if (isBudgetBrand_(brand_, normModel)) {
+          premiumBreakdown.budget++;
+        } else if (isPrem_) {
+          premiumBreakdown.confirmed++;
+        } else if (isPremiumCandidateModel_(normModel)) {
+          premiumBreakdown.candidate++;
+        } else {
+          premiumBreakdown.standard++;
+        }
+        // Tendance modèles par semaine
+        if (date) {
+          var wKeyM = fmtWeek(date);
+          if (!modelByWeek[wKeyM]) modelByWeek[wKeyM] = {};
+          modelByWeek[wKeyM][normModel] = (modelByWeek[wKeyM][normModel] || 0) + 1;
+        }
       }
 
       if (bool(r[COL.PREMIUM])) premiumYes++; else premiumNo++;
@@ -372,7 +392,9 @@ var DashboardData_ = (function () {
     out.byArticleType  = toCountArray(typeMap);
     out.byMarque       = toCountArray(marqueMap, { topN: 10 });
     out.byModele       = toCountArray(modeleMap);
+    out.byModeleNamed  = toCountArray(modeleNamedMap);
     out.premium        = { yes: premiumYes, no: premiumNo };
+    out.premiumBreakdown = premiumBreakdown;
 
     // ---- Dimensions ----
     out.byTailleFr = toCountArray(tailleFrMap);
@@ -433,6 +455,16 @@ var DashboardData_ = (function () {
       .map(function (k) {
         return { week: k, avg: Math.round((pricesByWeek[k].sum / pricesByWeek[k].count) * 100) / 100 };
       });
+
+    // Tendance modèles (top 3) par semaine
+    var top3Models = toCountArray(modeleMap).slice(0, 3).map(function (x) { return x.key; });
+    var weekModelKeys = Object.keys(modelByWeek).sort();
+    out.trends.topModels = top3Models;
+    out.trends.modelByWeek = weekModelKeys.map(function (wk) {
+      var row = { week: wk };
+      top3Models.forEach(function (m) { row[m] = (modelByWeek[wk][m] || 0); });
+      return row;
+    });
 
     // ---- Coûts IA ----
     out.costs.total = Math.round(totalCost * 1000000) / 1000000;
