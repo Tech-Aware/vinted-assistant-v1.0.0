@@ -315,12 +315,22 @@ function normalizeFitCategory_(fit) {
 var DEFAULT_BUY_PRICE_HOMME = 9;
 var DEFAULT_BUY_PRICE_FEMME = 6;
 /**
- * Modèles Levi's considérés comme plus désirables.
+ * Modèles Levi's considérés comme désirables / candidats au premium.
+ *
+ * IMPORTANT : cette fonction sert UNIQUEMENT à signaler qu'une pièce
+ * est potentiellement intéressante (501, 505, 550, Ribcage, Silver Tab…).
+ * Elle ne doit JAMAIS déclencher seule le barème premium.
+ *
+ * Le passage en barème premium dépend exclusivement de :
+ *   features.is_premium === true
+ *
+ * Cette information peut être utilisée pour du log ou pour proposer
+ * à l'utilisateur de vérifier manuellement si la pièce mérite premium.
  */
-function isPremiumModel_(model) {
+function isPremiumCandidateModel_(model) {
   if (!model) return false;
   var low = String(model).toLowerCase();
-  var premiums = [
+  var candidates = [
     '501',
     '505',
     '550',
@@ -328,10 +338,19 @@ function isPremiumModel_(model) {
     'silver tab',
     'silvertab'
   ];
-  for (var i = 0; i < premiums.length; i++) {
-    if (low.indexOf(premiums[i]) !== -1) return true;
+  for (var i = 0; i < candidates.length; i++) {
+    if (low.indexOf(candidates[i]) !== -1) return true;
   }
   return false;
+}
+/**
+ * Alias historique conservé pour compatibilité.
+ *
+ * NE PAS utiliser pour décider du barème premium : utiliser
+ * `features.is_premium === true` à la place.
+ */
+function isPremiumModel_(model) {
+  return isPremiumCandidateModel_(model);
 }
 /**
  * Sous-gammes Levi's à traiter avec prudence.
@@ -407,12 +426,14 @@ function hasPricingDefects_(features) {
 /**
  * Calcule le prix conseillé pour un jean Levi's.
  *
- * Philosophie :
- * - Homme acheté moyen 9 € → prix affiché standard 29 €
- * - Femme achetée moyen 6 € → prix affiché standard 24–25 €
- * - x3 comme règle boutique
- * - prix affiché assez haut pour absorber la négociation
- * - baisse si défaut visible
+ * Hiérarchie commerciale (La Seconde Main) :
+ *   1. Denizen / Signature  → barème budget strict (≤ 19 €)
+ *   2. features.is_premium === true → barème premium
+ *   3. Sinon                 → barème Levi's standard
+ *
+ * Un modèle 501 / 505 / 550 / Ribcage / Silver Tab est considéré comme
+ * "candidat premium" (information / suggestion) mais ne déclenche jamais
+ * seul le barème premium.
  */
 function calculateRecommendedPrice_(features) {
   features = features || {};
@@ -420,8 +441,11 @@ function calculateRecommendedPrice_(features) {
   var model = features.model || '';
   var brand = features.brand || '';
   var fit = normalizeFitCategory_(features.fit).toLowerCase();
-  var premium = isPremiumModel_(model) || features.is_premium === true;
-  var budget = !premium && isBudgetBrand_(brand, model);
+  // Le budget Denizen / Signature prime TOUJOURS, même si is_premium=true
+  // ou si le modèle est un candidat premium (501, 505, etc.).
+  var budget = isBudgetBrand_(brand, model);
+  var premium = !budget && features.is_premium === true;
+  var premiumCandidate = isPremiumCandidateModel_(model);
   var hasDefects = hasPricingDefects_(features);
   var sizeNum;
   var result;
@@ -438,6 +462,7 @@ function calculateRecommendedPrice_(features) {
     ' fit=' + fit +
     ' premium=' + premium +
     ' budget=' + budget +
+    ' premiumCandidate=' + premiumCandidate +
     ' hasDefects=' + hasDefects +
     ' size=' + sizeNum +
     ' => price=' + result.price + '€' +
@@ -448,11 +473,13 @@ function calculateRecommendedPrice_(features) {
   return result;
 }
 /**
- * Barème femme.
+ * Barème femme — politique La Seconde Main.
  *
- * Achat moyen : 6 €
- * Standard : 24–25 €
- * Premium : 27–29 €
+ * Denizen / Signature  : 19 € (sans défaut), 16 € (avec défaut), aucune prime grande taille.
+ * Standard             : skinny 24 / droit 24 / évasé 25 ; +1 € si FR ≥ 42 ; plafond 26 €.
+ *                        Avec défaut : skinny 20 / droit 20 / évasé 21.
+ * Premium              : skinny 24 / droit 27 / évasé 27 ; FR ≥ 42 → 29 € max ; plafond 29 €.
+ *                        Avec défaut : 22 € quel que soit le fit.
  */
 function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
   var buyPrice = DEFAULT_BUY_PRICE_FEMME;
@@ -460,45 +487,53 @@ function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
   var price;
   var retail;
   if (budget) {
+    // Denizen / Signature : strictement plafonné à 19 €, jamais de prime grande taille.
     retail = '24–45 €';
-    if (hasDefects) {
-      price = 16;
-    } else {
-      price = bigSize ? 20 : 19;
-    }
+    price = hasDefects ? 16 : 19;
     return buildPricingResult_(price, buyPrice, retail);
   }
   if (premium) {
     retail = '90–130 €';
     if (hasDefects) {
       price = 22;
-    } else if (fit === 'évasé') {
-      price = bigSize ? 29 : 27;
     } else if (fit === 'skinny') {
       price = 24;
     } else {
+      // Droit / évasé / autres : 27 €, 29 € si FR ≥ 42 (plafond premium femme).
       price = bigSize ? 29 : 27;
     }
     return buildPricingResult_(price, buyPrice, retail);
   }
+  // Levi's standard femme.
   retail = '70–110 €';
   if (hasDefects) {
-    price = fit === 'skinny' ? 18 : 20;
+    if (fit === 'évasé') {
+      price = 21;
+    } else {
+      // skinny / droit / autres
+      price = 20;
+    }
   } else if (fit === 'évasé') {
-    price = bigSize ? 26 : 25;
-  } else if (fit === 'skinny') {
-    price = 22;
+    price = 25;
   } else {
-    price = bigSize ? 25 : 24;
+    // skinny / droit / autres
+    price = 24;
+  }
+  // Prime grande taille : +1 € pour FR ≥ 42, uniquement sans défaut,
+  // uniquement sur les vrais Levi's standard. Plafond 26 €.
+  if (bigSize && !hasDefects) {
+    price = Math.min(price + 1, 26);
   }
   return buildPricingResult_(price, buyPrice, retail);
 }
 /**
- * Barème homme.
+ * Barème homme — politique La Seconde Main.
  *
- * Achat moyen : 9 €
- * Standard : 29 €
- * Premium : 32–35 €
+ * Denizen / Signature  : 19 € (sans défaut), 17 € (avec défaut), aucune prime grande taille.
+ * Standard             : skinny 26 / droit 29 / évasé 29 ; W ≥ 38 → droit/évasé 32 € max.
+ *                        Avec défaut : skinny 21 / droit 23 / évasé 23.
+ * Premium              : skinny 29 / droit 32 / évasé 32 ; W ≥ 38 → droit/évasé 35 € max.
+ *                        Avec défaut : 25 € quel que soit le fit.
  */
 function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
   var buyPrice = DEFAULT_BUY_PRICE_HOMME;
@@ -506,59 +541,76 @@ function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
   var price;
   var retail;
   if (budget) {
+    // Denizen / Signature : strictement plafonné à 19 €, jamais de prime grande taille.
     retail = '24–45 €';
-    if (hasDefects) {
-      price = 19;
-    } else {
-      price = bigSize ? 24 : 22;
-    }
+    price = hasDefects ? 17 : 19;
     return buildPricingResult_(price, buyPrice, retail);
   }
   if (premium) {
     retail = '90–130 €';
     if (hasDefects) {
       price = 25;
-    } else if (fit === 'évasé') {
-      price = bigSize ? 35 : 32;
     } else if (fit === 'skinny') {
       price = 29;
     } else {
+      // Droit / évasé / autres : 32 €, 35 € si W ≥ 38 (plafond premium homme).
       price = bigSize ? 35 : 32;
     }
     return buildPricingResult_(price, buyPrice, retail);
   }
+  // Levi's standard homme.
   retail = '70–110 €';
   if (hasDefects) {
-    price = fit === 'skinny' ? 21 : 23;
-  } else if (fit === 'évasé') {
-    price = bigSize ? 32 : 29;
+    if (fit === 'skinny') {
+      price = 21;
+    } else {
+      // droit / évasé / autres
+      price = 23;
+    }
   } else if (fit === 'skinny') {
     price = 26;
   } else {
-    price = bigSize ? 32 : 29;
+    // droit / évasé / autres
+    price = 29;
+  }
+  // Grande taille : W ≥ 38 → droit / évasé valorisés à 32 € max si pièce propre.
+  // Jamais sur Denizen / Signature.
+  if (bigSize && !hasDefects && fit !== 'skinny') {
+    price = 32;
   }
   return buildPricingResult_(price, buyPrice, retail);
 }
 /**
  * Résultat enrichi.
  *
- * price = prix affiché conseillé
+ * price            = prix affiché conseillé (entier, prix rond uniquement)
  * acceptable_price = prix acceptable après négociation
- * floor_price = prix plancher à ne pas descendre sous peine de casser la marge
+ *                    ≈ price * 0.90, jamais > price
+ * floor_price      = prix plancher absolu
+ *                    ≈ price * 0.80, jamais > acceptable_price
+ *
+ * Une protection liée au prix d'achat (x2 / x2.5) est appliquée mais
+ * elle ne peut JAMAIS faire dépasser le prix affiché.
  */
 function buildPricingResult_(price, buyPrice, retail) {
-  var acceptablePrice = Math.max(Math.round(price * 0.90), buyPrice * 2.5);
-  var floorPrice = Math.max(Math.round(price * 0.80), buyPrice * 2);
-  var margin = price - buyPrice;
-  var coefficient = buyPrice > 0 ? price / buyPrice : null;
+  var displayPrice = Math.round(price);
+  // Règle recommandée : acceptable = price * 0.90, floor = price * 0.80.
+  var acceptablePrice = Math.round(displayPrice * 0.90);
+  var floorPrice = Math.round(displayPrice * 0.80);
+  // Garde-fous : acceptable ≤ prix affiché, floor ≤ acceptable, floor ≤ price.
+  if (acceptablePrice > displayPrice) acceptablePrice = displayPrice;
+  if (floorPrice > acceptablePrice) floorPrice = acceptablePrice;
+  if (floorPrice > displayPrice) floorPrice = displayPrice;
+  var margin = displayPrice - buyPrice;
+  var coefficient = buyPrice > 0 ? displayPrice / buyPrice : null;
   return {
-    price: Math.round(price),
+    price: displayPrice,
     retail: retail,
     buy_price_estimate: buyPrice,
     margin_estimate: Math.round(margin * 100) / 100,
     coefficient: coefficient ? Math.round(coefficient * 100) / 100 : null,
-    acceptable_price: Math.round(acceptablePrice),
-    floor_price: Math.round(floorPrice)
+    acceptable_price: acceptablePrice,
+    floor_price: floorPrice
   };
 }
 // ============================================================
