@@ -316,6 +316,28 @@ function normalizeFitCategory_(fit) {
 var DEFAULT_BUY_PRICE_HOMME = 9;
 var DEFAULT_BUY_PRICE_FEMME = 6;
 /**
+ * Table canonique des modèles Levi's nommés reconnus.
+ * Source unique utilisée par normalizeLevisModel_(), KNOWN_NAMED_MODELS et
+ * categorizePremiumSegment_().
+ *
+ * Règle d'ordre : les variantes les plus longues en premier pour éviter
+ * les captures partielles (ex : "mile high" avant "mile").
+ */
+var LEVIS_NAMED_MODELS_ = [
+  { keys: ['mile high'],               label: 'Mile High'  },
+  { keys: ['silver tab', 'silvertab'], label: 'Silver Tab' },
+  { keys: ['ribcage'],                 label: 'Ribcage'    },
+  { keys: ['wedgie'],                  label: 'Wedgie'     },
+  { keys: ['boyfriend'],               label: 'Boyfriend'  },
+  { keys: ['girlfriend'],              label: 'Girlfriend' },
+  { keys: ['denizen'],                 label: 'Denizen'    },
+  { keys: ['signature'],               label: 'Signature'  },
+  { keys: ['chino'],                   label: 'Chino'      },
+  { keys: ['barstow'],                 label: 'Barstow'    }
+];
+/** Labels des modèles nommés dans leur ordre canonique d'affichage. */
+var KNOWN_NAMED_MODELS_ = LEVIS_NAMED_MODELS_.map(function (nm) { return nm.label; });
+/**
  * Modèles Levi's considérés comme désirables / candidats au premium.
  *
  * IMPORTANT : cette fonction sert UNIQUEMENT à signaler qu'une pièce
@@ -332,8 +354,11 @@ function isPremiumCandidateModel_(model) {
   if (!model) return false;
   var low = String(model).toLowerCase();
   var candidates = [
+    // Modèles iconiques à forte cote sur le marché de la seconde main
     '501', '505', '550',
+    // Coupes contemporaines slim/skinny à forte demande
     '720', '721', '724', '725',
+    // Modèles nommés à cote secondaire notable
     'ribcage', 'wedgie', 'mile high',
     'silver tab', 'silvertab'
   ];
@@ -386,27 +411,29 @@ function normalizeLevisModel_(rawModel) {
   if (!modelStr) return 'Autres';
   // Modèles numériques — exactement 3 chiffres
   if (/^\d{3}$/.test(modelStr)) return modelStr;
-  // Modèles nommés — les plus longs en premier pour éviter les captures partielles
+  // Modèles nommés — utilise la table canonique LEVIS_NAMED_MODELS_
   var low = modelStr.toLowerCase();
-  var named = [
-    { keys: ['mile high'],               label: 'Mile High'  },
-    { keys: ['silver tab', 'silvertab'], label: 'Silver Tab' },
-    { keys: ['ribcage'],                 label: 'Ribcage'    },
-    { keys: ['wedgie'],                  label: 'Wedgie'     },
-    { keys: ['boyfriend'],               label: 'Boyfriend'  },
-    { keys: ['girlfriend'],              label: 'Girlfriend' },
-    { keys: ['denizen'],                 label: 'Denizen'    },
-    { keys: ['signature'],               label: 'Signature'  },
-    { keys: ['chino'],                   label: 'Chino'      },
-    { keys: ['barstow'],                 label: 'Barstow'    }
-  ];
-  for (var i = 0; i < named.length; i++) {
-    var nm = named[i];
+  for (var i = 0; i < LEVIS_NAMED_MODELS_.length; i++) {
+    var nm = LEVIS_NAMED_MODELS_[i];
     for (var j = 0; j < nm.keys.length; j++) {
       if (low.indexOf(nm.keys[j]) !== -1) return nm.label;
     }
   }
   return 'Autres';
+}
+/**
+ * Catégorise un jean Levi's dans l'un des 4 segments premium.
+ *
+ * @param {string} brand          - Marque brute (ex : "Levi's", "Denizen")
+ * @param {string} normalizedModel - Résultat de normalizeLevisModel_()
+ * @param {boolean} isPremium     - Valeur de la colonne Premium / is_premium
+ * @returns {'budget'|'confirmed'|'candidate'|'standard'}
+ */
+function categorizePremiumSegment_(brand, normalizedModel, isPremium) {
+  if (isBudgetBrand_(brand, normalizedModel)) return 'budget';
+  if (isPremium) return 'confirmed';
+  if (isPremiumCandidateModel_(normalizedModel)) return 'candidate';
+  return 'standard';
 }
 function parseSizeNumeric_(sizeRaw) {
   if (!sizeRaw) return null;
@@ -1090,15 +1117,8 @@ function ensureStatisticsSheet_(spreadsheet) {
       // Répartition premium (4 catégories)
       var marqueVal = String(values[r][2] || ''); // index 2 = col E (Marque)
       var isPremVal = (values[r][4] === true) || String(values[r][4]).toLowerCase() === 'true'; // index 4 = col G
-      if (isBudgetBrand_(marqueVal, normalized)) {
-        premiumBreakdown.budget++;
-      } else if (isPremVal) {
-        premiumBreakdown.confirmed++;
-      } else if (isPremiumCandidateModel_(normalized)) {
-        premiumBreakdown.candidate++;
-      } else {
-        premiumBreakdown.standard++;
-      }
+      var segment = categorizePremiumSegment_(marqueVal, normalized, isPremVal);
+      premiumBreakdown[segment]++;
     }
     var modelKeys = Object.keys(counts);
     modelKeys.sort(function (a, b) {
@@ -1134,12 +1154,8 @@ function ensureStatisticsSheet_(spreadsheet) {
   var namedModelHeader = ['Modèle', 'Nb'];
   rows.push(namedModelHeader);
   var namedModelHeaderRowIndex = rows.length; // 1-based
-  var KNOWN_NAMED_MODELS = [
-    'Boyfriend', 'Girlfriend', 'Ribcage', 'Wedgie',
-    'Mile High', 'Silver Tab', 'Denizen', 'Signature', 'Chino', 'Barstow'
-  ];
-  for (var nm = 0; nm < KNOWN_NAMED_MODELS.length; nm++) {
-    rows.push([KNOWN_NAMED_MODELS[nm], namedCounts[KNOWN_NAMED_MODELS[nm]] || 0]);
+  for (var nm = 0; nm < KNOWN_NAMED_MODELS_.length; nm++) {
+    rows.push([KNOWN_NAMED_MODELS_[nm], namedCounts[KNOWN_NAMED_MODELS_[nm]] || 0]);
   }
 
   // ---- Section : Par coupe ----

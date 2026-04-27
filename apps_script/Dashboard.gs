@@ -277,15 +277,8 @@ var DashboardData_ = (function () {
         // Répartition premium en 4 catégories
         var brand_ = s(r[COL.MARQUE]);
         var isPrem_ = bool(r[COL.PREMIUM]);
-        if (isBudgetBrand_(brand_, normModel)) {
-          premiumBreakdown.budget++;
-        } else if (isPrem_) {
-          premiumBreakdown.confirmed++;
-        } else if (isPremiumCandidateModel_(normModel)) {
-          premiumBreakdown.candidate++;
-        } else {
-          premiumBreakdown.standard++;
-        }
+        var seg_ = categorizePremiumSegment_(brand_, normModel, isPrem_);
+        premiumBreakdown[seg_]++;
         // Tendance modèles par semaine
         if (date) {
           var wKeyM = fmtWeek(date);
@@ -456,8 +449,11 @@ var DashboardData_ = (function () {
         return { week: k, avg: Math.round((pricesByWeek[k].sum / pricesByWeek[k].count) * 100) / 100 };
       });
 
-    // Tendance modèles (top 3) par semaine
-    var top3Models = toCountArray(modeleMap).slice(0, 3).map(function (x) { return x.key; });
+    // Tendance modèles (top 3) par semaine — "Autres" exclu car trop générique
+    var top3Models = toCountArray(modeleMap)
+      .filter(function (x) { return x.key !== 'Autres'; })
+      .slice(0, 3)
+      .map(function (x) { return x.key; });
     var weekModelKeys = Object.keys(modelByWeek).sort();
     out.trends.topModels = top3Models;
     out.trends.modelByWeek = weekModelKeys.map(function (wk) {

@@ -254,7 +254,7 @@
     renderBar('chart-modele', d.byModele, 'Articles', { horizontal: true });
     renderBar('chart-modele-named', d.byModeleNamed, 'Articles', { horizontal: true });
     // Répartition premium : 4 segments (Budget / Standard / Candidat / Confirmé)
-    var pb = d.premiumBreakdown || {};
+    var pb = d.premiumBreakdown || { budget: 0, standard: 0, candidate: 0, confirmed: 0 };
     renderPie('chart-premium', [
       { key: 'Budget (Denizen…)', count: pb.budget || 0 },
       { key: 'Standard',          count: pb.standard || 0 },
@@ -421,7 +421,8 @@
 
   // Multi-series line chart (évolution de N modèles par semaine)
   function renderMultiLine(elId, weekRows, seriesKeys) {
-    if (!weekRows || weekRows.length === 0 || !seriesKeys || seriesKeys.length === 0) {
+    if (!Array.isArray(weekRows) || weekRows.length === 0 ||
+        !Array.isArray(seriesKeys) || seriesKeys.length === 0) {
       emptyMessage(elId); return;
     }
     var headers = ['Semaine'].concat(seriesKeys);
