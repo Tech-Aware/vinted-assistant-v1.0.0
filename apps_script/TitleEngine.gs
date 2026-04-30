@@ -218,6 +218,37 @@ var TitleEngine = (function() {
       return 'Short Carhartt';
     }
   }
+  function buildTitleShortAdidas(features) {
+    try {
+      var brand = TitleBuilder.normalizeStr(features.brand) || 'Adidas';
+      var model = TitleBuilder.normalizeStr(features.model);
+      var rawSize = TitleBuilder.normalizeStr(features.size);
+      var sizeResult = TitleBuilder.normalizeCarharttSize(rawSize);
+      var size = sizeResult[0];
+      var color = TitleBuilder.normalizeStr(features.color);
+      var gender = TitleBuilder.normalizeStr(features.gender) || 'homme';
+      var technology = TitleBuilder.normalizeStr(features.technology);
+      var pattern = TitleBuilder.normalizeStr(features.pattern);
+      var sku = TitleBuilder.normalizeStr(features.sku);
+      var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
+      var isPremium = features.is_premium || false;
+      var brandLabel = isPremium ? brand + ' Originals' : brand;
+      var parts = ['Short ' + brandLabel];
+      if (model) parts.push(model);
+      parts.push(size ? 'taille ' + size : 'taille NC');
+      if (color) parts.push('couleur ' + color);
+      if (technology) parts.push(technology);
+      if (pattern && pattern.toLowerCase() !== 'uni') parts.push(pattern);
+      if (gender) parts.push(gender);
+      if (sku && skuStatus && skuStatus.toLowerCase() === 'ok') {
+        parts.push(TitleBuilder.SKU_PREFIX + sku);
+      }
+      return TitleBuilder.safeJoin(parts);
+    } catch (e) {
+      Logger.log('buildTitleShortAdidas error: ' + e.message);
+      return 'Short Adidas';
+    }
+  }
   /**
    * Point d'entree unique pour construire les titres.
    */
@@ -227,6 +258,7 @@ var TitleEngine = (function() {
       if (profileName === 'pull') return buildTitlePull(features);
       if (profileName === 'jacket_carhart') return buildTitleJacketCarhart(features);
       if (profileName === 'short_carhart') return buildTitleShortCarhart(features);
+      if (profileName === 'short_adidas') return buildTitleShortAdidas(features);
       return String(features.title || '').trim();
     } catch (e) {
       Logger.log('buildTitle error: ' + e.message);
@@ -238,6 +270,7 @@ var TitleEngine = (function() {
     buildTitleJeanLevis: buildTitleJeanLevis,
     buildTitlePull: buildTitlePull,
     buildTitleJacketCarhart: buildTitleJacketCarhart,
-    buildTitleShortCarhart: buildTitleShortCarhart
+    buildTitleShortCarhart: buildTitleShortCarhart,
+    buildTitleShortAdidas: buildTitleShortAdidas
   };
 })();

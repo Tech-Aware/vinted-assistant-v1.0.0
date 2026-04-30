@@ -338,6 +338,72 @@ var DescriptionEngine = (function() {
       return DescriptionBuilder.safeClean(aiDescription);
     }
   }
+  function buildDescriptionShortAdidas(features, aiDescription, aiDefects) {
+    try {
+      var brand = DescriptionBuilder.safeClean(features.brand) || 'Adidas';
+      brand = brand.charAt(0).toUpperCase() + brand.slice(1);
+      var model = DescriptionBuilder.safeClean(features.model);
+      var rawSize = DescriptionBuilder.safeClean(features.size) || 'NC';
+      var sizeResult = TitleBuilder.normalizeCarharttSize(rawSize);
+      var sizeDisplay = sizeResult[0];
+      var sizeToken = sizeResult[1];
+      var color = DescriptionBuilder.safeClean(features.color);
+      var gender = DescriptionBuilder.safeClean(features.gender) || 'homme';
+      var material = DescriptionBuilder.safeClean(features.material);
+      var technology = DescriptionBuilder.safeClean(features.technology);
+      var pattern = DescriptionBuilder.safeClean(features.pattern);
+      var originCountry = DescriptionBuilder.safeClean(features.origin_country);
+      var hasSidePockets = features.has_side_pockets;
+      var hasDrawstring = features.has_drawstring;
+      // Product sentence
+      var isPremium = features.is_premium || false;
+      var brandLabel = isPremium ? brand + ' Originals' : brand;
+      var productParts = ['Short ' + brandLabel];
+      if (model) productParts.push(model);
+      if (gender) productParts.push('pour ' + gender);
+      productParts.push('taille ' + sizeDisplay);
+      if (color) productParts.push('coloris ' + color);
+      if (originCountry) productParts.push('Made in ' + originCountry);
+      var productSentence = productParts.filter(Boolean).join(' ').replace(/\.$/, '') + '.';
+      // Style sentence
+      var styleDetails = [];
+      if (material) styleDetails.push('tissu ' + material.toLowerCase());
+      if (technology) styleDetails.push('technologie ' + technology);
+      if (hasSidePockets) styleDetails.push('poches latérales');
+      if (hasDrawstring) styleDetails.push('cordon de serrage');
+      if (pattern && pattern.toLowerCase() !== 'uni') styleDetails.push('motif ' + pattern.toLowerCase());
+      var colorIntro = color
+        ? 'Le coloris ' + color.toLowerCase() + " s'associe facilement avec toutes les tenues de sport."
+        : 'Coloris à confirmer sur les photos.';
+      var styleBase = 'Short de sport ' + brand + ', coupe légère et confortable, idéal pour l\'entraînement et les activités sportives.';
+      var styleSentence = styleDetails.length > 0
+        ? styleBase + ' ' + styleDetails.join(', ').replace(/^\w/, function(c) { return c.toUpperCase(); }) + '. ' + colorIntro
+        : styleBase + ' ' + colorIntro;
+      // State
+      var defects = DescriptionBuilder.safeClean(features.defects || aiDefects);
+      var normalizedDefects = DescriptionBuilder.normalizeDefects(defects);
+      var stateSentence = !normalizedDefects
+        ? 'Très bon état, aucun défaut majeur visible. Short propre et bien conservé (voir photos).'
+        : 'Très bon état, ' + normalizedDefects + '. Short propre et bien conservé (voir photos).';
+      // Footer
+      var generalTag = '#durin31hsa';
+      var sTag = sizeToken ? generalTag + sizeToken : '#durin31hsanc';
+      var colorTag = color ? '#' + color.toLowerCase().replace(/\s/g, '') : '';
+      var logisticsLine = features.labels_cut
+        ? '📏 Mesures détaillées visibles en photo pour plus de précisions. Étiquettes coupées pour plus de confort.'
+        : '📏 Mesures détaillées visibles en photo pour plus de précisions.';
+      var shippingLine = '📦 Envoi rapide et soigné.';
+      var ctaLine = '✨ Retrouvez tous mes shorts Adidas ici 👉 ' + generalTag + ' et à votre taille 👉 ' + sTag;
+      var bundleLine = "💡 Pensez à faire un lot pour bénéficier d'une réduction et économiser sur les frais d'envoi.";
+      var hashtagCore = '#adidas #short #sport #durin31';
+      var hashtags = [hashtagCore, sTag, colorTag].filter(Boolean).join(' ');
+      var paragraphs = [productSentence, styleSentence, stateSentence, logisticsLine, shippingLine, ctaLine, bundleLine, hashtags];
+      return paragraphs.filter(Boolean).join('\n\n');
+    } catch (e) {
+      Logger.log('buildDescriptionShortAdidas error: ' + e.message);
+      return DescriptionBuilder.safeClean(aiDescription);
+    }
+  }
   /**
    * Point d'entree unique pour construire les descriptions.
    */
@@ -347,6 +413,7 @@ var DescriptionEngine = (function() {
       if (profileName === 'pull') return buildDescriptionPull(features, aiDescription, aiDefects);
       if (profileName === 'jacket_carhart') return buildDescriptionJacketCarhart(features, aiDescription, aiDefects);
       if (profileName === 'short_carhart') return buildDescriptionShortCarhart(features, aiDescription, aiDefects);
+      if (profileName === 'short_adidas') return buildDescriptionShortAdidas(features, aiDescription, aiDefects);
       return (aiDescription || '').trim();
     } catch (e) {
       Logger.log('buildDescription error: ' + e.message);

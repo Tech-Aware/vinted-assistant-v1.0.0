@@ -164,8 +164,45 @@ var Templates = (function() {
         },
         required: ['ai', 'title', 'description', 'brand', 'features']
       }
+    },
+    short_adidas: {
+      name: 'short_adidas',
+      label: 'Short Adidas',
+      promptSuffix: '\nSelected analysis profile: "short_adidas"\nYou MUST include the "features" object as defined in the EXTENDED OUTPUT section for short_adidas.\n\nJSON ONLY.',
+      jsonSchema: {
+        type: 'object',
+        properties: {
+          ai: { type: 'object' },
+          title: { type: 'string' },
+          description: { type: 'string' },
+          brand: { type: ['string', 'null'] },
+          style: { type: ['string', 'null'] },
+          pattern: { type: ['string', 'null'] },
+          season: { type: ['string', 'null'] },
+          defects: { type: ['string', 'null'] },
+          features: {
+            type: 'object',
+            properties: {
+              brand: { type: ['string', 'null'] },
+              model: { type: ['string', 'null'] },
+              size: { type: ['string', 'null'] },
+              color: { type: ['string', 'null'] },
+              gender: { type: ['string', 'null'] },
+              material: { type: ['string', 'null'] },
+              technology: { type: ['string', 'null'] },
+              has_side_pockets: { type: ['boolean', 'null'] },
+              has_drawstring: { type: ['boolean', 'null'] },
+              pattern: { type: ['string', 'null'] },
+              origin_country: { type: ['string', 'null'] },
+              is_premium: { type: ['boolean', 'null'] },
+              sku: { type: ['string', 'null'] },
+              sku_status: { type: 'string' }
+            }
+          }
+        },
+        required: ['ai', 'title', 'description', 'brand', 'features']
+      }
     }
-  };
   return {
     getProfile: function(name) {
       return PROFILES[name] || null;
