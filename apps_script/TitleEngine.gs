@@ -190,6 +190,34 @@ var TitleEngine = (function() {
       return 'Veste Carhartt';
     }
   }
+  function buildTitleShortCarhart(features) {
+    try {
+      var brand = TitleBuilder.normalizeStr(features.brand) || 'Carhartt';
+      var rawSize = TitleBuilder.normalizeStr(features.size);
+      var sizeResult = TitleBuilder.normalizeCarharttSize(rawSize);
+      var size = sizeResult[0];
+      var color = TitleBuilder.normalizeStr(features.color);
+      var gender = TitleBuilder.normalizeStr(features.gender) || 'homme';
+      var pattern = TitleBuilder.normalizeStr(features.pattern);
+      var sku = TitleBuilder.normalizeStr(features.sku);
+      var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
+      var isPremium = features.is_premium || false;
+      var parts = ['Short Carhartt'];
+      if (isPremium) parts.push('Premium');
+      if (brand && brand.toLowerCase() !== 'carhartt') parts.push(brand);
+      parts.push(size ? 'taille ' + size : 'taille NC');
+      if (color) parts.push('couleur ' + color);
+      if (pattern && pattern.toLowerCase() === 'camouflage') parts.push('camouflage');
+      if (gender) parts.push(gender);
+      if (sku && skuStatus && skuStatus.toLowerCase() === 'ok') {
+        parts.push(TitleBuilder.SKU_PREFIX + sku);
+      }
+      return TitleBuilder.safeJoin(parts);
+    } catch (e) {
+      Logger.log('buildTitleShortCarhart error: ' + e.message);
+      return 'Short Carhartt';
+    }
+  }
   /**
    * Point d'entree unique pour construire les titres.
    */
@@ -198,6 +226,7 @@ var TitleEngine = (function() {
       if (profileName === 'jean_levis') return buildTitleJeanLevis(features);
       if (profileName === 'pull') return buildTitlePull(features);
       if (profileName === 'jacket_carhart') return buildTitleJacketCarhart(features);
+      if (profileName === 'short_carhart') return buildTitleShortCarhart(features);
       return String(features.title || '').trim();
     } catch (e) {
       Logger.log('buildTitle error: ' + e.message);
@@ -208,6 +237,7 @@ var TitleEngine = (function() {
     buildTitle: buildTitle,
     buildTitleJeanLevis: buildTitleJeanLevis,
     buildTitlePull: buildTitlePull,
-    buildTitleJacketCarhart: buildTitleJacketCarhart
+    buildTitleJacketCarhart: buildTitleJacketCarhart,
+    buildTitleShortCarhart: buildTitleShortCarhart
   };
 })();

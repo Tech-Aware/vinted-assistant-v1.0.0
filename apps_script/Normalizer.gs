@@ -10,7 +10,7 @@ var Normalizer = (function() {
   function coerceProfileName(name) {
     if (!name) return null;
     var value = String(name).trim().toLowerCase();
-    var allowed = ['jean_levis', 'pull', 'jacket_carhart'];
+    var allowed = ['jean_levis', 'pull', 'jacket_carhart', 'short_carhart'];
     return allowed.indexOf(value) !== -1 ? value : null;
   }
   function normalizeSizes(features) {
@@ -409,6 +409,66 @@ var Normalizer = (function() {
       labels_cut: uiData.labels_cut || false
     };
   }
+  function buildFeaturesForShortCarhart(aiData, uiData) {
+    uiData = uiData || {};
+    var rawFeatures = aiData.features || {};
+    var title = aiData.title || '';
+    var description = aiData.description || '';
+    var fullText = (title + ' ' + description).trim();
+    var brand = rawFeatures.brand || aiData.brand || 'Carhartt';
+    var model = rawFeatures.model || aiData.model;
+    var size = uiData.size || rawFeatures.size || aiData.size;
+    var color = rawFeatures.color || aiData.color;
+    if (!color) color = TextExtractors.extractColorFromText(fullText);
+    var gender = uiData.gender || rawFeatures.gender || aiData.gender;
+    var material = rawFeatures.material || aiData.material;
+    var closure = rawFeatures.closure || aiData.closure;
+    var pattern = rawFeatures.pattern || aiData.pattern;
+    var originCountry = rawFeatures.origin_country || aiData.origin_country;
+    if (!originCountry) originCountry = TextExtractors.extractOriginCountryFromText(fullText);
+    var hasCargoPockets = rawFeatures.has_cargo_pockets;
+    if (hasCargoPockets == null) hasCargoPockets = TextExtractors.detectFlagFromText(fullText, ['cargo', 'rabat', 'poche latérale', 'poche laterale']);
+    var hasBeltLoops = rawFeatures.has_belt_loops;
+    if (hasBeltLoops == null) hasBeltLoops = TextExtractors.detectFlagFromText(fullText, ['passant', 'belt loop', 'ceinture']);
+    // SKU HSC
+    var skuFromUi = uiData.sku;
+    var skuFromAi = rawFeatures.sku || aiData.sku;
+    var sku = null;
+    var skuStatus;
+    if (skuFromUi) {
+      sku = zeroPadSkuNumber(TextExtractors.normalizeHscSku(skuFromUi));
+      skuStatus = sku ? 'ok' : 'low_confidence';
+    } else {
+      var normalizedAiSku = zeroPadSkuNumber(TextExtractors.normalizeHscSku(skuFromAi));
+      if (normalizedAiSku) { sku = normalizedAiSku; skuStatus = 'ok'; }
+      else { sku = null; skuStatus = 'missing'; }
+    }
+    var orderId = zeroPadOrderId(uiData.order_id) || null;
+    var condition = uiData.condition || rawFeatures.condition || 'tres bon etat';
+    var isPremium = rawFeatures.is_premium || false;
+    if (!isPremium) {
+      isPremium = TextExtractors.detectFlagFromText(fullText, ['carhartt wip', 'work in progress', 'made in usa', 'made in u.s.a']);
+    }
+    return {
+      brand: brand,
+      model: model,
+      size: size,
+      color: color,
+      gender: gender || 'homme',
+      material: material,
+      closure: closure,
+      has_cargo_pockets: hasCargoPockets,
+      has_belt_loops: hasBeltLoops,
+      pattern: pattern,
+      origin_country: originCountry,
+      is_premium: isPremium,
+      sku: sku,
+      sku_status: skuStatus,
+      order_id: orderId,
+      condition: condition,
+      labels_cut: uiData.labels_cut || false
+    };
+  }
   // =====================================================
   // Normalisation marque pull
   // =====================================================
@@ -445,6 +505,7 @@ var Normalizer = (function() {
     if (profile === 'jean_levis') features = buildFeaturesForJeanLevis(aiData, uiData);
     else if (profile === 'pull') features = buildFeaturesForPull(aiData, uiData);
     else if (profile === 'jacket_carhart') features = buildFeaturesForJacketCarhart(aiData, uiData);
+    else if (profile === 'short_carhart') features = buildFeaturesForShortCarhart(aiData, uiData);
     else features = aiData.features || {};
     // Construire titre
     var title = TitleEngine.buildTitle(profile, features);
@@ -469,6 +530,7 @@ var Normalizer = (function() {
     buildFeaturesForJeanLevis: buildFeaturesForJeanLevis,
     buildFeaturesForPull: buildFeaturesForPull,
     buildFeaturesForJacketCarhart: buildFeaturesForJacketCarhart,
+    buildFeaturesForShortCarhart: buildFeaturesForShortCarhart,
     normalizePullBrand: normalizePullBrand,
     coerceProfileName: coerceProfileName,
     normalizeSizes: normalizeSizes,

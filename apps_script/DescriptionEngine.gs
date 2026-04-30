@@ -273,6 +273,71 @@ var DescriptionEngine = (function() {
       return DescriptionBuilder.safeClean(aiDescription);
     }
   }
+  function buildDescriptionShortCarhart(features, aiDescription, aiDefects) {
+    try {
+      var brand = DescriptionBuilder.safeClean(features.brand) || 'Carhartt';
+      brand = brand.charAt(0).toUpperCase() + brand.slice(1);
+      var model = DescriptionBuilder.safeClean(features.model);
+      var rawSize = DescriptionBuilder.safeClean(features.size) || 'NC';
+      var sizeResult = TitleBuilder.normalizeCarharttSize(rawSize);
+      var sizeDisplay = sizeResult[0];
+      var sizeToken = sizeResult[1];
+      var color = DescriptionBuilder.safeClean(features.color);
+      var gender = DescriptionBuilder.safeClean(features.gender) || 'homme';
+      var material = DescriptionBuilder.safeClean(features.material);
+      var closure = DescriptionBuilder.safeClean(features.closure);
+      var pattern = DescriptionBuilder.safeClean(features.pattern);
+      var originCountry = DescriptionBuilder.safeClean(features.origin_country);
+      var hasCargoPockets = features.has_cargo_pockets;
+      var hasBeltLoops = features.has_belt_loops;
+      // Product sentence
+      var isPremium = features.is_premium || false;
+      var productParts = [isPremium ? 'Short ' + brand + ' Premium' : 'Short ' + brand];
+      if (model && /^\d+$/.test(model)) productParts.push(model);
+      if (gender) productParts.push('pour ' + gender);
+      productParts.push('taille ' + sizeDisplay);
+      if (color) productParts.push('coloris ' + color);
+      if (originCountry) productParts.push('Made in ' + originCountry);
+      var productSentence = productParts.filter(Boolean).join(' ').replace(/\.$/, '') + '.';
+      // Style sentence
+      var styleDetails = [];
+      if (material) styleDetails.push('tissu ' + material.toLowerCase());
+      if (hasCargoPockets) styleDetails.push('poches cargo latérales');
+      if (hasBeltLoops) styleDetails.push('passants de ceinture');
+      if (closure) styleDetails.push('fermeture ' + closure.toLowerCase());
+      if (pattern && pattern.toLowerCase() !== 'uni') styleDetails.push('motif ' + pattern.toLowerCase());
+      var colorIntro = color
+        ? 'Le coloris ' + color.toLowerCase() + " sobre s'associe facilement avec toutes les tenues."
+        : 'Coloris à confirmer sur les photos.';
+      var styleBase = 'Short iconique Carhartt, coupe workwear décontractée, idéal pour la saison chaude.';
+      var styleSentence = styleDetails.length > 0
+        ? styleBase + ' ' + styleDetails.join(', ').replace(/^\w/, function(c) { return c.toUpperCase(); }) + '. ' + colorIntro
+        : styleBase + ' ' + colorIntro;
+      // State
+      var defects = DescriptionBuilder.safeClean(features.defects || aiDefects);
+      var normalizedDefects = DescriptionBuilder.normalizeDefects(defects);
+      var stateSentence = !normalizedDefects
+        ? 'Très bon état, aucun défaut majeur visible. Short propre et bien conservé (voir photos).'
+        : 'Très bon état, ' + normalizedDefects + '. Short propre et bien conservé (voir photos).';
+      // Footer
+      var generalTag = '#durin31hsc';
+      var sTag = sizeToken ? generalTag + sizeToken : '#durin31hscnc';
+      var colorTag = color ? '#' + color.toLowerCase().replace(/\s/g, '') : '';
+      var logisticsLine = features.labels_cut
+        ? '📏 Mesures détaillées visibles en photo pour plus de précisions. Étiquettes coupées pour plus de confort.'
+        : '📏 Mesures détaillées visibles en photo pour plus de précisions.';
+      var shippingLine = '📦 Envoi rapide et soigné.';
+      var ctaLine = '✨ Retrouvez tous mes shorts Carhartt ici 👉 ' + generalTag + ' et à votre taille 👉 ' + sTag;
+      var bundleLine = "💡 Pensez à faire un lot pour bénéficier d'une réduction et économiser sur les frais d'envoi.";
+      var hashtagCore = '#carhartt #short #workwear #durin31';
+      var hashtags = [hashtagCore, sTag, colorTag].filter(Boolean).join(' ');
+      var paragraphs = [productSentence, styleSentence, stateSentence, logisticsLine, shippingLine, ctaLine, bundleLine, hashtags];
+      return paragraphs.filter(Boolean).join('\n\n');
+    } catch (e) {
+      Logger.log('buildDescriptionShortCarhart error: ' + e.message);
+      return DescriptionBuilder.safeClean(aiDescription);
+    }
+  }
   /**
    * Point d'entree unique pour construire les descriptions.
    */
@@ -281,6 +346,7 @@ var DescriptionEngine = (function() {
       if (profileName === 'jean_levis') return buildDescriptionJeanLevis(features, aiDescription, aiDefects);
       if (profileName === 'pull') return buildDescriptionPull(features, aiDescription, aiDefects);
       if (profileName === 'jacket_carhart') return buildDescriptionJacketCarhart(features, aiDescription, aiDefects);
+      if (profileName === 'short_carhart') return buildDescriptionShortCarhart(features, aiDescription, aiDefects);
       return (aiDescription || '').trim();
     } catch (e) {
       Logger.log('buildDescription error: ' + e.message);
