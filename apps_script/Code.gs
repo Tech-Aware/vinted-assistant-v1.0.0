@@ -244,6 +244,12 @@ function rebuildListing(params) {
     if (profileName === 'jean_levis' && features.fit) {
       features.fit = normalizeFitCategory_(features.fit);
     }
+    // Normaliser l'état utilisateur AVANT pricing / title / description :
+    // les corrections UI ("bon état", "good", etc.) doivent toujours être
+    // ramenées à l'une des 3 valeurs canoniques attendues par les moteurs.
+    if (profileName === 'jean_levis' && features.condition) {
+      features.condition = Normalizer.normalizeJeanConditionLabel(features.condition);
+    }
     // Injecter les defauts IA dans features pour le pricing
     if (!features.defects && aiDefects) {
       features.defects = aiDefects;
@@ -497,6 +503,39 @@ function hasPricingDefects_(features) {
   return defectsText.length > 0;
 }
 /**
+ * Niveau d'état pour le pricing.
+ *
+ *   "defect"    : satisfaisant ou défaut textuel détecté → barème défaut existant
+ *   "good"      : bon état général → baisse intermédiaire (-2 €) sur le prix
+ *                 sans défaut, sans entrer dans le barème défaut
+ *   "very_good" : très bon état (défaut) → prix normal sans défaut
+ *
+ * On réutilise hasPricingDefects_() pour conserver la logique défauts existante
+ * (textes "tache", "trou", "satisfaisant", etc.) sans la réécrire.
+ */
+function getConditionPricingLevel_(features) {
+  features = features || {};
+  if (hasPricingDefects_(features)) return 'defect';
+  var condition = String(features.condition || '').toLowerCase().trim();
+  if (condition === 'bon état général' || condition === 'bon etat general') {
+    return 'good';
+  }
+  return 'very_good';
+}
+/**
+ * Applique l'ajustement "bon état général" sur un prix sans défaut.
+ *
+ * Règle métier : bon état général doit toujours produire un prix
+ * STRICTEMENT INFÉRIEUR au prix très bon état. On applique -2 €
+ * en garantissant un plancher cohérent (>= 1 €) pour ne jamais
+ * tomber à 0 ou en négatif sur les barèmes les plus bas.
+ */
+function applyGoodConditionDiscount_(price) {
+  var adjusted = price - 2;
+  if (adjusted < 1) adjusted = 1;
+  return adjusted;
+}
+/**
  * Calcule le prix conseillé pour un jean Levi's.
  *
  * Hiérarchie commerciale (La Seconde Main) :
@@ -520,14 +559,15 @@ function calculateRecommendedPrice_(features) {
   var premium = !budget && features.is_premium === true;
   var premiumCandidate = isPremiumCandidateModel_(model);
   var hasDefects = hasPricingDefects_(features);
+  var conditionLevel = getConditionPricingLevel_(features);
   var sizeNum;
   var result;
   if (gender === 'homme') {
     sizeNum = parseSizeNumeric_(features.size_us);
-    result = priceHomme_(premium, budget, fit, sizeNum, hasDefects);
+    result = priceHomme_(premium, budget, fit, sizeNum, hasDefects, conditionLevel);
   } else {
     sizeNum = parseSizeNumeric_(features.size_fr);
-    result = priceFemme_(premium, budget, fit, sizeNum, hasDefects);
+    result = priceFemme_(premium, budget, fit, sizeNum, hasDefects, conditionLevel);
   }
   Logger.log(
     'calculateRecommendedPrice_: gender=' + gender +
@@ -537,6 +577,7 @@ function calculateRecommendedPrice_(features) {
     ' budget=' + budget +
     ' premiumCandidate=' + premiumCandidate +
     ' hasDefects=' + hasDefects +
+    ' conditionLevel=' + conditionLevel +
     ' size=' + sizeNum +
     ' => price=' + result.price + '€' +
     ' acceptable=' + result.acceptable_price + '€' +
@@ -554,15 +595,17 @@ function calculateRecommendedPrice_(features) {
  * Premium              : skinny 24 / droit 27 / évasé 27 ; FR ≥ 42 → 29 € max ; plafond 29 €.
  *                        Avec défaut : 22 € quel que soit le fit.
  */
-function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
+function priceFemme_(premium, budget, fit, sizeNum, hasDefects, conditionLevel) {
   var buyPrice = DEFAULT_BUY_PRICE_FEMME;
   var bigSize = !!(sizeNum && sizeNum >= 42);
   var price;
   var retail;
+  var isGood = (conditionLevel === 'good');
   if (budget) {
     // Denizen / Signature : strictement plafonné à 19 €, jamais de prime grande taille.
     retail = '24–45 €';
     price = hasDefects ? 16 : 19;
+    if (isGood && !hasDefects) price = applyGoodConditionDiscount_(price);
     return buildPricingResult_(price, buyPrice, retail);
   }
   if (premium) {
@@ -575,6 +618,7 @@ function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
       // Droit / évasé / autres : 27 €, 29 € si FR ≥ 42 (plafond premium femme).
       price = bigSize ? 29 : 27;
     }
+    if (isGood && !hasDefects) price = applyGoodConditionDiscount_(price);
     return buildPricingResult_(price, buyPrice, retail);
   }
   // Levi's standard femme.
@@ -597,6 +641,7 @@ function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
   if (bigSize && !hasDefects) {
     price = Math.min(price + 1, 26);
   }
+  if (isGood && !hasDefects) price = applyGoodConditionDiscount_(price);
   return buildPricingResult_(price, buyPrice, retail);
 }
 /**
@@ -608,15 +653,17 @@ function priceFemme_(premium, budget, fit, sizeNum, hasDefects) {
  * Premium              : skinny 29 / droit 32 / évasé 32 ; W ≥ 38 → droit/évasé 35 € max.
  *                        Avec défaut : 25 € quel que soit le fit.
  */
-function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
+function priceHomme_(premium, budget, fit, sizeNum, hasDefects, conditionLevel) {
   var buyPrice = DEFAULT_BUY_PRICE_HOMME;
   var bigSize = !!(sizeNum && sizeNum >= 38);
   var price;
   var retail;
+  var isGood = (conditionLevel === 'good');
   if (budget) {
     // Denizen / Signature : strictement plafonné à 19 €, jamais de prime grande taille.
     retail = '24–45 €';
     price = hasDefects ? 17 : 19;
+    if (isGood && !hasDefects) price = applyGoodConditionDiscount_(price);
     return buildPricingResult_(price, buyPrice, retail);
   }
   if (premium) {
@@ -629,6 +676,7 @@ function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
       // Droit / évasé / autres : 32 €, 35 € si W ≥ 38 (plafond premium homme).
       price = bigSize ? 35 : 32;
     }
+    if (isGood && !hasDefects) price = applyGoodConditionDiscount_(price);
     return buildPricingResult_(price, buyPrice, retail);
   }
   // Levi's standard homme.
@@ -651,6 +699,7 @@ function priceHomme_(premium, budget, fit, sizeNum, hasDefects) {
   if (bigSize && !hasDefects && fit !== 'skinny') {
     price = 32;
   }
+  if (isGood && !hasDefects) price = applyGoodConditionDiscount_(price);
   return buildPricingResult_(price, buyPrice, retail);
 }
 /**

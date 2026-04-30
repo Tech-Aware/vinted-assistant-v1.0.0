@@ -14,19 +14,26 @@ var TitleBuilder = (function() {
   function normalizeFit(value) {
     if (!value) return null;
     var v = value.trim().toLowerCase();
-    if (v.indexOf('slim') !== -1 || v.indexOf('skinny') !== -1) return 'Skinny';
-    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered'];
+    // Évasé first
+    var evaseMarkers = ['bootcut', 'boot cut', 'flare', 'évasé', 'evase', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'];
+    for (var k = 0; k < evaseMarkers.length; k++) {
+      if (v.indexOf(evaseMarkers[k]) !== -1) return 'Évasé';
+    }
+    // Droit avant skinny/slim (pour capter "slim straight", "slim taper", etc.)
+    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered', 'taper'];
     for (var i = 0; i < droitMarkers.length; i++) {
       if (v.indexOf(droitMarkers[i]) !== -1) return 'Droit';
     }
-    var evaseMarkers = ['bootcut', 'boot cut', 'flare', 'évasé', 'evase', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'];
-    for (var j = 0; j < evaseMarkers.length; j++) {
-      if (v.indexOf(evaseMarkers[j]) !== -1) return 'Évasé';
-    }
+    // Skinny / slim pur en dernier recours
+    if (v.indexOf('slim') !== -1 || v.indexOf('skinny') !== -1) return 'Skinny';
     return value.trim();
   }
   function formatFitDisplay(fitOriginal, fitNormalized) {
     if (!fitNormalized) return null;
+    // Règle stable : pour la coupe Droit, on affiche toujours
+    // "Straight/Droit" afin de couvrir l'intention bilingue dans le titre,
+    // les hashtags et la navigation Vinted, quel que soit fitOriginal.
+    if (fitNormalized === 'Droit') return 'Straight/Droit';
     if (!fitOriginal) return fitNormalized;
     var standardLabels = ['skinny', 'droit', 'évasé'];
     var orig = fitOriginal.trim();

@@ -38,15 +38,18 @@ var DescriptionBuilder = (function() {
     var low = value.toLowerCase();
     var secondaryLow = (modelHint || '').trim().toLowerCase();
     var combined = low + ' ' + secondaryLow;
-    if (combined.indexOf('skinny') !== -1 || combined.indexOf('slim') !== -1) return 'Skinny';
-    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered'];
-    for (var i = 0; i < droitMarkers.length; i++) {
-      if (combined.indexOf(droitMarkers[i]) !== -1) return 'Droit';
-    }
+    // Évasé first
     var evaseMarkers = ['boot', 'flare', 'évas', 'evase', 'curve', 'curvy', 'wide', 'baggy', 'loose', 'relaxed', 'barrel'];
     for (var j = 0; j < evaseMarkers.length; j++) {
       if (combined.indexOf(evaseMarkers[j]) !== -1) return 'Évasé';
     }
+    // Droit avant skinny/slim (capte "slim straight", "slim taper", etc.)
+    var droitMarkers = ['straight', 'droit', 'mom', 'boyfriend', 'girlfriend', 'regular', 'tapered', 'taper'];
+    for (var i = 0; i < droitMarkers.length; i++) {
+      if (combined.indexOf(droitMarkers[i]) !== -1) return 'Droit';
+    }
+    // Skinny / slim pur en dernier
+    if (combined.indexOf('skinny') !== -1 || combined.indexOf('slim') !== -1) return 'Skinny';
     return value || 'coupe non précisée';
   }
   function normalizePullSize(size) {
