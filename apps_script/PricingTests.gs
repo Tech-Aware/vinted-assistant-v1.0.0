@@ -157,6 +157,37 @@ function testPricingJeanLevis_() {
       name: 'Signature homme is_premium=true sans défaut → budget prime 19 €',
       features: { gender: 'homme', brand: 'Levi\'s Signature', model: '', fit: 'Droit', is_premium: true },
       expected: 19
+    },
+    // --- Nouveau niveau "bon état général" : -2 € sur le prix sans défaut ---
+    {
+      name: 'Levi\'s homme standard droit bon état général → 27 €',
+      features: { gender: 'homme', brand: 'Levi\'s', model: '', fit: 'Droit', condition: 'bon état général' },
+      expected: 27
+    },
+    {
+      name: 'Levi\'s femme standard droit bon état général → 22 €',
+      features: { gender: 'femme', brand: 'Levi\'s', model: '', fit: 'Droit', condition: 'bon état général' },
+      expected: 22
+    },
+    {
+      name: 'Levi\'s femme standard évasé bon état général → 23 €',
+      features: { gender: 'femme', brand: 'Levi\'s', model: '', fit: 'Évasé', condition: 'bon état général' },
+      expected: 23
+    },
+    {
+      name: 'Denizen homme bon état général → 17 € (toujours < très bon)',
+      features: { gender: 'homme', brand: 'Denizen from Levi\'s', model: '', fit: 'Droit', condition: 'bon état général' },
+      expected: 17
+    },
+    {
+      name: 'Denizen femme bon état général → 17 € (toujours < très bon)',
+      features: { gender: 'femme', brand: 'Denizen from Levi\'s', model: '', fit: 'Droit', condition: 'bon état général' },
+      expected: 17
+    },
+    {
+      name: 'Levi\'s homme premium droit bon état général → 30 €',
+      features: { gender: 'homme', brand: 'Levi\'s', model: '', fit: 'Droit', is_premium: true, condition: 'bon état général' },
+      expected: 30
     }
   ];
   var failures = [];
