@@ -189,6 +189,11 @@ function generateListing(params) {
       if (pricingResult.retail) {
         normalized.features.retail_price_range = pricingResult.retail;
       }
+    } else if (profileName === 'short_adidas') {
+      pricingResult = calculateShortAdidasPrice_(normalized.features || {});
+      if (pricingResult.retail) {
+        normalized.features.retail_price_range = pricingResult.retail;
+      }
     }
     // Reconstruire titre/description avec la taille FR corrigee
     normalized.title = TitleEngine.buildTitle(profileName, normalized.features);
@@ -261,6 +266,11 @@ function rebuildListing(params) {
       if (rebuildPricing && rebuildPricing.retail) {
         features.retail_price_range = rebuildPricing.retail;
       }
+    } else if (profileName === 'short_adidas') {
+      rebuildPricing = calculateShortAdidasPrice_(features);
+      if (rebuildPricing && rebuildPricing.retail) {
+        features.retail_price_range = rebuildPricing.retail;
+      }
     }
     var title = TitleEngine.buildTitle(profileName, features);
     var description = DescriptionEngine.buildDescription(profileName, features, aiDescription, aiDefects);
@@ -321,6 +331,9 @@ function normalizeFitCategory_(fit) {
 // ============================================================
 var DEFAULT_BUY_PRICE_HOMME = 9;
 var DEFAULT_BUY_PRICE_FEMME = 6;
+// Prix d'achat unitaire des shorts Adidas (lot d'achat fournisseur).
+// Sert de base à la stratégie de rotation rapide (x3 / x2,5 / x2).
+var DEFAULT_BUY_PRICE_SHORT_ADIDAS = 4.98;
 /**
  * Table canonique des modèles Levi's nommés reconnus.
  * Source unique utilisée par normalizeLevisModel_(), KNOWN_NAMED_MODELS et
@@ -735,6 +748,67 @@ function buildPricingResult_(price, buyPrice, retail) {
     floor_price: floorPrice
   };
 }
+/**
+ * Pricing — short Adidas (rotation rapide).
+ *
+ * Stratégie produit : sourcing massif à 4,98 € l'unité, objectif rotation
+ * rapide sur Vinted. Le prix conseillé n'est pas indexé sur le retail neuf
+ * mais sur le prix d'achat, avec 3 paliers multiplicatifs :
+ *
+ *   - x3   → prix conseillé affiché          (~ 15 €)
+ *   - x2,5 → prix acceptable après négociation (~ 12 €)
+ *   - x2   → prix plancher absolu             (~ 10 €)
+ *
+ * En cas de défaut ou de "bon état général", on rétrograde d'un cran :
+ * prix conseillé = x2,5, acceptable = x2, plancher = x1,8 (jamais < 1 €).
+ *
+ * Les paliers sont arrondis à l'euro pour rester sur des prix ronds.
+ *
+ * @param {Object} features
+ * @returns {Object} même forme que buildPricingResult_()
+ */
+function calculateShortAdidasPrice_(features) {
+  features = features || {};
+  var buyPrice = DEFAULT_BUY_PRICE_SHORT_ADIDAS;
+  var hasDefects = hasPricingDefects_(features);
+  var conditionLevel = getConditionPricingLevel_(features);
+  var downgrade = hasDefects || conditionLevel === 'good';
+  var displayPrice, acceptablePrice, floorPrice;
+  if (downgrade) {
+    displayPrice = Math.round(buyPrice * 2.5);  // ≈ 12 €
+    acceptablePrice = Math.round(buyPrice * 2); // ≈ 10 €
+    floorPrice = Math.round(buyPrice * 1.8);    // ≈ 9 €
+  } else {
+    displayPrice = Math.round(buyPrice * 3);    // ≈ 15 €
+    acceptablePrice = Math.round(buyPrice * 2.5); // ≈ 12 €
+    floorPrice = Math.round(buyPrice * 2);      // ≈ 10 €
+  }
+  // Garde-fous (cohérents avec buildPricingResult_).
+  if (acceptablePrice > displayPrice) acceptablePrice = displayPrice;
+  if (floorPrice > acceptablePrice) floorPrice = acceptablePrice;
+  if (floorPrice < 1) floorPrice = 1;
+  var retail = '20–35 €';
+  var margin = displayPrice - buyPrice;
+  var coefficient = buyPrice > 0 ? displayPrice / buyPrice : null;
+  Logger.log(
+    'calculateShortAdidasPrice_: defects=' + hasDefects +
+    ' condition=' + conditionLevel +
+    ' downgrade=' + downgrade +
+    ' => price=' + displayPrice + '€' +
+    ' acceptable=' + acceptablePrice + '€' +
+    ' floor=' + floorPrice + '€' +
+    ' coefficient=' + (coefficient ? Math.round(coefficient * 100) / 100 : null)
+  );
+  return {
+    price: displayPrice,
+    retail: retail,
+    buy_price_estimate: buyPrice,
+    margin_estimate: Math.round(margin * 100) / 100,
+    coefficient: coefficient ? Math.round(coefficient * 100) / 100 : null,
+    acceptable_price: acceptablePrice,
+    floor_price: floorPrice
+  };
+}
 // ============================================================
 // Logging dans Google Sheets
 // ============================================================
@@ -1027,6 +1101,9 @@ function logGenerationToSheet(result, params) {
     if (!price && profileName === 'jean_levis') {
       var priceResult = calculateRecommendedPrice_(features);
       if (priceResult && priceResult.price) price = priceResult.price;
+    } else if (!price && profileName === 'short_adidas') {
+      var priceResultAdidas = calculateShortAdidasPrice_(features);
+      if (priceResultAdidas && priceResultAdidas.price) price = priceResultAdidas.price;
     }
     // Horodatage precis de la generation (colonne Timestamp)
     var now = new Date();

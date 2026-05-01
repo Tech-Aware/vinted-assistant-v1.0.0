@@ -342,63 +342,125 @@ var DescriptionEngine = (function() {
     try {
       var brand = DescriptionBuilder.safeClean(features.brand) || 'Adidas';
       brand = brand.charAt(0).toUpperCase() + brand.slice(1);
-      var model = DescriptionBuilder.safeClean(features.model);
       var rawSize = DescriptionBuilder.safeClean(features.size) || 'NC';
       var sizeResult = TitleBuilder.normalizeCarharttSize(rawSize);
       var sizeDisplay = sizeResult[0];
-      var sizeToken = sizeResult[1];
+      var sizeToken = sizeResult[1] || 'nc';
       var color = DescriptionBuilder.safeClean(features.color);
       var gender = DescriptionBuilder.safeClean(features.gender) || 'homme';
       var material = DescriptionBuilder.safeClean(features.material);
       var technology = DescriptionBuilder.safeClean(features.technology);
       var pattern = DescriptionBuilder.safeClean(features.pattern);
+      var patternLow = (pattern || '').toLowerCase();
+      // "logoté" n'est pas un motif : on ne le mentionne jamais.
+      var hasUsablePattern = !!(pattern && patternLow !== 'uni' && patternLow !== 'logoté' && patternLow !== 'logote');
       var originCountry = DescriptionBuilder.safeClean(features.origin_country);
       var hasSidePockets = features.has_side_pockets;
       var hasDrawstring = features.has_drawstring;
-      // Product sentence
-      var isPremium = features.is_premium || false;
-      var brandLabel = isPremium ? brand + ' Originals' : brand;
-      var productParts = ['Short ' + brandLabel];
-      if (model) productParts.push(model);
+      // Logo additionnel (hors logo Adidas) : on ne mentionne le logo que si l'IA
+      // a su l'identifier ; sinon on évite toute supposition hasardeuse.
+      var secondaryLogo = DescriptionBuilder.safeClean(features.secondary_logo);
+      var secondaryLogoMeaning = DescriptionBuilder.safeClean(features.secondary_logo_meaning);
+      var secondaryLogoLow = (secondaryLogo || '').toLowerCase();
+      var hasUsableSecondaryLogo = !!(secondaryLogo
+        && secondaryLogoLow !== 'logo non identifié'
+        && secondaryLogoLow !== 'logo non identifie');
+      var sku = DescriptionBuilder.safeClean(features.sku);
+      var orderId = DescriptionBuilder.safeClean(features.order_id);
+      // ----- Première ligne : titre généré (SKU retiré, repris en bas) -----
+      var titleLine = '';
+      try {
+        titleLine = TitleEngine.buildTitle('short_adidas', features) || '';
+      } catch (eTitle) {
+        titleLine = '';
+      }
+      titleLine = DescriptionBuilder.stripSkuFromTitleLine(titleLine);
+      // ----- Bloc navigation dressing (#FP_<taille>) -----
+      // Le hashtag de navigation dressing utilisé pour les shorts Adidas est
+      // #FP_<taille> (ex. #FP_XL, #FP_M). Sans taille connue, on retombe sur
+      // #FP_NC pour rester cohérent avec le reste du dressing.
+      var navSizeToken = sizeToken ? sizeToken.toUpperCase() : 'NC';
+      var primaryNavTag = '#FP_' + navSizeToken;
+      var navigationLine = '🩳 Retrouvez tous mes shorts à votre taille → ' + primaryNavTag;
+      // ----- Ligne taille -----
+      var sizeLine = '🩳 Taille ' + sizeDisplay;
+      var sizeNote = '📏 La taille indiquée correspond à l\'étiquette. '
+        + 'Les mesures à plat visibles en photo peuvent différer selon la coupe '
+        + 'ou l\'élasticité du tissu.';
+      // ----- État + défauts (modèle Levi's : 3 niveaux) -----
+      var defectsRaw = aiDefects || features.defects;
+      var defectsClean = DescriptionBuilder.normalizeDefects(defectsRaw);
+      var conditionLabel = DescriptionBuilder.safeClean(features.condition).toLowerCase();
+      var defectSentence = defectsClean ? defectsClean.replace(/[.\s]+$/, '') + '.' : '';
+      var stateBlock;
+      if (conditionLabel === 'bon état général' || conditionLabel === 'bon etat general') {
+        stateBlock = '👍 Bon état général';
+        if (defectSentence) stateBlock += '\nDéfauts à noter : ' + defectSentence;
+      } else if (conditionLabel === 'satisfaisant') {
+        stateBlock = '👍 Satisfaisant';
+        if (defectSentence) stateBlock += '\nDéfauts à noter : ' + defectSentence;
+      } else {
+        stateBlock = '👍 Très bon état';
+        if (defectSentence) stateBlock += '\nÀ noter : ' + defectSentence;
+      }
+      // ----- Détails produit / style (placés au-dessus de l'état) -----
+      var productParts = ['Short ' + brand];
       if (gender) productParts.push('pour ' + gender);
-      productParts.push('taille ' + sizeDisplay);
-      if (color) productParts.push('coloris ' + color);
+      if (color) productParts.push('coloris ' + color.toLowerCase());
       if (originCountry) productParts.push('Made in ' + originCountry);
       var productSentence = productParts.filter(Boolean).join(' ').replace(/\.$/, '') + '.';
-      // Style sentence
+      // Phrase dédiée au logo additionnel (écusson de club, sélection, compétition…)
+      // Ex. : "🏷️ Logo FC Bayern Munich apposé sur le short — club de football allemand basé à Munich."
+      var logoSentence = '';
+      if (hasUsableSecondaryLogo) {
+        logoSentence = '🏷️ Logo ' + secondaryLogo + ' apposé sur le short';
+        if (secondaryLogoMeaning) {
+          logoSentence += ' — ' + secondaryLogoMeaning.replace(/[.\s]+$/, '');
+        }
+        logoSentence += '.';
+      }
       var styleDetails = [];
       if (material) styleDetails.push('tissu ' + material.toLowerCase());
       if (technology) styleDetails.push('technologie ' + technology);
       if (hasSidePockets) styleDetails.push('poches latérales');
       if (hasDrawstring) styleDetails.push('cordon de serrage');
-      if (pattern && pattern.toLowerCase() !== 'uni') styleDetails.push('motif ' + pattern.toLowerCase());
-      var colorIntro = color
-        ? 'Le coloris ' + color.toLowerCase() + " s'associe facilement avec toutes les tenues de sport."
-        : 'Coloris à confirmer sur les photos.';
-      var styleBase = 'Short de sport ' + brand + ', coupe légère et confortable, idéal pour l\'entraînement et les activités sportives.';
-      var styleSentence = styleDetails.length > 0
-        ? styleBase + ' ' + styleDetails.join(', ').replace(/^\w/, function(c) { return c.toUpperCase(); }) + '. ' + colorIntro
-        : styleBase + ' ' + colorIntro;
-      // State
-      var defects = DescriptionBuilder.safeClean(features.defects || aiDefects);
-      var normalizedDefects = DescriptionBuilder.normalizeDefects(defects);
-      var stateSentence = !normalizedDefects
-        ? 'Très bon état, aucun défaut majeur visible. Short propre et bien conservé (voir photos).'
-        : 'Très bon état, ' + normalizedDefects + '. Short propre et bien conservé (voir photos).';
-      // Footer
-      var generalTag = '#durin31hsa';
-      var sTag = sizeToken ? generalTag + sizeToken : '#durin31hsanc';
-      var colorTag = color ? '#' + color.toLowerCase().replace(/\s/g, '') : '';
-      var logisticsLine = features.labels_cut
-        ? '📏 Mesures détaillées visibles en photo pour plus de précisions. Étiquettes coupées pour plus de confort.'
-        : '📏 Mesures détaillées visibles en photo pour plus de précisions.';
-      var shippingLine = '📦 Envoi rapide et soigné.';
-      var ctaLine = '✨ Retrouvez tous mes shorts Adidas ici 👉 ' + generalTag + ' et à votre taille 👉 ' + sTag;
-      var bundleLine = "💡 Pensez à faire un lot pour bénéficier d'une réduction et économiser sur les frais d'envoi.";
-      var hashtagCore = '#adidas #short #sport #durin31';
-      var hashtags = [hashtagCore, sTag, colorTag].filter(Boolean).join(' ');
-      var paragraphs = [productSentence, styleSentence, stateSentence, logisticsLine, shippingLine, ctaLine, bundleLine, hashtags];
-      return paragraphs.filter(Boolean).join('\n\n');
+      if (hasUsablePattern) styleDetails.push('motif ' + patternLow);
+      var styleBase = 'Short de sport ' + brand + ', coupe légère et confortable, idéal pour l\'entraînement et le quotidien.';
+      var styleSuffix = '';
+      if (styleDetails.length > 0) {
+        var joined = styleDetails.join(', ');
+        styleSuffix = ' ' + joined.charAt(0).toUpperCase() + joined.slice(1) + '.';
+      }
+      var styleSentence = styleBase + styleSuffix;
+      // ----- Logistique / envoi / lot -----
+      var measuresLine = features.labels_cut
+        ? '🔎 Mesures précises en photo. Étiquettes coupées pour plus de confort.'
+        : '🔎 Mesures précises et composition détaillée en photo.';
+      var shippingLine = '📦 Envoi rapide et soigné';
+      var lotLine = '💡 Réduction possible sur lot';
+      // ----- Hashtag SKU final (en MAJUSCULES, seul, dernière ligne) -----
+      var skuTag = '';
+      if (sku) {
+        var clean = Normalizer.zeroPadSkuNumber(sku.replace(/\s/g, '').toUpperCase());
+        if (orderId) {
+          var pad = Normalizer.zeroPadOrderId(orderId);
+          if (pad) clean = pad + clean;
+        }
+        skuTag = '#' + clean;
+      }
+      // ----- Assemblage (modèle Levi's) -----
+      var sections = [];
+      if (titleLine) sections.push(titleLine);
+      sections.push(navigationLine);
+      sections.push(productSentence);
+      if (logoSentence) sections.push(logoSentence);
+      sections.push(styleSentence);
+      sections.push(sizeLine);
+      sections.push(sizeNote);
+      sections.push(stateBlock);
+      sections.push([measuresLine, shippingLine, lotLine].join('\n'));
+      if (skuTag) sections.push(skuTag);
+      return sections.join('\n\n');
     } catch (e) {
       Logger.log('buildDescriptionShortAdidas error: ' + e.message);
       return DescriptionBuilder.safeClean(aiDescription);

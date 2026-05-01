@@ -486,6 +486,19 @@ var Normalizer = (function() {
     var pattern = rawFeatures.pattern || aiData.pattern;
     var originCountry = rawFeatures.origin_country || aiData.origin_country;
     if (!originCountry) originCountry = TextExtractors.extractOriginCountryFromText(fullText);
+    // Logo distinct du logo Adidas (écusson / patch club / sélection / compétition…)
+    var secondaryLogo = rawFeatures.secondary_logo || aiData.secondary_logo || null;
+    var secondaryLogoMeaning = rawFeatures.secondary_logo_meaning || aiData.secondary_logo_meaning || null;
+    if (typeof secondaryLogo === 'string') {
+      secondaryLogo = secondaryLogo.trim();
+      if (!secondaryLogo) secondaryLogo = null;
+    }
+    if (typeof secondaryLogoMeaning === 'string') {
+      secondaryLogoMeaning = secondaryLogoMeaning.trim();
+      if (!secondaryLogoMeaning) secondaryLogoMeaning = null;
+    }
+    // Pas de signification utile si on n'a pas pu identifier le logo.
+    if (!secondaryLogo) secondaryLogoMeaning = null;
     var hasSidePockets = rawFeatures.has_side_pockets;
     if (hasSidePockets == null) hasSidePockets = TextExtractors.detectFlagFromText(fullText, ['poche', 'pocket', 'zip']);
     var hasDrawstring = rawFeatures.has_drawstring;
@@ -521,6 +534,8 @@ var Normalizer = (function() {
       has_drawstring: hasDrawstring,
       pattern: pattern,
       origin_country: originCountry,
+      secondary_logo: secondaryLogo,
+      secondary_logo_meaning: secondaryLogoMeaning,
       is_premium: isPremium,
       sku: sku,
       sku_status: skuStatus,

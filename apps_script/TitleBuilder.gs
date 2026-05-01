@@ -178,7 +178,7 @@ var TitleBuilder = (function() {
   function normalizeCarharttSize(value) {
     var raw = normalizeStr(value);
     if (!raw) return ['NC', 'nc'];
-    var low = raw.toLowerCase();
+    var low = raw.toLowerCase().trim();
     var base = raw.toUpperCase();
     var sizeMap = {
       'xs': 'XS', 'extra small': 'XS', 'x-small': 'XS',
@@ -186,8 +186,19 @@ var TitleBuilder = (function() {
       'large': 'L', 'l': 'L', 'x-large': 'XL', 'xl': 'XL',
       'xxl': 'XXL', '2xl': 'XXL', 'xxxl': 'XXXL', '3xl': 'XXXL'
     };
-    for (var marker in sizeMap) {
-      if (low.indexOf(marker) !== -1) { base = sizeMap[marker]; break; }
+    // 1) Correspondance exacte d'abord (évite que "XL" soit reconnu comme "L"
+    //    parce que la lettre 'l' apparaît dans "xl"). Indispensable pour les
+    //    profils dont la grille de tailles va de XS à XXXL (short Adidas).
+    if (sizeMap.hasOwnProperty(low)) {
+      base = sizeMap[low];
+    } else {
+      // 2) Sinon, recherche par marqueur en testant des plus longs aux plus
+      //    courts pour éviter les collisions ('xxxl' avant 'xxl' avant 'xl'
+      //    avant 'l', 'x-large' avant 'large', 'extra small' avant 'small'…).
+      var markers = Object.keys(sizeMap).sort(function(a, b) { return b.length - a.length; });
+      for (var i = 0; i < markers.length; i++) {
+        if (low.indexOf(markers[i]) !== -1) { base = sizeMap[markers[i]]; break; }
+      }
     }
     var token = base.toLowerCase().replace(/\s/g, '') || 'nc';
     return [base, token];
