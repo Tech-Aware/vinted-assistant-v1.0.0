@@ -777,7 +777,7 @@ function calculateShortAdidasPrice_(features) {
   if (downgrade) {
     displayPrice = Math.round(buyPrice * 2.5);  // ≈ 12 €
     acceptablePrice = Math.round(buyPrice * 2); // ≈ 10 €
-    floorPrice = Math.round(buyPrice * 1.8);    // ≈ 9 €
+    floorPrice = Math.round(buyPrice * 1.8);    // 9 €
   } else {
     displayPrice = Math.round(buyPrice * 3);    // ≈ 15 €
     acceptablePrice = Math.round(buyPrice * 2.5); // ≈ 12 €
