@@ -741,8 +741,11 @@ function buildPricingResult_(price, buyPrice, retail) {
 var LOG_HEADERS = [
   'Date', 'Agent', 'Profil', 'Type article', 'Marque', 'Modele', 'Premium',
   'Taille FR', 'Taille US', 'Rise', 'Couleur', 'Matiere', 'Coupe',
-  'Genre', 'Prix', 'Etat', 'SKU', 'Timestamp', 'Duree (min)', 'Coût ($)', 'Défauts'
+  'Genre', 'Motif', 'Origine', 'Etiquettes coupées',
+  'Prix', 'Etat', 'SKU', 'Timestamp', 'Duree (min)', 'Coût ($)', 'Défauts'
 ];
+// En-têtes qui doivent être rendus en checkbox dans la feuille "Générations"
+var LOG_CHECKBOX_HEADERS = ['Etiquettes coupées', 'Défauts'];
 /**
  * Détermine si l'article présente un défaut, pour la colonne checkbox "Défauts".
  *
@@ -833,75 +836,111 @@ function calculateGenerationCost_(aiResult) {
   return Math.round(cost * 1000000) / 1000000;
 }
 /**
- * S'assure que la colonne "Défauts" existe et est rendue checkbox.
- * Gère aussi la migration des feuilles existantes en ajoutant "Coût ($)"
- * entre "Duree (min)" et "Défauts" si elle est absente.
+ * S'assure que la feuille "Générations" possède toutes les colonnes
+ * définies dans LOG_HEADERS, dans le bon ordre, et applique la
+ * validation checkbox sur les colonnes listées dans LOG_CHECKBOX_HEADERS.
  *
+ * Migration douce : pour chaque colonne attendue absente, insère une
+ * nouvelle colonne juste avant le prochain en-tête connu (ou en fin de
+ * feuille si aucun en-tête postérieur n'est présent). Les anciennes
+ * feuilles reçoivent ainsi automatiquement les nouvelles colonnes
+ * (ex: "Motif", "Origine", "Etiquettes coupées") à la bonne place,
+ * sans perte de données.
+ *
+ * Corrige aussi un cas historique où "Coût ($)" se retrouvait après
+ * "Défauts" : la colonne mal placée est supprimée puis recréée à la
+ * bonne position par l'algorithme générique.
+ *
+ * @param {Sheet} sheet
+ * @returns {{ defects: number, indexByHeader: Object }}
+ *   - defects : index 1-based de la colonne "Défauts"
+ *   - indexByHeader : map { header → index 1-based } pour tous les en-têtes
+ */
+function ensureLogHeaders_(sheet) {
+  var defectsHeader = 'Défauts';
+  var coutHeader = 'Coût ($)';
+  function readHeaders() {
+    var lc = sheet.getLastColumn();
+    if (lc === 0) return [];
+    return sheet.getRange(1, 1, 1, lc).getValues()[0]
+      .map(function (v) { return String(v).trim(); });
+  }
+  // Cas 1 : feuille vierge → écriture complète des en-têtes
+  if (sheet.getLastColumn() === 0) {
+    sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
+    sheet.getRange(1, 1, 1, LOG_HEADERS.length).setFontWeight('bold');
+  } else {
+    // Cas 2 : "Coût ($)" est après "Défauts" → ordre incorrect, on le supprime
+    // pour que la migration générique le réinsère au bon endroit.
+    var existing = readHeaders();
+    var coutIdx = existing.indexOf(coutHeader);   // 0-based
+    var defIdx  = existing.indexOf(defectsHeader);
+    if (coutIdx !== -1 && defIdx !== -1 && coutIdx > defIdx) {
+      sheet.deleteColumn(coutIdx + 1); // 1-based
+    }
+    // Cas 3 : pour chaque en-tête attendu absent, l'insérer à la bonne
+    // position relative (juste avant le prochain en-tête déjà présent).
+    for (var i = 0; i < LOG_HEADERS.length; i++) {
+      var expected = LOG_HEADERS[i];
+      var current = readHeaders();
+      if (current.indexOf(expected) !== -1) continue;
+      // Cherche le prochain en-tête de LOG_HEADERS qui existe déjà :
+      // l'insertion se fera juste avant lui pour préserver l'ordre.
+      var insertAt = current.length + 1; // par défaut : ajout en fin
+      for (var j = i + 1; j < LOG_HEADERS.length; j++) {
+        var nextIdx = current.indexOf(LOG_HEADERS[j]);
+        if (nextIdx !== -1) { insertAt = nextIdx + 1; break; }
+      }
+      if (insertAt > current.length) {
+        // Append : pas besoin d'insertColumnBefore
+        sheet.getRange(1, insertAt).setValue(expected).setFontWeight('bold');
+      } else {
+        sheet.insertColumnBefore(insertAt);
+        sheet.getRange(1, insertAt).setValue(expected).setFontWeight('bold');
+      }
+    }
+  }
+  // Construit la map { header → index 1-based } à partir de l'état final
+  var finalHeaders = readHeaders();
+  var indexByHeader = {};
+  for (var k = 0; k < finalHeaders.length; k++) {
+    if (finalHeaders[k]) indexByHeader[finalHeaders[k]] = k + 1;
+  }
+  var defectsColIndex = indexByHeader[defectsHeader] || LOG_HEADERS.length;
+  // Nettoyage : si "Coût ($)" porte encore une validation checkbox héritée
+  // d'une ancienne migration, on la retire (Coût n'est PAS une checkbox).
+  try {
+    var maxRows = sheet.getMaxRows();
+    var coutColIndex = indexByHeader[coutHeader];
+    if (coutColIndex && maxRows > 1) {
+      sheet.getRange(2, coutColIndex, maxRows - 1, 1).clearDataValidations();
+    }
+  } catch (eCout) {
+    Logger.log('ensureLogHeaders_ clearDataValidations warning: ' + eCout.message);
+  }
+  // Applique la validation checkbox sur toutes les colonnes booléennes
+  for (var c = 0; c < LOG_CHECKBOX_HEADERS.length; c++) {
+    var hdrName = LOG_CHECKBOX_HEADERS[c];
+    var colIdx = indexByHeader[hdrName];
+    if (!colIdx) continue;
+    try {
+      var rows = sheet.getMaxRows();
+      if (rows > 1) {
+        sheet.getRange(2, colIdx, rows - 1, 1).insertCheckboxes();
+      }
+    } catch (eCk) {
+      Logger.log('ensureLogHeaders_ insertCheckboxes warning (' + hdrName + '): ' + eCk.message);
+    }
+  }
+  return { defects: defectsColIndex, indexByHeader: indexByHeader };
+}
+/**
+ * @deprecated Conservé pour compatibilité. Utiliser ensureLogHeaders_().
  * @param {Sheet} sheet
  * @returns {number} index 1-based de la colonne "Défauts"
  */
 function ensureDefectsCheckboxColumn_(sheet) {
-  var defectsHeader = 'Défauts';
-  var coutHeader = 'Coût ($)';
-  var lastCol = sheet.getLastColumn();
-  // Lecture des en-têtes existants (s'ils existent)
-  var existingHeaders = lastCol > 0
-    ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(v) { return String(v).trim(); })
-    : [];
-  var hasDefects = existingHeaders.indexOf(defectsHeader) !== -1;
-  var hasCout = existingHeaders.indexOf(coutHeader) !== -1;
-  var coutIdx = existingHeaders.indexOf(coutHeader);   // 0-based, -1 si absent
-  var defIdx  = existingHeaders.indexOf(defectsHeader); // 0-based, -1 si absent
-  if (!hasDefects) {
-    // Feuille vide ou sans colonne Défauts → réécriture complète des en-têtes
-    sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
-    sheet.getRange(1, 1, 1, LOG_HEADERS.length).setFontWeight('bold');
-  } else if (!hasCout) {
-    // Migration : "Défauts" existe mais "Coût ($)" est absent →
-    // on insère la colonne "Coût ($)" juste avant "Défauts".
-    sheet.insertColumnBefore(defIdx + 1); // 1-based
-    sheet.getRange(1, defIdx + 1).setValue(coutHeader).setFontWeight('bold');
-  } else if (coutIdx > defIdx) {
-    // "Coût ($)" existe mais est APRÈS "Défauts" (mauvais ordre) →
-    // on la supprime puis on la réinsère avant "Défauts".
-    sheet.deleteColumn(coutIdx + 1); // 1-based
-    var hdrsAfterDelete = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-      .map(function(v) { return String(v).trim(); });
-    var defIdxAfter = hdrsAfterDelete.indexOf(defectsHeader);
-    if (defIdxAfter !== -1) {
-      sheet.insertColumnBefore(defIdxAfter + 1);
-      sheet.getRange(1, defIdxAfter + 1).setValue(coutHeader).setFontWeight('bold');
-    }
-  }
-  // Calcul de l'index final (1-based) de la colonne Défauts
-  var newHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var defectsColIndex = -1;
-  var coutColIndex = -1;
-  for (var i = 0; i < newHeaders.length; i++) {
-    var h = String(newHeaders[i]).trim();
-    if (h === defectsHeader) defectsColIndex = i + 1;
-    if (h === coutHeader)    coutColIndex    = i + 1;
-  }
-  if (defectsColIndex === -1) defectsColIndex = LOG_HEADERS.length;
-  // Effacer toute validation checkbox parasite sur la colonne "Coût ($)"
-  try {
-    var maxRows = sheet.getMaxRows();
-    if (coutColIndex !== -1 && maxRows > 1) {
-      sheet.getRange(2, coutColIndex, maxRows - 1, 1).clearDataValidations();
-    }
-  } catch (eCout) {
-    Logger.log('ensureDefectsCheckboxColumn_ clearDataValidations warning: ' + eCout.message);
-  }
-  // Appliquer la validation checkbox sur toute la colonne Défauts (hors en-tête)
-  try {
-    var maxRows2 = sheet.getMaxRows();
-    if (maxRows2 > 1) {
-      sheet.getRange(2, defectsColIndex, maxRows2 - 1, 1).insertCheckboxes();
-    }
-  } catch (eCk) {
-    Logger.log('ensureDefectsCheckboxColumn_ insertCheckboxes warning: ' + eCk.message);
-  }
-  return defectsColIndex;
+  return ensureLogHeaders_(sheet).defects;
 }
 /**
  * Formate un objet Date en horodatage precis : "YYYY-MM-DD HH:mm:ss"
@@ -933,8 +972,13 @@ function logGenerationToSheet(result, params) {
       sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
       sheet.getRange(1, 1, 1, LOG_HEADERS.length).setFontWeight('bold');
     }
-    // Garantit la présence de la colonne "Défauts" + checkbox (compat. feuilles existantes)
-    var defectsColIndex = ensureDefectsCheckboxColumn_(sheet);
+    // Garantit la présence de toutes les colonnes attendues + checkbox sur les
+    // colonnes booléennes (compat. feuilles existantes : insère "Motif",
+    // "Origine", "Etiquettes coupées" si absentes, à la bonne position).
+    var headerInfo = ensureLogHeaders_(sheet);
+    var defectsColIndex = headerInfo.defects;
+    var labelsCutColIndex = headerInfo.indexByHeader['Etiquettes coupées'];
+    var timestampColIndex = headerInfo.indexByHeader['Timestamp'];
     var features = result.features || {};
     var uiData = (params && params.uiData) || {};
     var profileName = (params && params.profileName) || '';
@@ -990,8 +1034,8 @@ function logGenerationToSheet(result, params) {
     // Calculer la duree en minutes depuis la derniere generation
     var newRow = sheet.getLastRow() + 1;
     var dureeMins = '';
-    if (newRow > 2) {
-      var prevTimestamp = sheet.getRange(newRow - 1, 18).getValue(); // colonne R = Timestamp
+    if (newRow > 2 && timestampColIndex) {
+      var prevTimestamp = sheet.getRange(newRow - 1, timestampColIndex).getValue();
       if (prevTimestamp) {
         var prevDate = new Date(prevTimestamp);
         if (!isNaN(prevDate.getTime())) {
@@ -1001,6 +1045,7 @@ function logGenerationToSheet(result, params) {
     }
     var hasDefectFlag = hasDefectsForLog_(features, result);
     var generationCost = (result.generation_cost != null) ? result.generation_cost : '';
+    var labelsCutFlag = features.labels_cut ? true : false;
     var row = [
       now,
       agentEmail,
@@ -1022,6 +1067,9 @@ function logGenerationToSheet(result, params) {
       matiere,
       features.fit || '',
       features.gender || '',
+      features.pattern || '',
+      features.origin_country || '',
+      labelsCutFlag,
       price,
       features.condition || '',
       skuForLog,
@@ -1031,11 +1079,19 @@ function logGenerationToSheet(result, params) {
       hasDefectFlag
     ];
     sheet.getRange(newRow, 1, 1, row.length).setValues([row]);
-    // Force la cellule "Défauts" en checkbox (toujours sur defectsColIndex, jamais sur Coût ($))
+    // Force les cellules booléennes en checkbox (toujours sur les bons index,
+    // jamais sur "Coût ($)" ou autre colonne adjacente).
     try {
       sheet.getRange(newRow, defectsColIndex).insertCheckboxes().setValue(hasDefectFlag);
     } catch (eCkRow) {
-      Logger.log('logGenerationToSheet checkbox warning: ' + eCkRow.message);
+      Logger.log('logGenerationToSheet checkbox warning (Défauts): ' + eCkRow.message);
+    }
+    if (labelsCutColIndex) {
+      try {
+        sheet.getRange(newRow, labelsCutColIndex).insertCheckboxes().setValue(labelsCutFlag);
+      } catch (eCkLc) {
+        Logger.log('logGenerationToSheet checkbox warning (Etiquettes coupées): ' + eCkLc.message);
+      }
     }
     // Créer la feuille Statistiques si elle n'existe pas encore
     try {
@@ -1115,9 +1171,9 @@ function ensureStatisticsSheet_(spreadsheet) {
   add('Dernière mise à jour', '=IFERROR(TEXT(MAX(' + g + '!A2:A);"dd/mm/yyyy hh:mm");"—")');
   blank();
   hdr('💰 Prix de vente (€)');
-  add('Prix moyen (€)',    '=IFERROR(ROUND(AVERAGE(' + g + '!O2:O);2);"—")');
-  add('Prix minimum (€)',  '=IFERROR(MIN(' + g + '!O2:O);"—")');
-  add('Prix maximum (€)',  '=IFERROR(MAX(' + g + '!O2:O);"—")');
+  add('Prix moyen (€)',    '=IFERROR(ROUND(AVERAGE(' + g + '!R2:R);2);"—")');
+  add('Prix minimum (€)',  '=IFERROR(MIN(' + g + '!R2:R);"—")');
+  add('Prix maximum (€)',  '=IFERROR(MAX(' + g + '!R2:R);"—")');
   blank();
   hdr('👗 Par type d\'article');
   add('Jean Levi\'s',    '=COUNTIF(' + g + '!C2:C;"jean_levis")');
@@ -1125,22 +1181,22 @@ function ensureStatisticsSheet_(spreadsheet) {
   add('Veste Carhartt',  '=COUNTIF(' + g + '!C2:C;"jacket_carhart")');
   blank();
   hdr('🏷️ Par état');
-  add('Très bon état',  '=COUNTIF(' + g + '!P2:P;"tres bon etat")');
-  add('Bon état',       '=COUNTIF(' + g + '!P2:P;"bon etat")');
-  add('Neuf',           '=COUNTIF(' + g + '!P2:P;"neuf")');
-  add('Satisfaisant',   '=COUNTIF(' + g + '!P2:P;"satisfaisant")');
+  add('Très bon état',  '=COUNTIF(' + g + '!S2:S;"tres bon etat")');
+  add('Bon état',       '=COUNTIF(' + g + '!S2:S;"bon etat")');
+  add('Neuf',           '=COUNTIF(' + g + '!S2:S;"neuf")');
+  add('Satisfaisant',   '=COUNTIF(' + g + '!S2:S;"satisfaisant")');
   blank();
   hdr('⚠️ Défauts');
-  add('Avec défauts',  '=COUNTIF(' + g + '!U2:U;TRUE)');
-  add('Sans défauts',  '=COUNTIF(' + g + '!U2:U;FALSE)');
+  add('Avec défauts',  '=COUNTIF(' + g + '!X2:X;TRUE)');
+  add('Sans défauts',  '=COUNTIF(' + g + '!X2:X;FALSE)');
   blank();
   hdr('👥 Par genre');
   add('Femme',  '=COUNTIF(' + g + '!N2:N;"femme")');
   add('Homme',  '=COUNTIF(' + g + '!N2:N;"homme")');
   blank();
   hdr('🤖 Coûts IA ($)');
-  add('Coût total ($)',              '=IFERROR(ROUND(SUM(' + g + '!T2:T);6);"—")');
-  add('Coût moyen par article ($)',  '=IFERROR(ROUND(AVERAGE(' + g + '!T2:T);6);"—")');
+  add('Coût total ($)',              '=IFERROR(ROUND(SUM(' + g + '!W2:W);6);"—")');
+  add('Coût moyen par article ($)',  '=IFERROR(ROUND(AVERAGE(' + g + '!W2:W);6);"—")');
   blank();
   hdr('🔑 Modèles Levi\'s');
   // Section modèles Levi's : agrégation côté Apps Script (plus robuste qu'une

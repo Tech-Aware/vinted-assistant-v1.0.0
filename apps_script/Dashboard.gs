@@ -65,9 +65,10 @@ function getDashboardData() {
     if (lastRow < 2) {
       return DashboardData_.empty();
     }
-    // 21 colonnes attendues, on lit ce qui existe pour rester tolérant
-    // aux feuilles plus anciennes / futures (>= 21 colonnes).
-    var lastCol = Math.max(sheet.getLastColumn(), 21);
+    // 24 colonnes attendues (ajout de Motif/Origine/Etiquettes coupées entre
+    // Genre et Prix), on lit ce qui existe pour rester tolérant aux feuilles
+    // plus anciennes / futures.
+    var lastCol = Math.max(sheet.getLastColumn(), 24);
     var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
     return DashboardData_.build(values);
   } catch (err) {
@@ -85,8 +86,10 @@ var DashboardData_ = (function () {
   var COL = {
     DATE: 0, AGENT: 1, PROFIL: 2, TYPE: 3, MARQUE: 4, MODELE: 5,
     PREMIUM: 6, TAILLE_FR: 7, TAILLE_US: 8, RISE: 9, COULEUR: 10,
-    MATIERE: 11, COUPE: 12, GENRE: 13, PRIX: 14, ETAT: 15, SKU: 16,
-    TIMESTAMP: 17, DUREE: 18, COUT: 19, DEFAUTS: 20
+    MATIERE: 11, COUPE: 12, GENRE: 13,
+    PATTERN: 14, ORIGIN: 15, LABELS_CUT: 16,
+    PRIX: 17, ETAT: 18, SKU: 19,
+    TIMESTAMP: 20, DUREE: 21, COUT: 22, DEFAUTS: 23
   };
 
   function empty() {
