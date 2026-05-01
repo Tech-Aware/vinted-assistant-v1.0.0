@@ -944,6 +944,8 @@ function logGenerationToSheet(result, params) {
       if (profileName === 'jean_levis') articleType = 'Jean';
       else if (profileName === 'pull') articleType = 'Pull';
       else if (profileName === 'jacket_carhart') articleType = 'Veste';
+      else if (profileName === 'short_carhart') articleType = 'Short Carhartt';
+      else if (profileName === 'short_adidas') articleType = 'Short Adidas';
     }
     // Taille FR : selon le profil, corrigee au pair superieur
     ensureEvenFrSize_(features);
@@ -1005,7 +1007,13 @@ function logGenerationToSheet(result, params) {
       profileName,
       articleType,
       features.brand || result.brand || '',
-      features.model || features._raw_model || '',
+      (function() {
+        var m = features.model || features._raw_model || '';
+        if (profileName === 'short_adidas' && features.technology) {
+          return m ? m + ' ' + features.technology : features.technology;
+        }
+        return m;
+      })(),
       features.is_premium ? true : false,
       tailleFr,
       tailleUs,
