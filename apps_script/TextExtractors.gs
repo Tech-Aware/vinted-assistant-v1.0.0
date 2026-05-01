@@ -141,6 +141,18 @@ var TextExtractors = (function() {
     if (/^JCR\d+$/.test(cleaned)) return cleaned;
     return null;
   }
+  function normalizeHscSku(raw) {
+    if (!raw) return null;
+    var cleaned = String(raw).trim().toUpperCase().replace(/\s/g, '');
+    if (/^HSC\d+$/.test(cleaned)) return cleaned;
+    return null;
+  }
+  function normalizeHsaSku(raw) {
+    if (!raw) return null;
+    var cleaned = String(raw).trim().toUpperCase().replace(/\s/g, '');
+    if (/^HSA\d+$/.test(cleaned)) return cleaned;
+    return null;
+  }
   function extractCarharttModelFromText(text) {
     if (!text) return null;
     var low = text.toLowerCase();
@@ -197,6 +209,8 @@ var TextExtractors = (function() {
     detectChestPocketFromText: detectChestPocketFromText,
     normalizeCarharttModel: normalizeCarharttModel,
     normalizeJcrSku: normalizeJcrSku,
+    normalizeHscSku: normalizeHscSku,
+    normalizeHsaSku: normalizeHsaSku,
     extractCarharttModelFromText: extractCarharttModelFromText,
     stripParenthesesNotes: stripParenthesesNotes,
     stripCompositionPrefixes: stripCompositionPrefixes,
