@@ -149,7 +149,7 @@ var TextExtractors = (function() {
   }
   function normalizeHsaSku(raw) {
     if (!raw) return null;
-    var cleaned = String(raw).trim().toUpperCase().replace(/\s/g, '');
+    var cleaned = String(raw).trim().toUpperCase().replace(/\s/g, '').replace(/^#/, '');
     if (/^HSA\d+$/.test(cleaned)) return cleaned;
     return null;
   }

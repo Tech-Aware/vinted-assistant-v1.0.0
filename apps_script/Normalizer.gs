@@ -481,7 +481,16 @@ var Normalizer = (function() {
     var color = rawFeatures.color || aiData.color;
     if (!color) color = TextExtractors.extractColorFromText(fullText);
     var gender = uiData.gender || rawFeatures.gender || aiData.gender;
-    var material = rawFeatures.material || aiData.material;
+    // Composition : depuis l'IA, noms réels de l'étiquette (pas de normalisation)
+    var compositionMaterials = rawFeatures.composition_materials || aiData.composition_materials;
+    if (compositionMaterials && Array.isArray(compositionMaterials)) {
+      compositionMaterials = compositionMaterials.map(capitalizeMaterial).filter(Boolean);
+    }
+    // Fallback : Polyester par défaut si aucune composition détectée
+    if (!compositionMaterials || compositionMaterials.length === 0) {
+      compositionMaterials = ['Polyester'];
+    }
+    var material = rawFeatures.material || aiData.material || 'polyester';
     var technology = rawFeatures.technology || aiData.technology;
     var pattern = rawFeatures.pattern || aiData.pattern;
     var originCountry = rawFeatures.origin_country || aiData.origin_country;
@@ -529,6 +538,7 @@ var Normalizer = (function() {
       color: color,
       gender: gender || 'homme',
       material: material,
+      composition_materials: compositionMaterials,
       technology: technology,
       has_side_pockets: hasSidePockets,
       has_drawstring: hasDrawstring,
