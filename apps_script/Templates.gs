@@ -203,6 +203,7 @@ var Templates = (function() {
         required: ['ai', 'title', 'description', 'brand', 'features']
       }
     }
+  };
   return {
     getProfile: function(name) {
       return PROFILES[name] || null;
