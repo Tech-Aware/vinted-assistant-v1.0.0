@@ -256,6 +256,8 @@
               <option value="jean_levis">Jean Levi's</option>
               <option value="pull">Pull / Gilet</option>
               <option value="jacket_carhart">Veste Carhartt</option>
+              <option value="short_carhart">Short Carhartt</option>
+              <option value="short_adidas">Short Adidas</option>
             </select>
           </div>
           <div class="form-row">
@@ -886,6 +888,36 @@
         {key: 'lining', label: 'Doublure', type: 'text'},
         {key: 'pattern', label: 'Motif', type: 'text'},
         {key: 'sku', label: 'SKU', type: 'text'},
+        {key: 'order_id', label: 'Order ID', type: 'text'}
+      ],
+      short_carhart: [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
+        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
+        {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
+        {key: 'user_price', label: 'Prix de vente (€)', type: 'number'},
+        {key: 'model', label: 'Modele', type: 'text'},
+        {key: 'size', label: 'Taille', type: 'text'},
+        {key: 'color', label: 'Couleur', type: 'text'},
+        {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
+        {key: 'closure', label: 'Fermeture', type: 'text'},
+        {key: 'pattern', label: 'Motif', type: 'text'},
+        {key: 'sku', label: 'SKU (HSC…)', type: 'text'},
+        {key: 'order_id', label: 'Order ID', type: 'text'}
+      ],
+      short_adidas: [
+        {key: 'brand', label: 'Marque', type: 'text'},
+        {key: 'condition', label: 'Etat', type: 'select', options: CONDITION_OPTIONS},
+        {key: 'is_premium', label: 'Premium', type: 'checkbox'},
+        {key: 'labels_cut', label: 'Étiquettes coupées', type: 'checkbox'},
+        {key: 'user_price', label: 'Prix de vente (€)', type: 'number'},
+        {key: 'model', label: 'Modele', type: 'text'},
+        {key: 'size', label: 'Taille', type: 'text'},
+        {key: 'color', label: 'Couleur', type: 'text'},
+        {key: 'gender', label: 'Genre', type: 'select', options: [['', 'Auto'], ['femme', 'Femme'], ['homme', 'Homme']]},
+        {key: 'technology', label: 'Technologie', type: 'text'},
+        {key: 'pattern', label: 'Motif', type: 'text'},
+        {key: 'sku', label: 'SKU (HSA…)', type: 'text'},
         {key: 'order_id', label: 'Order ID', type: 'text'}
       ]
     };
