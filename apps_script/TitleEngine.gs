@@ -241,8 +241,8 @@ var TitleEngine = (function() {
       var parts = ['Short', brandFormatted];
       if (isPremium) parts.push('Premium');
       if (model) parts.push(model);
-      if (size) parts.push('taille ' + size);
       if (technology) parts.push(technology);
+      if (size) parts.push('taille ' + size);
       // Le motif "logoté" ne doit jamais apparaître dans le titre :
       // un logo ou une broderie de marque n'est pas un motif.
       var patternLow = (pattern || '').toLowerCase();

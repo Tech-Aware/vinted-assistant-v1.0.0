@@ -345,18 +345,8 @@ var DescriptionEngine = (function() {
       var rawSize = DescriptionBuilder.safeClean(features.size) || 'NC';
       var sizeResult = TitleBuilder.normalizeCarharttSize(rawSize);
       var sizeDisplay = sizeResult[0];
-      var sizeToken = sizeResult[1] || 'nc';
       var color = DescriptionBuilder.safeClean(features.color);
       var gender = DescriptionBuilder.safeClean(features.gender) || 'homme';
-      var material = DescriptionBuilder.safeClean(features.material);
-      var technology = DescriptionBuilder.safeClean(features.technology);
-      var pattern = DescriptionBuilder.safeClean(features.pattern);
-      var patternLow = (pattern || '').toLowerCase();
-      // "logoté" n'est pas un motif : on ne le mentionne jamais.
-      var hasUsablePattern = !!(pattern && patternLow !== 'uni' && patternLow !== 'logoté' && patternLow !== 'logote');
-      var originCountry = DescriptionBuilder.safeClean(features.origin_country);
-      var hasSidePockets = features.has_side_pockets;
-      var hasDrawstring = features.has_drawstring;
       // Logo additionnel (hors logo Adidas) : on ne mentionne le logo que si l'IA
       // a su l'identifier ; sinon on évite toute supposition hasardeuse.
       var secondaryLogo = DescriptionBuilder.safeClean(features.secondary_logo);
@@ -375,23 +365,35 @@ var DescriptionEngine = (function() {
         titleLine = '';
       }
       titleLine = DescriptionBuilder.stripSkuFromTitleLine(titleLine);
-      // ----- Bloc navigation dressing (#FP_<taille>) -----
-      // Le hashtag de navigation dressing utilisé pour les shorts Adidas est
-      // #FP_<taille> (ex. #FP_XL, #FP_M). Sans taille connue, on retombe sur
-      // #FP_NC pour rester cohérent avec le reste du dressing.
-      var navSizeToken = sizeToken ? sizeToken.toUpperCase() : 'NC';
-      var primaryNavTag = '#FP_' + navSizeToken;
+      // ----- Bloc navigation dressing (#FP_Homme_Sport_<taille>) -----
+      var navTags = DescriptionBuilder.buildShortAdidasNavigationTags({
+        size: sizeDisplay,
+        gender: gender,
+        color: color
+      });
+      var primaryNavTag = navTags.length > 0 ? navTags[0] : '#FP_Homme_Sport_NC';
+      var remainingNavTags = navTags.slice(1);
       var navigationLine = '🩳 Retrouvez tous mes shorts à votre taille → ' + primaryNavTag;
       // ----- Ligne taille -----
       var sizeLine = '🩳 Taille ' + sizeDisplay;
-      var sizeNote = '📏 La taille indiquée correspond à l\'étiquette. '
-        + 'Les mesures à plat visibles en photo peuvent différer selon la coupe '
-        + 'ou l\'élasticité du tissu.';
+      var sizeNote = '📏 La taille indiquée correspond à l\'étiquette (voir photo).';
       // ----- État + défauts (modèle Levi's : 3 niveaux) -----
       var defectsRaw = aiDefects || features.defects;
       var defectsClean = DescriptionBuilder.normalizeDefects(defectsRaw);
       var conditionLabel = DescriptionBuilder.safeClean(features.condition).toLowerCase();
       var defectSentence = defectsClean ? defectsClean.replace(/[.\s]+$/, '') + '.' : '';
+      // Pour le très bon état, on ne mentionne les défauts que s'ils sont vraiment
+      // apparents (tâche, trou, déchirure, accroc, etc.) — l'usure normale ne se mentionne pas.
+      var apparentDefectKeywords = ['tâche', 'tache', 'trou', 'déchirure', 'dechirure',
+        'accroc', 'brûlure', 'brulure', 'effiloch', 'décousu', 'decousu', 'couture'];
+      function isApparentDefect(text) {
+        if (!text) return false;
+        var low = text.toLowerCase();
+        for (var k = 0; k < apparentDefectKeywords.length; k++) {
+          if (low.indexOf(apparentDefectKeywords[k]) !== -1) return true;
+        }
+        return false;
+      }
       var stateBlock;
       if (conditionLabel === 'bon état général' || conditionLabel === 'bon etat general') {
         stateBlock = '👍 Bon état général';
@@ -401,14 +403,10 @@ var DescriptionEngine = (function() {
         if (defectSentence) stateBlock += '\nDéfauts à noter : ' + defectSentence;
       } else {
         stateBlock = '👍 Très bon état';
-        if (defectSentence) stateBlock += '\nÀ noter : ' + defectSentence;
+        if (defectSentence && isApparentDefect(defectSentence)) {
+          stateBlock += '\nÀ noter : ' + defectSentence;
+        }
       }
-      // ----- Détails produit / style (placés au-dessus de l'état) -----
-      var productParts = ['Short ' + brand];
-      if (gender) productParts.push('pour ' + gender);
-      if (color) productParts.push('coloris ' + color.toLowerCase());
-      if (originCountry) productParts.push('Made in ' + originCountry);
-      var productSentence = productParts.filter(Boolean).join(' ').replace(/\.$/, '') + '.';
       // Phrase dédiée au logo additionnel (écusson de club, sélection, compétition…)
       // Ex. : "🏷️ Logo FC Bayern Munich apposé sur le short — club de football allemand basé à Munich."
       var logoSentence = '';
@@ -419,23 +417,8 @@ var DescriptionEngine = (function() {
         }
         logoSentence += '.';
       }
-      var styleDetails = [];
-      if (material) styleDetails.push('tissu ' + material.toLowerCase());
-      if (technology) styleDetails.push('technologie ' + technology);
-      if (hasSidePockets) styleDetails.push('poches latérales');
-      if (hasDrawstring) styleDetails.push('cordon de serrage');
-      if (hasUsablePattern) styleDetails.push('motif ' + patternLow);
-      var styleBase = 'Short de sport ' + brand + ', coupe légère et confortable, idéal pour l\'entraînement et le quotidien.';
-      var styleSuffix = '';
-      if (styleDetails.length > 0) {
-        var joined = styleDetails.join(', ');
-        styleSuffix = ' ' + joined.charAt(0).toUpperCase() + joined.slice(1) + '.';
-      }
-      var styleSentence = styleBase + styleSuffix;
       // ----- Logistique / envoi / lot -----
-      var measuresLine = features.labels_cut
-        ? '🔎 Mesures précises en photo. Étiquettes coupées pour plus de confort.'
-        : '🔎 Mesures précises et composition détaillée en photo.';
+      var measuresLine = '🔎 Composition détaillée en photo.';
       var shippingLine = '📦 Envoi rapide et soigné';
       var lotLine = '💡 Réduction possible sur lot';
       // ----- Hashtag SKU final (en MAJUSCULES, seul, dernière ligne) -----
@@ -448,17 +431,21 @@ var DescriptionEngine = (function() {
         }
         skuTag = '#' + clean;
       }
-      // ----- Assemblage (modèle Levi's) -----
+      // ----- Assemblage -----
       var sections = [];
       if (titleLine) sections.push(titleLine);
       sections.push(navigationLine);
-      sections.push(productSentence);
       if (logoSentence) sections.push(logoSentence);
-      sections.push(styleSentence);
       sections.push(sizeLine);
       sections.push(sizeNote);
       sections.push(stateBlock);
       sections.push([measuresLine, shippingLine, lotLine].join('\n'));
+      // Bloc navigation dressing final (tags supplémentaires)
+      var navBlock = '';
+      if (remainingNavTags.length > 0) {
+        navBlock = 'Navigation dressing :\n' + remainingNavTags.join('\n');
+      }
+      if (navBlock) sections.push(navBlock);
       if (skuTag) sections.push(skuTag);
       return sections.join('\n\n');
     } catch (e) {

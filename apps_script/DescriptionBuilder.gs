@@ -250,6 +250,27 @@ var DescriptionBuilder = (function() {
     return tags;
   }
   /**
+   * Construit 1 à 2 hashtags de navigation dressing pour un short Adidas.
+   * Format : #FP_{Genre}_Sport_{Taille}[_{Couleur}]
+   *
+   * @param {Object} params - { size, gender, color }
+   * @returns {string[]} Tableau de hashtags (avec le caractère #)
+   */
+  function buildShortAdidasNavigationTags(params) {
+    params = params || {};
+    var sizeRaw = safeClean(params.size).toUpperCase().replace(/\s/g, '');
+    if (!sizeRaw) sizeRaw = 'NC';
+    var genderRaw = safeClean(params.gender).toLowerCase();
+    var genderToken = genderRaw === 'femme' ? 'Femme' : 'Homme';
+    var base = 'FP_' + genderToken + '_Sport_' + sizeRaw;
+    var tags = ['#' + base];
+    var colorToken = normalizeNavColorToken(params.color);
+    if (colorToken) {
+      tags.push('#' + base + '_' + colorToken);
+    }
+    return tags;
+  }
+  /**
    * Construit le hashtag SKU final : forcé en MAJUSCULES, sans libellé,
    * avec préfixe d'order id (zero-paddé sur 2 chiffres) si fourni,
    * et partie numérique du SKU toujours sur 4 chiffres.
@@ -291,6 +312,7 @@ var DescriptionBuilder = (function() {
     normalizeFitToken: normalizeFitToken,
     normalizeNavColorToken: normalizeNavColorToken,
     buildJeanNavigationTags: buildJeanNavigationTags,
+    buildShortAdidasNavigationTags: buildShortAdidasNavigationTags,
     buildJeanSkuTag: buildJeanSkuTag,
     stripSkuFromTitleLine: stripSkuFromTitleLine
   };
