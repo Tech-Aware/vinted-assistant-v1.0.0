@@ -1063,7 +1063,7 @@ function logGenerationToSheet(result, params) {
       else if (profileName === 'pull') articleType = 'Pull';
       else if (profileName === 'jacket_carhart') articleType = 'Veste';
       else if (profileName === 'short_carhart') articleType = 'Short Carhartt';
-      else if (profileName === 'short_adidas') articleType = 'Short Adidas';
+      else if (profileName === 'short_adidas') articleType = 'Short';
     }
     // Taille FR : selon le profil, corrigee au pair superieur
     ensureEvenFrSize_(features);

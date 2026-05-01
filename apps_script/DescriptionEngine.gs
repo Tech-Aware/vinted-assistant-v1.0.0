@@ -417,8 +417,17 @@ var DescriptionEngine = (function() {
         }
         logoSentence += '.';
       }
+      // ----- Composition -----
+      var compositionMaterials = features.composition_materials || [];
+      var compositionLine;
+      if (compositionMaterials.length > 0) {
+        compositionLine = '🔎 Composition : ' + compositionMaterials.join(' / ') + '.';
+      } else if (features.labels_cut) {
+        compositionLine = '🔎 Étiquettes coupées — composition non disponible.';
+      } else {
+        compositionLine = '🔎 Composition détaillée en photo.';
+      }
       // ----- Logistique / envoi / lot -----
-      var measuresLine = '🔎 Composition détaillée en photo.';
       var shippingLine = '📦 Envoi rapide et soigné';
       var lotLine = '💡 Réduction possible sur lot';
       // ----- Hashtag SKU final (en MAJUSCULES, seul, dernière ligne) -----
@@ -439,7 +448,7 @@ var DescriptionEngine = (function() {
       sections.push(sizeLine);
       sections.push(sizeNote);
       sections.push(stateBlock);
-      sections.push([measuresLine, shippingLine, lotLine].join('\n'));
+      sections.push([compositionLine, shippingLine, lotLine].join('\n'));
       // Bloc navigation dressing final (tags supplémentaires)
       var navBlock = '';
       if (remainingNavTags.length > 0) {
