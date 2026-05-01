@@ -229,17 +229,34 @@ var TitleEngine = (function() {
       var gender = TitleBuilder.normalizeStr(features.gender) || 'homme';
       var technology = TitleBuilder.normalizeStr(features.technology);
       var pattern = TitleBuilder.normalizeStr(features.pattern);
+      var secondaryLogo = TitleBuilder.normalizeStr(features.secondary_logo);
       var sku = TitleBuilder.normalizeStr(features.sku);
       var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
       var isPremium = features.is_premium || false;
-      var brandLabel = isPremium ? brand + ' Originals' : brand;
-      var parts = ['Short ' + brandLabel];
+      // Inspiré du titre Levi's : compact, sans étiquettes "couleur"/"taille",
+      // avec mention "Premium" pour les gammes premium (Originals / Y-3 …).
+      var brandFormatted = brand.toLowerCase().split(' ').map(function(w) {
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      }).join(' ');
+      var parts = ['Short', brandFormatted];
+      if (isPremium) parts.push('Premium');
       if (model) parts.push(model);
-      parts.push(size ? 'taille ' + size : 'taille NC');
-      if (color) parts.push('couleur ' + color);
+      if (size) parts.push('taille ' + size);
       if (technology) parts.push(technology);
-      if (pattern && pattern.toLowerCase() !== 'uni') parts.push(pattern);
+      // Le motif "logoté" ne doit jamais apparaître dans le titre :
+      // un logo ou une broderie de marque n'est pas un motif.
+      var patternLow = (pattern || '').toLowerCase();
+      if (pattern && patternLow !== 'uni' && patternLow !== 'logoté' && patternLow !== 'logote') {
+        parts.push(pattern);
+      }
+      // Logo distinct du logo Adidas (écusson de club / sélection / compétition…)
+      // Ex. "logo FC Bayern Munich". On n'ajoute rien si le logo n'a pas pu être identifié.
+      var secondaryLogoLow = (secondaryLogo || '').toLowerCase();
+      if (secondaryLogo && secondaryLogoLow !== 'logo non identifié' && secondaryLogoLow !== 'logo non identifie') {
+        parts.push('logo ' + secondaryLogo);
+      }
       if (gender) parts.push(gender);
+      if (color) parts.push(color);
       if (sku && skuStatus && skuStatus.toLowerCase() === 'ok') {
         parts.push(TitleBuilder.SKU_PREFIX + sku);
       }
