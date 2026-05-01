@@ -240,7 +240,7 @@ var TitleEngine = (function() {
       }).join(' ');
       var parts = ['Short', brandFormatted];
       if (isPremium) parts.push('Premium');
-      if (model) parts.push(model);
+      if (model && !/^\d+$/.test(model.trim())) parts.push(model);
       if (technology) parts.push(technology);
       if (size) parts.push('taille ' + size);
       // Le motif "logoté" ne doit jamais apparaître dans le titre :
