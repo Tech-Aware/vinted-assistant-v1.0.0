@@ -257,10 +257,10 @@ var TitleEngine = (function() {
         parts.push(pattern);
       }
       // Logo distinct du logo Adidas (écusson de club / sélection / compétition…)
-      // Ex. "logo FC Bayern Munich". On n'ajoute rien si le logo n'a pas pu être identifié.
+      // Ex. "New England Revolution". On n'ajoute rien si le logo n'a pas pu être identifié.
       var secondaryLogoLow = (secondaryLogo || '').toLowerCase();
       if (secondaryLogo && secondaryLogoLow !== 'logo non identifié' && secondaryLogoLow !== 'logo non identifie') {
-        parts.push('logo ' + secondaryLogo);
+        parts.push(secondaryLogo);
       }
       if (gender) parts.push(gender);
       if (color) parts.push(color);

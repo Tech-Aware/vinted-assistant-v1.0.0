@@ -251,7 +251,7 @@ var DescriptionBuilder = (function() {
   }
   /**
    * Construit 1 à 2 hashtags de navigation dressing pour un short Adidas.
-   * Format : #FP_{Genre}_Sport_{Taille}[_{Couleur}]
+   * Format : #LSM_{Genre}_Sport_{Taille}[_{Couleur}]
    *
    * @param {Object} params - { size, gender, color }
    * @returns {string[]} Tableau de hashtags (avec le caractère #)
@@ -262,7 +262,7 @@ var DescriptionBuilder = (function() {
     if (!sizeRaw) sizeRaw = 'NC';
     var genderRaw = safeClean(params.gender).toLowerCase();
     var genderToken = genderRaw === 'femme' ? 'Femme' : 'Homme';
-    var base = 'FP_' + genderToken + '_Sport_' + sizeRaw;
+    var base = 'LSM_' + genderToken + '_Sport_' + sizeRaw;
     var tags = ['#' + base];
     var colorToken = normalizeNavColorToken(params.color);
     if (colorToken) {

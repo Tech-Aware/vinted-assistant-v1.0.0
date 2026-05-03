@@ -369,13 +369,13 @@ var DescriptionEngine = (function() {
         titleLine = '';
       }
       titleLine = DescriptionBuilder.stripSkuFromTitleLine(titleLine);
-      // ----- Bloc navigation dressing (#FP_Homme_Sport_<taille>) -----
+      // ----- Bloc navigation dressing (#LSM_Homme_Sport_<taille>) -----
       var navTags = DescriptionBuilder.buildShortAdidasNavigationTags({
         size: sizeDisplay,
         gender: gender,
         color: color
       });
-      var primaryNavTag = navTags.length > 0 ? navTags[0] : '#FP_Homme_Sport_NC';
+      var primaryNavTag = navTags.length > 0 ? navTags[0] : '#LSM_Homme_Sport_NC';
       var remainingNavTags = navTags.slice(1);
       var navigationLine = '🩳 Retrouvez tous mes shorts à votre taille → ' + primaryNavTag;
       // ----- Ligne taille -----
