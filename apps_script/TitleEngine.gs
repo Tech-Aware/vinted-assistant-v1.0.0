@@ -243,8 +243,6 @@ var TitleEngine = (function() {
       if (isPremium) parts.push('Premium');
       if (sportType) {
         parts.push(sportType);
-      } else {
-        parts.push('sport');
       }
       if (hasThreeStripes) parts.push('3 bandes');
       if (model && !/^\d+$/.test(model.trim())) parts.push(model);
