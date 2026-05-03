@@ -235,19 +235,18 @@ var TitleEngine = (function() {
       var sku = TitleBuilder.normalizeStr(features.sku);
       var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
       var isPremium = features.is_premium || false;
-      // Compact title : "Short Adidas [sport] [3 bandes] [model] [technology] taille [size] [gender] [color]"
+      // Compact title : "Short Adidas [sport] [3 Stripes] [model] [size] [gender] [technology] [color]"
       var brandFormatted = brand.toLowerCase().split(' ').map(function(w) {
         return w.charAt(0).toUpperCase() + w.slice(1);
       }).join(' ');
       var parts = ['Short', brandFormatted];
       if (isPremium) parts.push('Premium');
       if (sportType) {
-        parts.push(sportType);
+        parts.push(sportType.charAt(0).toUpperCase() + sportType.slice(1));
       }
-      if (hasThreeStripes) parts.push('3 bandes');
+      if (hasThreeStripes) parts.push('3 Stripes');
       if (model && !/^\d+$/.test(model.trim())) parts.push(model);
-      if (technology) parts.push(technology);
-      if (size) parts.push('taille ' + size);
+      if (size) parts.push(size);
       // Le motif "logoté" ne doit jamais apparaître dans le titre :
       // un logo ou une broderie de marque n'est pas un motif.
       var patternLow = (pattern || '').toLowerCase();
@@ -261,6 +260,7 @@ var TitleEngine = (function() {
         parts.push(secondaryLogo);
       }
       if (gender) parts.push(gender);
+      if (technology) parts.push(technology);
       if (color) parts.push(color);
       if (sku && skuStatus && skuStatus.toLowerCase() === 'ok') {
         parts.push(TitleBuilder.SKU_PREFIX + sku);
