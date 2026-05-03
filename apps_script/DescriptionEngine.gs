@@ -470,7 +470,7 @@ var DescriptionEngine = (function() {
         usageLines.push('Coupe ' + fitOrCut.toLowerCase() + ', facile \u00e0 porter.');
       }
       if (hasThreeStripes) {
-        usageLines.push('Mod\u00e8le avec les 3 bandes Adidas visibles sur les c\u00f4t\u00e9s.');
+        usageLines.push('Mod\u00e8le avec les 3 Stripes Adidas visibles sur les c\u00f4t\u00e9s.');
       }
       if (technology) {
         usageLines.push('Technologie Adidas indiqu\u00e9e sur l\u2019\u00e9tiquette\u00a0: ' + technology + '.');
