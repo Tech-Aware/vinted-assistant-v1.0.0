@@ -449,7 +449,7 @@ var DescriptionEngine = (function() {
       if (sportType) {
         var st = sportType.toLowerCase();
         if (st === 'basketball') {
-          usageLines.push('Short Adidas esprit basketball, avec une coupe confortable et ample, adapt\u00e9 au sport comme aux tenues sportswear du quotidien.');
+          usageLines.push('Short Adidas esprit basketball, avec une coupe confortable, adapt\u00e9 au sport comme aux tenues sportswear du quotidien.');
         } else if (st === 'training') {
           usageLines.push('Short Adidas orient\u00e9 training, l\u00e9ger et pratique pour l\u2019entra\u00eenement, la marche ou une tenue d\u00e9contract\u00e9e.');
         } else if (st === 'running') {
