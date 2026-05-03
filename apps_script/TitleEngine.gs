@@ -233,6 +233,9 @@ var TitleEngine = (function() {
       var sku = TitleBuilder.normalizeStr(features.sku);
       var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
       var isPremium = features.is_premium || false;
+      var sportType = TitleBuilder.normalizeStr(features.sport_type);
+      var hasThreeStripes = features.has_three_stripes === true;
+      var fitOrCut = TitleBuilder.normalizeStr(features.fit_or_cut);
       // Inspiré du titre Levi's : compact, sans étiquettes "couleur"/"taille",
       // avec mention "Premium" pour les gammes premium (Originals / Y-3 …).
       var brandFormatted = brand.toLowerCase().split(' ').map(function(w) {
@@ -240,6 +243,16 @@ var TitleEngine = (function() {
       }).join(' ');
       var parts = ['Short', brandFormatted];
       if (isPremium) parts.push('Premium');
+      // Sport / usage : ne jamais inventer "basketball" si l'IA n'a pas tranché.
+      // Fallback honnête : "sport" si l'usage exact n'est pas connu.
+      if (sportType) {
+        parts.push(sportType);
+      } else {
+        parts.push('sport');
+      }
+      if (hasThreeStripes) {
+        parts.push('3 bandes');
+      }
       if (model && !/^\d+$/.test(model.trim())) parts.push(model);
       if (technology) parts.push(technology);
       if (size) parts.push('taille ' + size);

@@ -194,6 +194,9 @@ var Templates = (function() {
               has_drawstring: { type: ['boolean', 'null'] },
               pattern: { type: ['string', 'null'] },
               origin_country: { type: ['string', 'null'] },
+              sport_type: { type: ['string', 'null'] },
+              has_three_stripes: { type: ['boolean', 'null'] },
+              fit_or_cut: { type: ['string', 'null'] },
               is_premium: { type: ['boolean', 'null'] },
               sku: { type: ['string', 'null'] },
               sku_status: { type: 'string' }

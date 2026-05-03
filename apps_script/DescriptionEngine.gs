@@ -357,6 +357,10 @@ var DescriptionEngine = (function() {
         && secondaryLogoLow !== 'logo non identifie');
       var sku = DescriptionBuilder.safeClean(features.sku);
       var orderId = DescriptionBuilder.safeClean(features.order_id);
+      var sportType = DescriptionBuilder.safeClean(features.sport_type);
+      var hasThreeStripes = features.has_three_stripes === true;
+      var fitOrCut = DescriptionBuilder.safeClean(features.fit_or_cut);
+      var technology = DescriptionBuilder.safeClean(features.technology);
       // ----- Première ligne : titre généré (SKU retiré, repris en bas) -----
       var titleLine = '';
       try {
@@ -417,6 +421,28 @@ var DescriptionEngine = (function() {
         }
         logoSentence += '.';
       }
+      // ----- Bloc style / usage (sport_type, 3 bandes, coupe, technologie) -----
+      // On reste factuel : pas de mention "basketball" si l'IA n'a pas tranché.
+      var usageLines = [];
+      if (sportType) {
+        if (sportType.toLowerCase() === 'basketball') {
+          usageLines.push('Short Adidas esprit basketball, confortable pour le sport ou un usage casual au quotidien.');
+        } else {
+          usageLines.push('Short Adidas orienté ' + sportType.toLowerCase() + ', confortable pour le sport ou un usage casual au quotidien.');
+        }
+      } else {
+        usageLines.push('Short Adidas sportswear, confortable pour le sport ou un usage casual au quotidien.');
+      }
+      if (fitOrCut) {
+        usageLines.push('Coupe ' + fitOrCut.toLowerCase() + ', facile à porter au quotidien.');
+      }
+      if (hasThreeStripes) {
+        usageLines.push('Modèle avec les 3 bandes Adidas visibles sur les côtés.');
+      }
+      if (technology) {
+        usageLines.push('Technologie Adidas indiquée sur l\u2019étiquette : ' + technology + '.');
+      }
+      var usageBlock = usageLines.join('\n');
       // ----- Composition -----
       var compositionMaterials = features.composition_materials || [];
       var compositionLine;
@@ -445,6 +471,7 @@ var DescriptionEngine = (function() {
       if (titleLine) sections.push(titleLine);
       sections.push(navigationLine);
       if (logoSentence) sections.push(logoSentence);
+      if (usageBlock) sections.push(usageBlock);
       sections.push(sizeLine);
       sections.push(sizeNote);
       sections.push(stateBlock);
