@@ -272,6 +272,11 @@ function rebuildListing(params) {
         features.retail_price_range = rebuildPricing.retail;
       }
     }
+    // Si l'utilisateur a saisi un SKU manuellement via le panneau de corrections,
+    // on force sku_status = 'ok' pour qu'il soit pris en compte dans le titre.
+    if (features.sku && String(features.sku).trim()) {
+      features.sku_status = 'ok';
+    }
     var title = TitleEngine.buildTitle(profileName, features);
     var description = DescriptionEngine.buildDescription(profileName, features, aiDescription, aiDefects);
     return {
