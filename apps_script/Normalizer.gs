@@ -492,6 +492,21 @@ var Normalizer = (function() {
     }
     var material = rawFeatures.material || aiData.material || 'polyester';
     var technology = rawFeatures.technology || aiData.technology;
+    // sport_type : UI override d'abord, puis valeur retournée par l'IA
+    var sportType = uiData.sport_type || rawFeatures.sport_type || null;
+    if (typeof sportType === 'string') sportType = sportType.trim() || null;
+    // has_three_stripes : UI override d'abord, puis valeur retournée par l'IA
+    var hasThreeStripes;
+    if (uiData.has_three_stripes != null) {
+      hasThreeStripes = uiData.has_three_stripes;
+    } else if (rawFeatures.has_three_stripes != null) {
+      hasThreeStripes = rawFeatures.has_three_stripes;
+    } else {
+      hasThreeStripes = null;
+    }
+    // fit_or_cut : depuis l'IA uniquement (pas de champ UI dédié)
+    var fitOrCut = rawFeatures.fit_or_cut || null;
+    if (typeof fitOrCut === 'string') fitOrCut = fitOrCut.trim() || null;
     var pattern = rawFeatures.pattern || aiData.pattern;
     var originCountry = rawFeatures.origin_country || aiData.origin_country;
     if (!originCountry) originCountry = TextExtractors.extractOriginCountryFromText(fullText);
@@ -540,6 +555,9 @@ var Normalizer = (function() {
       material: material,
       composition_materials: compositionMaterials,
       technology: technology,
+      sport_type: sportType,
+      has_three_stripes: hasThreeStripes,
+      fit_or_cut: fitOrCut,
       has_side_pockets: hasSidePockets,
       has_drawstring: hasDrawstring,
       pattern: pattern,
