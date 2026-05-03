@@ -228,18 +228,25 @@ var TitleEngine = (function() {
       var color = TitleBuilder.normalizeStr(features.color);
       var gender = TitleBuilder.normalizeStr(features.gender) || 'homme';
       var technology = TitleBuilder.normalizeStr(features.technology);
+      var sportType = TitleBuilder.normalizeStr(features.sport_type);
+      var hasThreeStripes = features.has_three_stripes === true;
       var pattern = TitleBuilder.normalizeStr(features.pattern);
       var secondaryLogo = TitleBuilder.normalizeStr(features.secondary_logo);
       var sku = TitleBuilder.normalizeStr(features.sku);
       var skuStatus = TitleBuilder.normalizeStr(features.sku_status);
       var isPremium = features.is_premium || false;
-      // Inspiré du titre Levi's : compact, sans étiquettes "couleur"/"taille",
-      // avec mention "Premium" pour les gammes premium (Originals / Y-3 …).
+      // Compact title : "Short Adidas [sport] [3 bandes] [model] [technology] taille [size] [gender] [color]"
       var brandFormatted = brand.toLowerCase().split(' ').map(function(w) {
         return w.charAt(0).toUpperCase() + w.slice(1);
       }).join(' ');
       var parts = ['Short', brandFormatted];
       if (isPremium) parts.push('Premium');
+      if (sportType) {
+        parts.push(sportType);
+      } else {
+        parts.push('sport');
+      }
+      if (hasThreeStripes) parts.push('3 bandes');
       if (model && !/^\d+$/.test(model.trim())) parts.push(model);
       if (technology) parts.push(technology);
       if (size) parts.push('taille ' + size);

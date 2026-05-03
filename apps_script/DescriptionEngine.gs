@@ -347,6 +347,10 @@ var DescriptionEngine = (function() {
       var sizeDisplay = sizeResult[0];
       var color = DescriptionBuilder.safeClean(features.color);
       var gender = DescriptionBuilder.safeClean(features.gender) || 'homme';
+      var sportType = DescriptionBuilder.safeClean(features.sport_type);
+      var hasThreeStripes = features.has_three_stripes === true;
+      var fitOrCut = DescriptionBuilder.safeClean(features.fit_or_cut);
+      var technology = DescriptionBuilder.safeClean(features.technology);
       // Logo additionnel (hors logo Adidas) : on ne mentionne le logo que si l'IA
       // a su l'identifier ; sinon on évite toute supposition hasardeuse.
       var secondaryLogo = DescriptionBuilder.safeClean(features.secondary_logo);
@@ -440,10 +444,43 @@ var DescriptionEngine = (function() {
         }
         skuTag = '#' + clean;
       }
+      // ----- Bloc usage (sport_type, fit_or_cut, has_three_stripes, technology) -----
+      var usageLines = [];
+      if (sportType) {
+        var st = sportType.toLowerCase();
+        if (st === 'basketball') {
+          usageLines.push('Short Adidas esprit basketball, avec une coupe confortable et ample, adapt\u00e9 au sport comme aux tenues sportswear du quotidien.');
+        } else if (st === 'training') {
+          usageLines.push('Short Adidas orient\u00e9 training, l\u00e9ger et pratique pour l\u2019entra\u00eenement, la marche ou une tenue d\u00e9contract\u00e9e.');
+        } else if (st === 'running') {
+          usageLines.push('Short Adidas orient\u00e9 running, l\u00e9ger et facile \u00e0 porter pour le sport, la marche ou les journ\u00e9es actives.');
+        } else if (st === 'football') {
+          usageLines.push('Short Adidas esprit football, pratique pour le sport, l\u2019entra\u00eenement ou une tenue sportswear simple.');
+        } else if (st === 'tennis') {
+          usageLines.push('Short Adidas esprit tennis, sobre et confortable, adapt\u00e9 au sport comme \u00e0 une tenue estivale d\u00e9contract\u00e9e.');
+        } else if (st === 'lifestyle') {
+          usageLines.push('Short Adidas sportswear, simple et confortable, facile \u00e0 porter au quotidien.');
+        } else {
+          usageLines.push('Short Adidas sportswear, confortable et facile \u00e0 porter pour le sport, la d\u00e9tente ou le quotidien.');
+        }
+      } else {
+        usageLines.push('Short Adidas sportswear, confortable et facile \u00e0 porter pour le sport, la d\u00e9tente ou le quotidien.');
+      }
+      if (fitOrCut) {
+        usageLines.push('Coupe ' + fitOrCut.toLowerCase() + ', facile \u00e0 porter.');
+      }
+      if (hasThreeStripes) {
+        usageLines.push('Mod\u00e8le avec les 3 bandes Adidas visibles sur les c\u00f4t\u00e9s.');
+      }
+      if (technology) {
+        usageLines.push('Technologie Adidas indiqu\u00e9e sur l\u2019\u00e9tiquette\u00a0: ' + technology + '.');
+      }
+      var usageBlock = usageLines.join('\n');
       // ----- Assemblage -----
       var sections = [];
       if (titleLine) sections.push(titleLine);
       sections.push(navigationLine);
+      sections.push(usageBlock);
       if (logoSentence) sections.push(logoSentence);
       sections.push(sizeLine);
       sections.push(sizeNote);
